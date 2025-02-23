@@ -26,17 +26,6 @@ const HomeFeed: React.FC = () => {
   const [viewType, setViewType] = useState<'map' | 'list'>('map');
   const navigate = useNavigate();
 
-  const sidebarItems = [
-    { icon: '📊', label: 'Dashboard', path: '/carrier/dashboard' },
-    { icon: '🚚', label: 'Available Loads', path: '/carrier/loads/available' },
-    { icon: '📅', label: 'Scheduled Loads', path: '/carrier/loads/scheduled' },
-    { icon: '💰', label: 'Pay/Invoices', path: '/carrier/invoices' },
-    { icon: '🏦', label: 'Factoring', path: '/carrier/factoring' },
-    { icon: '📘', label: 'Shipper Directory', path: '/carrier/shippers' },
-    { icon: '⛽', label: 'Fuel', path: '/carrier/fuel' },
-    { icon: '📚', label: 'Resources', path: '/carrier/resources' },
-  ];
-
   const currentLoad = {
     poNumber: 'PO-12345',
     shipperName: 'ABC Logistics',
@@ -77,24 +66,11 @@ const HomeFeed: React.FC = () => {
   ];
 
   const handleLogout = () => {
-    // TODO: Add actual logout logic here when we implement Firebase
-    // For now, just navigate to login
     navigate('/login');
   };
 
   return (
     <div className={styles.dashboard}>
-      {/* Sidebar */}
-      <aside className={styles.sidebar}>
-        {sidebarItems.map((item) => (
-          <div key={item.path} className={styles.sidebarItem}>
-            <span className={styles.icon}>{item.icon}</span>
-            <span>{item.label}</span>
-          </div>
-        ))}
-      </aside>
-
-      {/* Main Content */}
       <main className={styles.mainContent}>
         <header className={styles.header}>
           <h1>Carrier Dashboard</h1>

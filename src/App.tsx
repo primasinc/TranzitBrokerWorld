@@ -1,7 +1,8 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import Layout from './components/common/Layout';
-import PrivateRoute from './components/common/Auth/PrivateRoute';
+// import Layout from './components/Layout';
+import PrivateRoute from './components/PrivateRoute';
+import CarrierLayout from './layouts/CarrierLayout';
 
 // Auth Pages
 import Login from './pages/auth/Login';
@@ -25,11 +26,16 @@ import ShipmentArchive from './pages/shipper/ShipmentArchive';
 import CarrierDirectory from './pages/shipper/CarrierDirectory';
 
 // Carrier Pages
-import CarrierHomeFeed from './pages/carrier/HomeFeed';
+import HomeFeed from './pages/carrier/HomeFeed';
 import LoadDetails from './pages/carrier/LoadDetails';
 import CarrierLoads from './pages/carrier/Loads';
 import CarrierSettings from './pages/carrier/Settings';
 import CarrierProfile from './pages/carrier/Profile';
+import AvailableLoads from './pages/carrier/AvailableLoads';
+import MyLoads from './pages/carrier/MyLoads';
+import Documents from './pages/carrier/Documents';
+import Payments from './pages/carrier/Payments';
+import Settings from './pages/carrier/Settings';
 
 function App() {
   return (
@@ -62,15 +68,26 @@ function App() {
 
         {/* Carrier Routes */}
         <Route path="/carrier" element={<PrivateRoute userType="carrier" />}>
-          <Route path="home" element={<CarrierHomeFeed />} />
-          <Route path="loads" element={<CarrierLoads />} />
-          <Route path="loads/:id" element={<LoadDetails />} />
-          <Route path="settings" element={<CarrierSettings />} />
-          <Route path="profile" element={<CarrierProfile />} />
+          <Route element={<CarrierLayout />}>
+            <Route index element={<Navigate to="dashboard" />} />
+            <Route path="dashboard" element={<HomeFeed />} />
+            <Route path="available-loads" element={<AvailableLoads />} />
+            <Route path="my-loads" element={<MyLoads />} />
+            <Route path="documents" element={<Documents />} />
+            <Route path="payments" element={<Payments />} />
+            <Route path="settings" element={<Settings />} />
+            <Route path="loads" element={<CarrierLoads />} />
+            <Route path="loads/:id" element={<LoadDetails />} />
+            <Route path="profile" element={<CarrierProfile />} />
+          </Route>
         </Route>
 
         {/* Shared Routes */}
         <Route path="/profile/:id" element={<ViewProfile />} />
+
+        {/* Catch-all redirect */}
+        <Route path="/" element={<Navigate to="/carrier/dashboard" />} />
+        <Route path="*" element={<Navigate to="/carrier/dashboard" />} />
       </Routes>
     </BrowserRouter>
   );
