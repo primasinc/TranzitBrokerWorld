@@ -1,8 +1,30 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
 import styles from './HomeFeed.module.css';
+
+interface Load {
+  id: string;
+  position: google.maps.LatLngLiteral;
+  title: string;
+  pickup: string;
+  delivery: string;
+}
+
+const defaultCenter = {
+  lat: 39.8283,  // Center of US roughly
+  lng: -98.5795
+};
+
+const mapContainerStyle = {
+  width: '100%',
+  height: '400px'
+};
 
 const HomeFeed: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [viewType, setViewType] = useState<'map' | 'list'>('map');
+  const navigate = useNavigate();
 
   const sidebarItems = [
     { icon: '📊', label: 'Dashboard', path: '/carrier/dashboard' },
@@ -35,6 +57,31 @@ const HomeFeed: React.FC = () => {
     notes: 'Handle with care. Liftgate required.',
   };
 
+  // Sample loads data
+  const loads: Load[] = [
+    {
+      id: '1',
+      position: { lat: 41.8781, lng: -87.6298 }, // Chicago
+      title: 'Chicago to New York',
+      pickup: 'Chicago, IL',
+      delivery: 'New York, NY'
+    },
+    {
+      id: '2',
+      position: { lat: 34.0522, lng: -118.2437 }, // Los Angeles
+      title: 'LA to San Francisco',
+      pickup: 'Los Angeles, CA',
+      delivery: 'San Francisco, CA'
+    },
+    // Add more sample loads as needed
+  ];
+
+  const handleLogout = () => {
+    // TODO: Add actual logout logic here when we implement Firebase
+    // For now, just navigate to login
+    navigate('/login');
+  };
+
   return (
     <div className={styles.dashboard}>
       {/* Sidebar */}
@@ -65,9 +112,14 @@ const HomeFeed: React.FC = () => {
             
             {isMenuOpen && (
               <div className={styles.dropdownMenu}>
-                <button>Account</button>
-                <button>Settings</button>
-                <button>Logout</button>
+                <button onClick={() => navigate('/carrier/profile')}>Account</button>
+                <button onClick={() => navigate('/carrier/settings')}>Settings</button>
+                <button 
+                  onClick={handleLogout}
+                  className={styles.logoutButton}
+                >
+                  Logout
+                </button>
               </div>
             )}
           </div>
@@ -111,24 +163,58 @@ const HomeFeed: React.FC = () => {
 
           {/* Available Loads */}
           <section className={styles.availableLoads}>
-            <h2>Map or List of available Loads</h2>
+            <h2>Available Loads</h2>
             <div className={styles.viewToggle}>
-              <button className={styles.active}>Map</button>
-              <button>List</button>
+              <button 
+                className={`${styles.toggleButton} ${viewType === 'map' ? styles.active : ''}`}
+                onClick={() => setViewType('map')}
+              >
+                Map View
+              </button>
+              <button 
+                className={`${styles.toggleButton} ${viewType === 'list' ? styles.active : ''}`}
+                onClick={() => setViewType('list')}
+              >
+                List View
+              </button>
             </div>
-            
-            <div className={styles.filters}>
-              <h3>Filter By:</h3>
-              <div className={styles.filterOptions}>
-                <button>City</button>
-                <button>State</button>
-                <button>Length</button>
-                <button>Weight</button>
-                <button>LTL</button>
-                <button>TL</button>
-                <button>Vehicle Type</button>
+
+            {viewType === 'map' ? (
+              <div className={styles.mapContainer}>
+                <LoadScript googleMapsApiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY!}>
+                  <GoogleMap
+                    mapContainerStyle={mapContainerStyle}
+                    center={defaultCenter}
+                    zoom={4}
+                  >
+                    {loads.map((load) => (
+                      <Marker
+                        key={load.id}
+                        position={load.position}
+                        title={load.title}
+                        onClick={() => {
+                          // Handle click on marker
+                          console.log('Load selected:', load);
+                        }}
+                      />
+                    ))}
+                  </GoogleMap>
+                </LoadScript>
               </div>
-            </div>
+            ) : (
+              <div className={styles.listView}>
+                {loads.map((load) => (
+                  <div key={load.id} className={styles.loadCard}>
+                    <h3>{load.title}</h3>
+                    <p>Pickup: {load.pickup}</p>
+                    <p>Delivery: {load.delivery}</p>
+                    <button onClick={() => console.log('View details:', load)}>
+                      View Details
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
         </div>
       </main>

@@ -16,6 +16,13 @@ import ViewProfile from './pages/shared/ViewProfile';
 import ActiveSearches from './pages/shipper/ActiveSearches';
 import InProgress from './pages/shipper/InProgress';
 import Completed from './pages/shipper/Completed';
+import DriverUpdates from './pages/shipper/DriverUpdates';
+import ShippingSchedule from './pages/shipper/ShippingSchedule';
+import PurchaseOrders from './pages/shipper/PurchaseOrders';
+import CarrierPartners from './pages/shipper/CarrierPartners';
+import PayInvoices from './pages/shipper/PayInvoices';
+import ShipmentArchive from './pages/shipper/ShipmentArchive';
+import CarrierDirectory from './pages/shipper/CarrierDirectory';
 
 // Carrier Pages
 import CarrierHomeFeed from './pages/carrier/HomeFeed';
@@ -44,6 +51,13 @@ function App() {
           <Route path="active-searches" element={<ActiveSearches />} />
           <Route path="in-progress" element={<InProgress />} />
           <Route path="completed" element={<Completed />} />
+          <Route path="updates" element={<DriverUpdates />} />
+          <Route path="schedule" element={<ShippingSchedule />} />
+          <Route path="orders" element={<PurchaseOrders />} />
+          <Route path="partners" element={<CarrierPartners />} />
+          <Route path="invoices" element={<PayInvoices />} />
+          <Route path="archive" element={<ShipmentArchive />} />
+          <Route path="directory" element={<CarrierDirectory />} />
         </Route>
 
         {/* Carrier Routes */}
