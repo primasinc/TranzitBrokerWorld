@@ -11,10 +11,10 @@ const CarrierLayout: React.FC = () => {
           <h2>Carrier Portal</h2>
         </div>
         <NavLink 
-          to="/carrier/dashboard" 
+          to="/carrier/home" 
           className={({ isActive }) => isActive ? styles.activeLink : styles.link}
         >
-          Dashboard
+          Home
         </NavLink>
         <NavLink 
           to="/carrier/available-loads" 
