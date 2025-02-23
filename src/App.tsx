@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 // import Layout from './components/Layout';
 import PrivateRoute from './components/PrivateRoute';
 import CarrierLayout from './layouts/CarrierLayout';
+import ShipperLayout from './layouts/ShipperLayout';
 
 // Auth Pages
 import Login from './pages/auth/Login';
@@ -50,20 +51,23 @@ function App() {
 
         {/* Shipper Routes */}
         <Route path="/shipper" element={<PrivateRoute userType="shipper" />}>
-          <Route path="dashboard" element={<ShipperDashboard />} />
-          <Route path="loads" element={<LoadsOverview />} />
-          <Route path="loads/new" element={<NewLoad />} />
-          <Route path="people" element={<ViewPeople />} />
-          <Route path="active-searches" element={<ActiveSearches />} />
-          <Route path="in-progress" element={<InProgress />} />
-          <Route path="completed" element={<Completed />} />
-          <Route path="updates" element={<DriverUpdates />} />
-          <Route path="schedule" element={<ShippingSchedule />} />
-          <Route path="orders" element={<PurchaseOrders />} />
-          <Route path="partners" element={<CarrierPartners />} />
-          <Route path="invoices" element={<PayInvoices />} />
-          <Route path="archive" element={<ShipmentArchive />} />
-          <Route path="directory" element={<CarrierDirectory />} />
+          <Route element={<ShipperLayout />}>
+            <Route index element={<Navigate to="dashboard" />} />
+            <Route path="dashboard" element={<ShipperDashboard />} />
+            <Route path="loads" element={<LoadsOverview />} />
+            <Route path="loads/new" element={<NewLoad />} />
+            <Route path="people" element={<ViewPeople />} />
+            <Route path="active-searches" element={<ActiveSearches />} />
+            <Route path="in-progress" element={<InProgress />} />
+            <Route path="completed" element={<Completed />} />
+            <Route path="updates" element={<DriverUpdates />} />
+            <Route path="schedule" element={<ShippingSchedule />} />
+            <Route path="orders" element={<PurchaseOrders />} />
+            <Route path="partners" element={<CarrierPartners />} />
+            <Route path="invoices" element={<PayInvoices />} />
+            <Route path="archive" element={<ShipmentArchive />} />
+            <Route path="directory" element={<CarrierDirectory />} />
+          </Route>
         </Route>
 
         {/* Carrier Routes */}

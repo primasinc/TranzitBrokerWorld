@@ -1,135 +1,130 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
 import styles from './Dashboard.module.css';
 
 interface Shipment {
-  poNumber: string;
-  loadingDate: string;
-  carrierOnLoad: string;
-  pickLocation: string;
-  deliveryLocation: string;
-  deliveryDate: string;
-  productDescription: string;
-  status: string;
+  id: string;
+  carrier: string;
+  origin: string;
+  destination: string;
+  status: 'In Transit' | 'Scheduled' | 'Delivered' | 'Delayed';
+  eta: string;
+  cost: number;
 }
 
-const Dashboard: React.FC = () => {
-  const navigate = useNavigate();
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+const ShipperDashboard: React.FC = () => {
+  const [selectedPeriod, setSelectedPeriod] = useState('week');
 
-  const sidebarItems = [
-    { icon: '📊', label: 'Dashboard', path: '/shipper/dashboard' },
-    { icon: '🔄', label: 'Driver Updates', path: '/shipper/updates' },
-    { icon: '📅', label: 'Shipping Schedule', path: '/shipper/schedule' },
-    { icon: '📝', label: 'Purchase Orders', path: '/shipper/orders' },
-    { icon: '🤝', label: 'Carrier Partners', path: '/shipper/partners' },
-    { icon: '💰', label: 'Pay/Invoices', path: '/shipper/invoices' },
-    { icon: '📦', label: 'Shipment Archive', path: '/shipper/archive' },
-    { icon: '📘', label: 'Carrier Directory', path: '/shipper/directory' },
-  ];
-
-  // Sample data - replace with actual data later
   const shipments: Shipment[] = [
     {
-      poNumber: 'PO-12345',
-      loadingDate: '2024-02-23',
-      carrierOnLoad: 'ABC Trucking',
-      pickLocation: 'Chicago, IL',
-      deliveryLocation: 'Detroit, MI',
-      deliveryDate: '2024-02-24',
-      productDescription: 'Electronics',
-      status: 'In Transit'
+      id: 'SH001',
+      carrier: 'ABC Trucking',
+      origin: 'Chicago, IL',
+      destination: 'New York, NY',
+      status: 'In Transit',
+      eta: '2024-02-25 14:00',
+      cost: 2500
     },
-    // Add more sample shipments as needed
+    // Add more shipments...
   ];
 
-  const handleLogout = () => {
-    navigate('/login');
+  const metrics = {
+    activeShipments: 12,
+    delayedShipments: 2,
+    onTimeDelivery: 95,
+    averageCost: 2300
   };
 
   return (
     <div className={styles.dashboard}>
-      {/* Sidebar */}
-      <aside className={styles.sidebar}>
-        {sidebarItems.map((item) => (
-          <div 
-            key={item.path} 
-            className={styles.sidebarItem}
-            onClick={() => navigate(item.path)}
-          >
-            <span className={styles.icon}>{item.icon}</span>
-            <span>{item.label}</span>
-          </div>
-        ))}
-      </aside>
+      <div className={styles.metricsGrid}>
+        <div className={styles.metricCard}>
+          <h3>Active Shipments</h3>
+          <div className={styles.metricValue}>{metrics.activeShipments}</div>
+        </div>
+        <div className={styles.metricCard}>
+          <h3>Delayed Shipments</h3>
+          <div className={styles.metricValue}>{metrics.delayedShipments}</div>
+        </div>
+        <div className={styles.metricCard}>
+          <h3>On-Time Delivery</h3>
+          <div className={styles.metricValue}>{metrics.onTimeDelivery}%</div>
+        </div>
+        <div className={styles.metricCard}>
+          <h3>Average Cost/Load</h3>
+          <div className={styles.metricValue}>${metrics.averageCost}</div>
+        </div>
+      </div>
 
-      {/* Main Content */}
-      <main className={styles.mainContent}>
-        <header className={styles.header}>
-          <h1>Shipper Dashboard</h1>
-          <div className={styles.menuContainer}>
-            <button 
-              className={styles.hamburgerButton}
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-            >
-              <div className={styles.hamburgerIcon}>
-                <span></span>
-                <span></span>
-                <span></span>
-              </div>
-            </button>
-            
-            {isMenuOpen && (
-              <div className={styles.dropdownMenu}>
-                <button onClick={() => navigate('/shipper/account')}>My Account</button>
-                <button onClick={() => navigate('/shipper/settings')}>Settings</button>
-                <button 
-                  onClick={handleLogout}
-                  className={styles.logoutButton}
-                >
-                  Log Out
-                </button>
-              </div>
-            )}
+      <div className={styles.mainContent}>
+        <div className={styles.shipmentTracking}>
+          <h2>Active Shipments</h2>
+          <div className={styles.mapContainer}>
+            <LoadScript googleMapsApiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY!}>
+              <GoogleMap
+                mapContainerStyle={{ width: '100%', height: '400px' }}
+                center={{ lat: 39.8283, lng: -98.5795 }}
+                zoom={4}
+              >
+                {/* Add markers for shipments */}
+              </GoogleMap>
+            </LoadScript>
           </div>
-        </header>
+        </div>
 
-        <section className={styles.shipmentsSection}>
-          <h2>Live Status of Current Shipments</h2>
-          <div className={styles.tableContainer}>
-            <table className={styles.shipmentsTable}>
-              <thead>
-                <tr>
-                  <th>PO Number</th>
-                  <th>Loading Date</th>
-                  <th>Carrier On Load (COL)</th>
-                  <th>Pick Location</th>
-                  <th>Delivery Location</th>
-                  <th>Delivery Date</th>
-                  <th>Product Description</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {shipments.map((shipment) => (
-                  <tr key={shipment.poNumber}>
-                    <td>{shipment.poNumber}</td>
-                    <td>{shipment.loadingDate}</td>
-                    <td>{shipment.carrierOnLoad}</td>
-                    <td>{shipment.pickLocation}</td>
-                    <td>{shipment.deliveryLocation}</td>
-                    <td>{shipment.deliveryDate}</td>
-                    <td>{shipment.productDescription}</td>
-                    <td>{shipment.status}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <div className={styles.recentShipments}>
+          <div className={styles.sectionHeader}>
+            <h2>Recent Shipments</h2>
+            <div className={styles.periodSelector}>
+              <button 
+                className={selectedPeriod === 'week' ? styles.active : ''}
+                onClick={() => setSelectedPeriod('week')}
+              >
+                Week
+              </button>
+              <button 
+                className={selectedPeriod === 'month' ? styles.active : ''}
+                onClick={() => setSelectedPeriod('month')}
+              >
+                Month
+              </button>
+            </div>
           </div>
-        </section>
-      </main>
+
+          <div className={styles.shipmentList}>
+            {shipments.map(shipment => (
+              <div key={shipment.id} className={styles.shipmentCard}>
+                <div className={styles.shipmentHeader}>
+                  <h3>{shipment.carrier}</h3>
+                  <span className={`${styles.status} ${styles[shipment.status.toLowerCase()]}`}>
+                    {shipment.status}
+                  </span>
+                </div>
+                <div className={styles.shipmentDetails}>
+                  <div>
+                    <label>From:</label>
+                    <span>{shipment.origin}</span>
+                  </div>
+                  <div>
+                    <label>To:</label>
+                    <span>{shipment.destination}</span>
+                  </div>
+                  <div>
+                    <label>ETA:</label>
+                    <span>{shipment.eta}</span>
+                  </div>
+                  <div>
+                    <label>Cost:</label>
+                    <span>${shipment.cost}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
 
-export default Dashboard;
+export default ShipperDashboard;
