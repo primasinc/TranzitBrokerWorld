@@ -10,6 +10,7 @@ interface Shipment {
   status: 'In Transit' | 'Scheduled' | 'Delivered' | 'Delayed';
   eta: string;
   cost: number;
+  position: google.maps.LatLngLiteral;
 }
 
 const ShipperDashboard: React.FC = () => {
@@ -23,7 +24,8 @@ const ShipperDashboard: React.FC = () => {
       destination: 'New York, NY',
       status: 'In Transit',
       eta: '2024-02-25 14:00',
-      cost: 2500
+      cost: 2500,
+      position: { lat: 41.8781, lng: -87.6298 }
     },
     // Add more shipments...
   ];
@@ -60,15 +62,19 @@ const ShipperDashboard: React.FC = () => {
         <div className={styles.shipmentTracking}>
           <h2>Active Shipments</h2>
           <div className={styles.mapContainer}>
-            <LoadScript googleMapsApiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY!}>
-              <GoogleMap
-                mapContainerStyle={{ width: '100%', height: '400px' }}
-                center={{ lat: 39.8283, lng: -98.5795 }}
-                zoom={4}
-              >
-                {/* Add markers for shipments */}
-              </GoogleMap>
-            </LoadScript>
+            <GoogleMap
+              mapContainerStyle={{ width: '100%', height: '400px' }}
+              center={{ lat: 39.8283, lng: -98.5795 }}
+              zoom={4}
+            >
+              {shipments.map((shipment) => (
+                <Marker 
+                  key={shipment.id}
+                  position={shipment.position}
+                  title={shipment.carrier}
+                />
+              ))}
+            </GoogleMap>
           </div>
         </div>
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { LoadScript } from '@react-google-maps/api';
 // import Layout from './components/Layout';
 import PrivateRoute from './components/PrivateRoute';
 import CarrierLayout from './layouts/CarrierLayout';
@@ -40,60 +41,62 @@ import Settings from './pages/carrier/Settings';
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Redirect root to login */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
+    <LoadScript googleMapsApiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY!}>
+      <BrowserRouter>
+        <Routes>
+          {/* Redirect root to login */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
 
-        {/* Public Routes */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+          {/* Public Routes */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
 
-        {/* Shipper Routes */}
-        <Route path="/shipper" element={<PrivateRoute userType="shipper" />}>
-          <Route element={<ShipperLayout />}>
-            <Route index element={<Navigate to="dashboard" />} />
-            <Route path="dashboard" element={<ShipperDashboard />} />
-            <Route path="loads" element={<LoadsOverview />} />
-            <Route path="loads/new" element={<NewLoad />} />
-            <Route path="people" element={<ViewPeople />} />
-            <Route path="active-searches" element={<ActiveSearches />} />
-            <Route path="in-progress" element={<InProgress />} />
-            <Route path="completed" element={<Completed />} />
-            <Route path="updates" element={<DriverUpdates />} />
-            <Route path="schedule" element={<ShippingSchedule />} />
-            <Route path="orders" element={<PurchaseOrders />} />
-            <Route path="partners" element={<CarrierPartners />} />
-            <Route path="invoices" element={<PayInvoices />} />
-            <Route path="archive" element={<ShipmentArchive />} />
-            <Route path="directory" element={<CarrierDirectory />} />
+          {/* Shipper Routes */}
+          <Route path="/shipper" element={<PrivateRoute userType="shipper" />}>
+            <Route element={<ShipperLayout />}>
+              <Route index element={<Navigate to="dashboard" />} />
+              <Route path="dashboard" element={<ShipperDashboard />} />
+              <Route path="loads" element={<LoadsOverview />} />
+              <Route path="loads/new" element={<NewLoad />} />
+              <Route path="people" element={<ViewPeople />} />
+              <Route path="active-searches" element={<ActiveSearches />} />
+              <Route path="in-progress" element={<InProgress />} />
+              <Route path="completed" element={<Completed />} />
+              <Route path="updates" element={<DriverUpdates />} />
+              <Route path="schedule" element={<ShippingSchedule />} />
+              <Route path="orders" element={<PurchaseOrders />} />
+              <Route path="partners" element={<CarrierPartners />} />
+              <Route path="invoices" element={<PayInvoices />} />
+              <Route path="archive" element={<ShipmentArchive />} />
+              <Route path="directory" element={<CarrierDirectory />} />
+            </Route>
           </Route>
-        </Route>
 
-        {/* Carrier Routes */}
-        <Route path="/carrier" element={<PrivateRoute userType="carrier" />}>
-          <Route element={<CarrierLayout />}>
-            <Route index element={<Navigate to="dashboard" />} />
-            <Route path="dashboard" element={<HomeFeed />} />
-            <Route path="available-loads" element={<AvailableLoads />} />
-            <Route path="my-loads" element={<MyLoads />} />
-            <Route path="documents" element={<Documents />} />
-            <Route path="payments" element={<Payments />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="loads" element={<CarrierLoads />} />
-            <Route path="loads/:id" element={<LoadDetails />} />
-            <Route path="profile" element={<CarrierProfile />} />
+          {/* Carrier Routes */}
+          <Route path="/carrier" element={<PrivateRoute userType="carrier" />}>
+            <Route element={<CarrierLayout />}>
+              <Route index element={<Navigate to="dashboard" />} />
+              <Route path="dashboard" element={<HomeFeed />} />
+              <Route path="available-loads" element={<AvailableLoads />} />
+              <Route path="my-loads" element={<MyLoads />} />
+              <Route path="documents" element={<Documents />} />
+              <Route path="payments" element={<Payments />} />
+              <Route path="settings" element={<Settings />} />
+              <Route path="loads" element={<CarrierLoads />} />
+              <Route path="loads/:id" element={<LoadDetails />} />
+              <Route path="profile" element={<CarrierProfile />} />
+            </Route>
           </Route>
-        </Route>
 
-        {/* Shared Routes */}
-        <Route path="/profile/:id" element={<ViewProfile />} />
+          {/* Shared Routes */}
+          <Route path="/profile/:id" element={<ViewProfile />} />
 
-        {/* Catch-all redirect */}
-        <Route path="/" element={<Navigate to="/carrier/dashboard" />} />
-        <Route path="*" element={<Navigate to="/carrier/dashboard" />} />
-      </Routes>
-    </BrowserRouter>
+          {/* Catch-all redirect */}
+          <Route path="/" element={<Navigate to="/carrier/dashboard" />} />
+          <Route path="*" element={<Navigate to="/carrier/dashboard" />} />
+        </Routes>
+      </BrowserRouter>
+    </LoadScript>
   );
 }
 

@@ -1,55 +1,58 @@
 import React, { useState } from 'react';
-import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
+import { GoogleMap, Marker } from '@react-google-maps/api';
 import styles from './AvailableLoads.module.css';
 
 interface Load {
   id: string;
-  pickupLocation: string;
-  deliveryLocation: string;
-  pickupDate: string;
-  deliveryDate: string;
-  weight: string;
+  position: google.maps.LatLngLiteral;
+  title: string;
+  pickup: string;
+  delivery: string;
   rate: number;
   distance: string;
-  equipment: string;
-  coordinates: {
-    pickup: google.maps.LatLngLiteral;
-    delivery: google.maps.LatLngLiteral;
-  };
+  weight: string;
+  dimensions: string;
 }
 
+const defaultCenter = {
+  lat: 39.8283,
+  lng: -98.5795
+};
+
+const mapContainerStyle = {
+  width: '100%',
+  height: '500px'
+};
+
 const AvailableLoads: React.FC = () => {
-  const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
+  const [viewType, setViewType] = useState<'map' | 'list'>('map');
   const [selectedLoad, setSelectedLoad] = useState<Load | null>(null);
 
   const loads: Load[] = [
     {
-      id: "L001",
-      pickupLocation: "Chicago, IL",
-      deliveryLocation: "New York, NY",
-      pickupDate: "2024-03-01",
-      deliveryDate: "2024-03-03",
-      weight: "15,000 lbs",
-      rate: 2500.00,
-      distance: "789 miles",
-      equipment: "53' Dry Van",
-      coordinates: {
-        pickup: { lat: 41.8781, lng: -87.6298 },
-        delivery: { lat: 40.7128, lng: -74.0060 }
-      }
+      id: '1',
+      position: { lat: 41.8781, lng: -87.6298 },
+      title: 'Chicago to New York',
+      pickup: 'Chicago, IL',
+      delivery: 'New York, NY',
+      rate: 3500,
+      distance: '787 miles',
+      weight: '15,000 lbs',
+      dimensions: '53\' Trailer'
     },
-    // Add more loads
+    {
+      id: '2',
+      position: { lat: 34.0522, lng: -118.2437 },
+      title: 'LA to San Francisco',
+      pickup: 'Los Angeles, CA',
+      delivery: 'San Francisco, CA',
+      rate: 1800,
+      distance: '383 miles',
+      weight: '10,000 lbs',
+      dimensions: '48\' Trailer'
+    },
+    // Add more sample loads as needed
   ];
-
-  const mapContainerStyle = {
-    width: '100%',
-    height: '600px'
-  };
-
-  const defaultCenter = {
-    lat: 39.8283,
-    lng: -98.5795
-  };
 
   return (
     <div className={styles.container}>
@@ -57,72 +60,61 @@ const AvailableLoads: React.FC = () => {
         <h1>Available Loads</h1>
         <div className={styles.viewToggle}>
           <button 
-            className={`${styles.toggleButton} ${viewMode === 'map' ? styles.active : ''}`}
-            onClick={() => setViewMode('map')}
+            className={`${styles.toggleButton} ${viewType === 'map' ? styles.active : ''}`}
+            onClick={() => setViewType('map')}
           >
             Map View
           </button>
           <button 
-            className={`${styles.toggleButton} ${viewMode === 'list' ? styles.active : ''}`}
-            onClick={() => setViewMode('list')}
+            className={`${styles.toggleButton} ${viewType === 'list' ? styles.active : ''}`}
+            onClick={() => setViewType('list')}
           >
             List View
           </button>
         </div>
       </div>
 
-      <div className={styles.filters}>
-        <input
-          type="text"
-          placeholder="Search by location..."
-          className={styles.searchInput}
-        />
-        <select className={styles.filterSelect}>
-          <option value="">Equipment Type</option>
-          <option value="dryvan">Dry Van</option>
-          <option value="reefer">Reefer</option>
-          <option value="flatbed">Flatbed</option>
-        </select>
-        <select className={styles.filterSelect}>
-          <option value="">Distance</option>
-          <option value="local">Local (&lt; 100 miles)</option>
-          <option value="regional">Regional (100-500 miles)</option>
-          <option value="longhaul">Long Haul (500+ miles)</option>
-        </select>
-      </div>
-
-      {viewMode === 'map' ? (
-        <div className={styles.mapView}>
-          <LoadScript googleMapsApiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY!}>
+      {viewType === 'map' ? (
+        <div className={styles.mapSection}>
+          <div className={styles.mapContainer}>
             <GoogleMap
               mapContainerStyle={mapContainerStyle}
               center={defaultCenter}
               zoom={4}
             >
               {loads.map((load) => (
-                <React.Fragment key={load.id}>
-                  <Marker
-                    position={load.coordinates.pickup}
-                    title={`Pickup: ${load.pickupLocation}`}
-                    onClick={() => setSelectedLoad(load)}
-                  />
-                  <Marker
-                    position={load.coordinates.delivery}
-                    title={`Delivery: ${load.deliveryLocation}`}
-                    onClick={() => setSelectedLoad(load)}
-                  />
-                </React.Fragment>
+                <Marker
+                  key={load.id}
+                  position={load.position}
+                  title={load.title}
+                  onClick={() => setSelectedLoad(load)}
+                />
               ))}
             </GoogleMap>
-          </LoadScript>
-          
+          </div>
           {selectedLoad && (
             <div className={styles.loadDetails}>
-              <h3>Load Details</h3>
-              <p>From: {selectedLoad.pickupLocation}</p>
-              <p>To: {selectedLoad.deliveryLocation}</p>
-              <p>Rate: ${selectedLoad.rate.toFixed(2)}</p>
-              <p>Distance: {selectedLoad.distance}</p>
+              <h2>{selectedLoad.title}</h2>
+              <div className={styles.detailsGrid}>
+                <div>
+                  <strong>Pickup:</strong> {selectedLoad.pickup}
+                </div>
+                <div>
+                  <strong>Delivery:</strong> {selectedLoad.delivery}
+                </div>
+                <div>
+                  <strong>Rate:</strong> ${selectedLoad.rate}
+                </div>
+                <div>
+                  <strong>Distance:</strong> {selectedLoad.distance}
+                </div>
+                <div>
+                  <strong>Weight:</strong> {selectedLoad.weight}
+                </div>
+                <div>
+                  <strong>Dimensions:</strong> {selectedLoad.dimensions}
+                </div>
+              </div>
               <button className={styles.bookButton}>Book Load</button>
             </div>
           )}
@@ -131,38 +123,28 @@ const AvailableLoads: React.FC = () => {
         <div className={styles.listView}>
           {loads.map((load) => (
             <div key={load.id} className={styles.loadCard}>
-              <div className={styles.loadHeader}>
-                <h3>{load.pickupLocation} → {load.deliveryLocation}</h3>
-                <span className={styles.rate}>${load.rate.toFixed(2)}</span>
-              </div>
-              
+              <h3>{load.title}</h3>
               <div className={styles.loadInfo}>
                 <div>
-                  <label>Pickup:</label>
-                  <span>{load.pickupDate}</span>
+                  <strong>Pickup:</strong> {load.pickup}
                 </div>
                 <div>
-                  <label>Delivery:</label>
-                  <span>{load.deliveryDate}</span>
+                  <strong>Delivery:</strong> {load.delivery}
                 </div>
                 <div>
-                  <label>Distance:</label>
-                  <span>{load.distance}</span>
+                  <strong>Rate:</strong> ${load.rate}
                 </div>
                 <div>
-                  <label>Equipment:</label>
-                  <span>{load.equipment}</span>
+                  <strong>Distance:</strong> {load.distance}
                 </div>
                 <div>
-                  <label>Weight:</label>
-                  <span>{load.weight}</span>
+                  <strong>Weight:</strong> {load.weight}
+                </div>
+                <div>
+                  <strong>Dimensions:</strong> {load.dimensions}
                 </div>
               </div>
-
-              <div className={styles.loadActions}>
-                <button className={styles.viewButton}>View Details</button>
-                <button className={styles.bookButton}>Book Load</button>
-              </div>
+              <button className={styles.bookButton}>Book Load</button>
             </div>
           ))}
         </div>
