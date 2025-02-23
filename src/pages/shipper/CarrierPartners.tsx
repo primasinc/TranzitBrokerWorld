@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import styles from './CarrierPartners.module.css';
 
 interface CarrierPartner {
@@ -20,6 +21,7 @@ interface CarrierPartner {
 const CarrierPartners: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterSpecialty, setFilterSpecialty] = useState('all');
+  const navigate = useNavigate();
 
   const carriers: CarrierPartner[] = [
     {
@@ -135,7 +137,12 @@ const CarrierPartners: React.FC = () => {
             </div>
 
             <div className={styles.actions}>
-              <button className={styles.actionButton}>View Details</button>
+              <button 
+                className={styles.actionButton}
+                onClick={() => navigate(`/shipper/carrier-partners/${carrier.id}`)}
+              >
+                View Details
+              </button>
               <button className={styles.actionButton}>Contact</button>
             </div>
           </div>
