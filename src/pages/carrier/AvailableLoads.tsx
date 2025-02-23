@@ -28,6 +28,12 @@ const AvailableLoads: React.FC = () => {
   const [viewType, setViewType] = useState<'map' | 'list'>('map');
   const [selectedLoad, setSelectedLoad] = useState<Load | null>(null);
 
+  const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+  if (!apiKey) {
+    console.error('Google Maps API key is missing');
+    return <div>Error loading map</div>;
+  }
+
   const loads: Load[] = [
     {
       id: '1',
@@ -81,6 +87,12 @@ const AvailableLoads: React.FC = () => {
               mapContainerStyle={mapContainerStyle}
               center={defaultCenter}
               zoom={4}
+              options={{
+                zoomControl: true,
+                mapTypeControl: false,
+                streetViewControl: false,
+                fullscreenControl: true,
+              }}
             >
               {loads.map((load) => (
                 <Marker

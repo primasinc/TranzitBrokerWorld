@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
+import { GoogleMap, Marker } from '@react-google-maps/api';
 import styles from './HomeFeed.module.css';
 
 interface Load {
@@ -68,6 +68,11 @@ const HomeFeed: React.FC = () => {
   const handleLogout = () => {
     navigate('/login');
   };
+
+  const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
+  if (!apiKey) {
+    console.error('Google Maps API key is missing');
+  }
 
   return (
     <div className={styles.dashboard}>
@@ -157,25 +162,25 @@ const HomeFeed: React.FC = () => {
 
             {viewType === 'map' ? (
               <div className={styles.mapContainer}>
-                <LoadScript googleMapsApiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY!}>
-                  <GoogleMap
-                    mapContainerStyle={mapContainerStyle}
-                    center={defaultCenter}
-                    zoom={4}
-                  >
-                    {loads.map((load) => (
-                      <Marker
-                        key={load.id}
-                        position={load.position}
-                        title={load.title}
-                        onClick={() => {
-                          // Handle click on marker
-                          console.log('Load selected:', load);
-                        }}
-                      />
-                    ))}
-                  </GoogleMap>
-                </LoadScript>
+                <GoogleMap
+                  mapContainerStyle={mapContainerStyle}
+                  center={defaultCenter}
+                  zoom={4}
+                  options={{
+                    zoomControl: true,
+                    mapTypeControl: false,
+                    streetViewControl: false,
+                    fullscreenControl: true,
+                  }}
+                >
+                  {loads.map((load) => (
+                    <Marker
+                      key={load.id}
+                      position={load.position}
+                      title={load.title}
+                    />
+                  ))}
+                </GoogleMap>
               </div>
             ) : (
               <div className={styles.listView}>

@@ -31,8 +31,6 @@ import CarrierDirectory from './pages/shipper/CarrierDirectory';
 import HomeFeed from './pages/carrier/HomeFeed';
 import LoadDetails from './pages/carrier/LoadDetails';
 import CarrierLoads from './pages/carrier/Loads';
-import CarrierSettings from './pages/carrier/Settings';
-import CarrierProfile from './pages/carrier/Profile';
 import AvailableLoads from './pages/carrier/AvailableLoads';
 import MyLoads from './pages/carrier/MyLoads';
 import Documents from './pages/carrier/Documents';
@@ -84,7 +82,6 @@ function App() {
               <Route path="settings" element={<Settings />} />
               <Route path="loads" element={<CarrierLoads />} />
               <Route path="loads/:id" element={<LoadDetails />} />
-              <Route path="profile" element={<CarrierProfile />} />
             </Route>
           </Route>
 
