@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { LoadScript } from '@react-google-maps/api';
 // import Layout from './components/Layout';
 // import PrivateRoute from './components/PrivateRoute';  // Comment out or remove this line
@@ -37,6 +37,11 @@ import Documents from './pages/carrier/Documents';
 import Payments from './pages/carrier/Payments';
 import Settings from './pages/carrier/Settings';
 import { AuthProvider } from './contexts/AuthContext';
+
+const ViewProfileWrapper = () => {
+  const { id } = useParams();
+  return <ViewProfile id={id || ''} />;
+};
 
 function App() {
   return (
@@ -86,7 +91,7 @@ function App() {
             <Route path="/register" element={<Register />} />
 
             {/* Shared Routes */}
-            <Route path="/profile/:id" element={<ViewProfile />} />
+            <Route path="/profile/:id" element={<ViewProfileWrapper />} />
           </Routes>
         </BrowserRouter>
       </LoadScript>

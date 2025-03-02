@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GoogleMap, Marker } from '@react-google-maps/api';
 import styles from './AvailableLoads.module.css';
 
@@ -26,12 +26,37 @@ const mapContainerStyle = {
 
 const AvailableLoads: React.FC = () => {
   const [viewType, setViewType] = useState<'map' | 'list'>('map');
+  const [isMapLoaded, setIsMapLoaded] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
   const [selectedLoad, setSelectedLoad] = useState<Load | null>(null);
 
   const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
-  if (!apiKey) {
-    console.error('Google Maps API key is missing');
-    return <div>Error loading map</div>;
+
+  useEffect(() => {
+    if (!apiKey) {
+      setMapError('Google Maps API key is missing');
+      return;
+    }
+    
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}`;
+    script.async = true;
+    script.onload = () => setIsMapLoaded(true);
+    script.onerror = () => setMapError('Failed to load Google Maps');
+    document.body.appendChild(script);
+
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, [apiKey]);
+
+  if (mapError) {
+    return (
+      <div className={styles.error}>
+        <p>{mapError}</p>
+        <button onClick={() => setViewType('list')}>Switch to List View</button>
+      </div>
+    );
   }
 
   const loads: Load[] = [
@@ -82,28 +107,32 @@ const AvailableLoads: React.FC = () => {
 
       {viewType === 'map' ? (
         <div className={styles.mapSection}>
-          <div className={styles.mapContainer}>
-            <GoogleMap
-              mapContainerStyle={mapContainerStyle}
-              center={defaultCenter}
-              zoom={4}
-              options={{
-                zoomControl: true,
-                mapTypeControl: false,
-                streetViewControl: false,
-                fullscreenControl: true,
-              }}
-            >
-              {loads.map((load) => (
-                <Marker
-                  key={load.id}
-                  position={load.position}
-                  title={load.title}
-                  onClick={() => setSelectedLoad(load)}
-                />
-              ))}
-            </GoogleMap>
-          </div>
+          {isMapLoaded ? (
+            <div className={styles.mapContainer}>
+              <GoogleMap
+                mapContainerStyle={mapContainerStyle}
+                center={defaultCenter}
+                zoom={4}
+                options={{
+                  zoomControl: true,
+                  mapTypeControl: false,
+                  streetViewControl: false,
+                  fullscreenControl: true,
+                }}
+              >
+                {loads.map((load) => (
+                  <Marker
+                    key={load.id}
+                    position={load.position}
+                    title={load.title}
+                    onClick={() => setSelectedLoad(load)}
+                  />
+                ))}
+              </GoogleMap>
+            </div>
+          ) : (
+            <div className={styles.loading}>Loading map...</div>
+          )}
           {selectedLoad && (
             <div className={styles.loadDetails}>
               <h2>{selectedLoad.title}</h2>
