@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LoadScript } from '@react-google-maps/api';
 // import Layout from './components/Layout';
-import { PrivateRoute } from './components/PrivateRoute';
+// import PrivateRoute from './components/PrivateRoute';  // Comment out or remove this line
 import CarrierLayout from './layouts/CarrierLayout';
 import ShipperLayout from './layouts/ShipperLayout';
 
