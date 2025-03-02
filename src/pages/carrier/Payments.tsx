@@ -5,6 +5,7 @@ import PaymentRequestModal from '../../components/PaymentRequestModal';
 import FactorRequestModal from '../../components/FactorRequestModal';
 import CancelPaymentRequestModal from '../../components/CancelPaymentRequestModal';
 import PaymentDetailsModal from '../../components/PaymentDetailsModal';
+import PaymentReportsModal from '../../components/PaymentReportsModal';
 
 interface Payment {
   id: string;
@@ -137,6 +138,7 @@ const Payments: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isPaymentDetailsModalOpen, setIsPaymentDetailsModalOpen] = useState(false);
   const [selectedPaymentDetails, setSelectedPaymentDetails] = useState<PaymentWithHistory | null>(null);
+  const [isReportsModalOpen, setIsReportsModalOpen] = useState(false);
 
   useEffect(() => {
     let result = [...payments];
@@ -498,6 +500,16 @@ const Payments: React.FC = () => {
         </div>
       </div>
 
+      <div className={styles.pageHeader}>
+        <h1>Payments</h1>
+        <button 
+          className={styles.reportsButton}
+          onClick={() => setIsReportsModalOpen(true)}
+        >
+          Generate Reports
+        </button>
+      </div>
+
       {activeTab === 'payments' ? (
         <div className={styles.table}>
           <table>
@@ -631,6 +643,12 @@ const Payments: React.FC = () => {
         isOpen={isPaymentDetailsModalOpen}
         onClose={() => setIsPaymentDetailsModalOpen(false)}
         payment={selectedPaymentDetails}
+      />
+
+      <PaymentReportsModal
+        isOpen={isReportsModalOpen}
+        onClose={() => setIsReportsModalOpen(false)}
+        payments={payments}
       />
     </div>
   );
