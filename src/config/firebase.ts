@@ -1,26 +1,23 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
-import { getAnalytics } from 'firebase/analytics';
+import { getAuth } from 'firebase/auth';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyATh2uKenWApY2DjKxz8A09BCTg_thfF94",
-  authDomain: "tranzit-9e2b2.firebaseapp.com",
-  projectId: "tranzit-9e2b2",
-  storageBucket: "tranzit-9e2b2.firebasestorage.app",
-  messagingSenderId: "231222687837",
-  appId: "1:231222687837:web:34c9997b0c9be14bdff5b4",
-  measurementId: "G-2SRT9KF58Y"
+  apiKey: "AIzaSyBljl59gSeG04uyFZhJ3_JedfTpkJL1LZY",
+  authDomain: "tranzit-79cbe.firebaseapp.com",
+  projectId: "tranzit-79cbe",
+  storageBucket: "tranzit-79cbe.firebasestorage.app",
+  messagingSenderId: "66664073176",
+  appId: "1:66664073176:web:c02ff09203eea58b9114ad",
+  measurementId: "G-HHL1D9GQDM"
 };
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firebase services
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
-export const analytics = getAnalytics(app);
+// Initialize services
+const storage = getStorage(app);
+const auth = getAuth(app);
 
-export default app; 
+// Export services
+export { app as default, storage, auth }; 

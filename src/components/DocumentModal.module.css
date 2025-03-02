@@ -93,4 +93,37 @@
   border-radius: 4px;
   cursor: pointer;
   margin-top: 10px;
+}
+
+.documentItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+}
+
+.documentItem a {
+  color: #007bff;
+  text-decoration: none;
+  flex-grow: 1;
+}
+
+.documentItem a:hover {
+  text-decoration: underline;
+}
+
+.deleteButton {
+  background: none;
+  border: none;
+  color: #dc3545;
+  cursor: pointer;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  transition: color 0.2s;
+}
+
+.deleteButton:hover {
+  color: #c82333;
 } 

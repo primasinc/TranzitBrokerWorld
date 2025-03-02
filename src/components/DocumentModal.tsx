@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ref, uploadBytes, listAll, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, listAll, getDownloadURL, deleteObject } from 'firebase/storage';
 import { firebaseStorage as storage } from '../services/firebase';
 import styles from './DocumentModal.module.css';
 
@@ -76,6 +76,17 @@ const DocumentModal: React.FC<DocumentModalProps> = ({ isOpen, onClose, loadId }
     };
   };
 
+  const handleDelete = async (docName: string) => {
+    try {
+      const docRef = ref(storage, `loads/${loadId}/documents/${docName}`);
+      await deleteObject(docRef);
+      await fetchDocuments(); // Refresh the list after deletion
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      alert('Error deleting document. Please try again.');
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -99,10 +110,17 @@ const DocumentModal: React.FC<DocumentModalProps> = ({ isOpen, onClose, loadId }
             ) : (
               <ul>
                 {documents.map((doc) => (
-                  <li key={doc.url}>
+                  <li key={doc.url} className={styles.documentItem}>
                     <a href={doc.url} target="_blank" rel="noopener noreferrer">
                       {doc.name}
                     </a>
+                    <button 
+                      onClick={() => handleDelete(doc.name)}
+                      className={styles.deleteButton}
+                      aria-label="Delete document"
+                    >
+                      🗑️
+                    </button>
                   </li>
                 ))}
               </ul>

@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import styles from './Payments.module.css';
 import DocumentModal from '../../components/DocumentModal';
+import PaymentRequestModal from '../../components/PaymentRequestModal';
+import FactorRequestModal from '../../components/FactorRequestModal';
+import CancelPaymentRequestModal from '../../components/CancelPaymentRequestModal';
 
 interface Payment {
   id: string;
   loadId: string;
   amount: number;
-  status: 'Paid' | 'Pending' | 'Processing';
+  status: 'Paid' | 'Pending' | 'Processing' | 'Requested' | 'Canceled';
   date: string;
   method: string;
   reference: string;
@@ -32,14 +35,19 @@ interface Invoice {
   customer: string;
 }
 
+type PaymentStatus = 'Pending' | 'Requested' | 'Paid' | 'Canceled' | 'Processing';
+
 const Payments: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'payments' | 'invoices'>('payments');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [searchTerm, setSearchTerm] = useState('');
   const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false);
   const [selectedLoadId, setSelectedLoadId] = useState<string>('');
-
-  const payments: Payment[] = [
+  const [isPaymentRequestModalOpen, setIsPaymentRequestModalOpen] = useState(false);
+  const [isFactorRequestModalOpen, setIsFactorRequestModalOpen] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [isCancelPaymentModalOpen, setIsCancelPaymentModalOpen] = useState(false);
+  const [payments, setPayments] = useState<Payment[]>([
     {
       id: "PAY001",
       loadId: "L123",
@@ -61,7 +69,7 @@ const Payments: React.FC = () => {
       customer: "XYZ Corp"
     },
     // Add more payments
-  ];
+  ]);
 
   const invoices: Invoice[] = [
     {
@@ -99,14 +107,118 @@ const Payments: React.FC = () => {
   };
 
   const handlePaymentRequest = (payment: Payment) => {
-    // TODO: Implement direct payment request to shipper
-    console.log('Requesting direct payment for load:', payment.loadId);
+    setSelectedPayment(payment);
+    setIsPaymentRequestModalOpen(true);
   };
 
   const handleFactorRequest = (payment: Payment) => {
-    // TODO: Implement factoring request
-    console.log('Requesting factoring for load:', payment.loadId);
+    setSelectedPayment(payment);
+    setIsFactorRequestModalOpen(true);
   };
+
+  const handleCancelPaymentRequest = (payment: Payment) => {
+    setSelectedPayment(payment);
+    setIsCancelPaymentModalOpen(true);
+  };
+
+  const confirmCancelPaymentRequest = async () => {
+    if (!selectedPayment) return;
+    
+    try {
+      console.log('Canceling payment request for load:', selectedPayment.loadId);
+      
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      setPayments(payments.map(p => 
+        p.id === selectedPayment.id 
+          ? { ...p, status: 'Canceled' as PaymentStatus } 
+          : p
+      ));
+      
+      alert('Payment request canceled successfully');
+    } catch (error) {
+      console.error('Error canceling payment request:', error);
+      throw error;
+    }
+  };
+
+  const handlePaymentRequestSubmitted = () => {
+    if (!selectedPayment) return;
+    
+    setPayments(payments.map(p => 
+      p.id === selectedPayment.id 
+        ? { ...p, status: 'Requested' as PaymentStatus } 
+        : p
+    ));
+  };
+
+  const renderActionButtons = (payment: Payment) => {
+    if (payment.status === 'Requested') {
+      return (
+        <div className={styles.actionButtons}>
+          <button 
+            className={`${styles.actionButton} ${styles.cancelButton}`}
+            onClick={() => handleCancelPaymentRequest(payment)}
+          >
+            Cancel Request
+          </button>
+        </div>
+      );
+    }
+    
+    return (
+      <div className={styles.actionButtons}>
+        <button 
+          className={`${styles.actionButton} ${styles.documentButton}`}
+          onClick={() => handleDocuments(payment)}
+        >
+          Documents
+        </button>
+        <button 
+          className={`${styles.actionButton} ${styles.paymentButton}`}
+          onClick={() => handlePaymentRequest(payment)}
+          disabled={payment.status === 'Canceled'}
+        >
+          Payment Request
+        </button>
+        <button 
+          className={`${styles.actionButton} ${styles.factorButton}`}
+          onClick={() => handleFactorRequest(payment)}
+          disabled={payment.status === 'Canceled'}
+        >
+          Factor Request
+        </button>
+      </div>
+    );
+  };
+
+  const renderPaymentStatus = (status: PaymentStatus) => {
+    switch (status) {
+      case 'Pending':
+        return <span className={styles.statusPending}>Pending</span>;
+      case 'Requested':
+        return <span className={styles.statusRequested}>Requested</span>;
+      case 'Paid':
+        return <span className={styles.statusPaid}>Paid</span>;
+      case 'Canceled':
+        return <span className={styles.statusCanceled}>Canceled</span>;
+      case 'Processing':
+        return <span className={styles.statusProcessing}>Processing</span>;
+      default:
+        return null;
+    }
+  };
+
+  const renderPaymentRow = (payment: Payment) => (
+    <tr key={payment.id} className={payment.status === 'Canceled' ? styles.canceledRow : ''}>
+      <td>{payment.loadId}</td>
+      <td>{payment.date}</td>
+      <td>{payment.customer}</td>
+      <td>${payment.amount.toFixed(2)}</td>
+      <td>{renderPaymentStatus(payment.status)}</td>
+      <td>{renderActionButtons(payment)}</td>
+    </tr>
+  );
 
   return (
     <div className={styles.container}>
@@ -185,45 +297,7 @@ const Payments: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {payments.map((payment) => (
-                <tr key={payment.id}>
-                  <td>{payment.date}</td>
-                  <td>{payment.loadId}</td>
-                  <td>{payment.customer}</td>
-                  <td>${payment.amount.toFixed(2)}</td>
-                  <td>{payment.method}</td>
-                  <td>{payment.reference}</td>
-                  <td>
-                    <span className={`${styles.status} ${styles[payment.status.toLowerCase()]}`}>
-                      {payment.status}
-                    </span>
-                  </td>
-                  <td>
-                    <div className={styles.actions}>
-                      <button 
-                        className={`${styles.actionButton} ${styles.documentsButton}`}
-                        onClick={() => handleDocuments(payment)}
-                      >
-                        Documents
-                      </button>
-                      <button 
-                        className={`${styles.actionButton} ${styles.paymentButton}`}
-                        onClick={() => handlePaymentRequest(payment)}
-                        disabled={payment.status === 'Paid'}
-                      >
-                        Payment Request
-                      </button>
-                      <button 
-                        className={`${styles.actionButton} ${styles.factorButton}`}
-                        onClick={() => handleFactorRequest(payment)}
-                        disabled={payment.status === 'Paid' || payment.factoring?.status === 'processing'}
-                      >
-                        Factor Request
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {payments.map((payment) => renderPaymentRow(payment))}
             </tbody>
           </table>
         </div>
@@ -274,6 +348,26 @@ const Payments: React.FC = () => {
         onClose={() => setIsDocumentModalOpen(false)}
         loadId={selectedLoadId}
       />
+      
+      {selectedPayment && (
+        <>
+          <PaymentRequestModal
+            isOpen={isPaymentRequestModalOpen}
+            onClose={() => setIsPaymentRequestModalOpen(false)}
+            loadId={selectedPayment.loadId}
+            amount={selectedPayment.amount}
+            customer={selectedPayment.customer}
+          />
+          
+          <FactorRequestModal
+            isOpen={isFactorRequestModalOpen}
+            onClose={() => setIsFactorRequestModalOpen(false)}
+            loadId={selectedPayment.loadId}
+            amount={selectedPayment.amount}
+            customer={selectedPayment.customer}
+          />
+        </>
+      )}
     </div>
   );
 };
