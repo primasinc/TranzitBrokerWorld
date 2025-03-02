@@ -232,6 +232,8 @@
 }
 
 .searchContainer {
+  display: flex;
+  gap: 10px;
   flex: 1;
   min-width: 250px;
 }
@@ -445,4 +447,35 @@
 
 .settingsButton:before {
   content: '⚙️';
+}
+
+.advancedSearchButton {
+  padding: 8px 12px;
+  background-color: #0d6efd;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.activeSearchBanner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background-color: #cfe2ff;
+  color: #0d6efd;
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  width: 100%;
+}
+
+.clearAdvancedSearchButton {
+  background: none;
+  border: none;
+  color: #0d6efd;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
 } 

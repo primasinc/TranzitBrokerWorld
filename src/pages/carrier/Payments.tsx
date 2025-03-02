@@ -8,6 +8,7 @@ import PaymentDetailsModal from '../../components/PaymentDetailsModal';
 import PaymentReportsModal from '../../components/PaymentReportsModal';
 import PaymentAnalyticsModal from '../../components/PaymentAnalyticsModal';
 import PaymentSettingsModal, { PaymentSettings } from '../../components/PaymentSettingsModal';
+import AdvancedSearchModal, { SearchCriteria, SavedSearch } from '../../components/AdvancedSearchModal';
 
 interface Payment {
   id: string;
@@ -175,6 +176,21 @@ const Payments: React.FC = () => {
       }
     ]
   });
+  const [isAdvancedSearchModalOpen, setIsAdvancedSearchModalOpen] = useState(false);
+  const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([
+    {
+      id: '1',
+      name: 'Recent Pending Payments',
+      criteria: {
+        status: ['Pending'],
+        dateRange: {
+          start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          end: new Date().toISOString().split('T')[0]
+        }
+      }
+    }
+  ]);
+  const [advancedSearchCriteria, setAdvancedSearchCriteria] = useState<SearchCriteria | null>(null);
 
   useEffect(() => {
     let result = [...payments];
@@ -544,6 +560,62 @@ const Payments: React.FC = () => {
     console.log('Saving settings:', settings);
   };
 
+  const handleAdvancedSearch = (criteria: SearchCriteria) => {
+    setAdvancedSearchCriteria(criteria);
+    
+    // Apply the search criteria to filter payments
+    let result = [...payments];
+    
+    if (criteria.loadId) {
+      result = result.filter(p => p.loadId.toLowerCase().includes(criteria.loadId!.toLowerCase()));
+    }
+    
+    if (criteria.customer) {
+      result = result.filter(p => p.customer.toLowerCase().includes(criteria.customer!.toLowerCase()));
+    }
+    
+    if (criteria.dateRange?.start) {
+      const startDate = new Date(criteria.dateRange.start);
+      result = result.filter(p => new Date(p.date) >= startDate);
+    }
+    
+    if (criteria.dateRange?.end) {
+      const endDate = new Date(criteria.dateRange.end);
+      endDate.setHours(23, 59, 59, 999); // End of day
+      result = result.filter(p => new Date(p.date) <= endDate);
+    }
+    
+    if (criteria.amountRange && criteria.amountRange.min > 0) {
+      const minAmount = criteria.amountRange.min;
+      result = result.filter(p => p.amount >= minAmount);
+    }
+    
+    if (criteria.amountRange && criteria.amountRange.max > 0) {
+      const maxAmount = criteria.amountRange.max;
+      result = result.filter(p => p.amount <= maxAmount);
+    }
+    
+    if (criteria.status && criteria.status.length > 0) {
+      result = result.filter(p => criteria.status!.includes(p.status));
+    }
+    
+    // For demo purposes, we're just filtering on the client side
+    // In a real app, you would send this criteria to your API
+    setFilteredPayments(result);
+  };
+
+  const handleSaveSearch = (search: SavedSearch) => {
+    setSavedSearches(prev => [...prev, search]);
+  };
+
+  const handleDeleteSavedSearch = (id: string) => {
+    setSavedSearches(prev => prev.filter(search => search.id !== id));
+  };
+
+  const clearAdvancedSearch = () => {
+    setAdvancedSearchCriteria(null);
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.header}>
@@ -588,8 +660,27 @@ const Payments: React.FC = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className={styles.searchInput}
+                disabled={!!advancedSearchCriteria}
               />
+              <button 
+                className={styles.advancedSearchButton}
+                onClick={() => setIsAdvancedSearchModalOpen(true)}
+              >
+                Advanced Search
+              </button>
             </div>
+            
+            {advancedSearchCriteria && (
+              <div className={styles.activeSearchBanner}>
+                <span>Advanced search criteria applied</span>
+                <button 
+                  className={styles.clearAdvancedSearchButton}
+                  onClick={clearAdvancedSearch}
+                >
+                  Clear Advanced Search
+                </button>
+              </div>
+            )}
             
             <div className={styles.filterGroup}>
               <label>Status:</label>
@@ -873,6 +964,15 @@ const Payments: React.FC = () => {
         onClose={() => setIsSettingsModalOpen(false)}
         settings={paymentSettings}
         onSaveSettings={handleSaveSettings}
+      />
+
+      <AdvancedSearchModal
+        isOpen={isAdvancedSearchModalOpen}
+        onClose={() => setIsAdvancedSearchModalOpen(false)}
+        onSearch={handleAdvancedSearch}
+        savedSearches={savedSearches}
+        onSaveSearch={handleSaveSearch}
+        onDeleteSavedSearch={handleDeleteSavedSearch}
       />
     </div>
   );
