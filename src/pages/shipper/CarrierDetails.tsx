@@ -2,11 +2,9 @@ import React from 'react';
 import { useParams } from 'react-router-dom';
 import styles from './CarrierDetails.module.css';
 
-interface CarrierDetailsProps {
-  partnerId: string;
-}
+const CarrierDetails: React.FC = () => {
+  const { partnerId } = useParams<{ partnerId: string }>();
 
-const CarrierDetails: React.FC<CarrierDetailsProps> = ({ partnerId }) => {
   // TODO: Fetch carrier details using the ID
   const carrier = {
     id: "C001",
