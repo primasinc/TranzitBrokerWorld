@@ -1,0 +1,233 @@
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: white;
+  border-radius: 8px;
+  width: 700px;
+  max-width: 90%;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.modalHeader h2 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #6c757d;
+}
+
+.content {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.paymentHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.paymentId {
+  display: flex;
+  flex-direction: column;
+}
+
+.paymentId h3 {
+  margin: 0 0 8px 0;
+  font-size: 1.2rem;
+}
+
+.status {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.statusPending {
+  background-color: #e9ecef;
+  color: #495057;
+}
+
+.statusRequested {
+  background-color: #cfe2ff;
+  color: #0d6efd;
+}
+
+.statusProcessing {
+  background-color: #fff3cd;
+  color: #fd7e14;
+}
+
+.statusPaid {
+  background-color: #d1e7dd;
+  color: #198754;
+}
+
+.statusCanceled {
+  background-color: #f8d7da;
+  color: #dc3545;
+}
+
+.paymentAmount {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.detailsSection {
+  margin-bottom: 25px;
+}
+
+.detailsSection h4 {
+  margin: 0 0 15px 0;
+  font-size: 1.1rem;
+  color: #495057;
+}
+
+.detailsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 15px;
+}
+
+.detailItem {
+  display: flex;
+  flex-direction: column;
+}
+
+.detailLabel {
+  font-size: 0.8rem;
+  color: #6c757d;
+  margin-bottom: 4px;
+}
+
+.detailValue {
+  font-weight: 500;
+}
+
+.notes {
+  background-color: #f8f9fa;
+  padding: 15px;
+  border-radius: 4px;
+  margin: 0;
+  white-space: pre-line;
+}
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.timelineEvent {
+  display: flex;
+  gap: 15px;
+}
+
+.timelineIcon {
+  width: 30px;
+  height: 30px;
+  background-color: #f8f9fa;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.timelineContent {
+  flex: 1;
+  background-color: #f8f9fa;
+  padding: 12px;
+  border-radius: 4px;
+  position: relative;
+}
+
+.timelineContent:before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 10px;
+  width: 0;
+  height: 0;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-right: 8px solid #f8f9fa;
+}
+
+.timelineHeader {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+
+.timelineTitle {
+  font-weight: 500;
+}
+
+.timelineDate {
+  font-size: 0.8rem;
+  color: #6c757d;
+}
+
+.timelineUser {
+  font-size: 0.8rem;
+  color: #6c757d;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.closeModalButton {
+  padding: 8px 16px;
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.downloadButton {
+  padding: 8px 16px;
+  background-color: #0d6efd;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+} 

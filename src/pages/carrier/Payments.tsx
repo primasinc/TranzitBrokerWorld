@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styles from './Payments.module.css';
 import DocumentModal from '../../components/DocumentModal';
 import PaymentRequestModal from '../../components/PaymentRequestModal';
 import FactorRequestModal from '../../components/FactorRequestModal';
 import CancelPaymentRequestModal from '../../components/CancelPaymentRequestModal';
+import PaymentDetailsModal from '../../components/PaymentDetailsModal';
 
 interface Payment {
   id: string;
@@ -36,6 +37,25 @@ interface Invoice {
 }
 
 type PaymentStatus = 'Pending' | 'Requested' | 'Paid' | 'Canceled' | 'Processing';
+
+type PaymentEventType = 'created' | 'requested' | 'canceled' | 'processing' | 'paid';
+
+type PaymentEvent = {
+  id: string;
+  date: string;
+  type: PaymentEventType;
+  description: string;
+  user?: string;
+};
+
+interface PaymentWithHistory extends Payment {
+  origin?: string;
+  destination?: string;
+  miles?: number;
+  rate?: number;
+  notes?: string;
+  history: PaymentEvent[];
+}
 
 const Payments: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'payments' | 'invoices'>('payments');
@@ -101,6 +121,94 @@ const Payments: React.FC = () => {
     .filter(p => p.status === 'Pending' || p.status === 'Processing')
     .reduce((sum, p) => sum + p.amount, 0);
 
+  const [filteredPayments, setFilteredPayments] = useState<Payment[]>([]);
+  const [statusFilter, setStatusFilter] = useState<PaymentStatus | 'All'>('All');
+  const [dateFilter, setDateFilter] = useState<{ start: string; end: string }>({
+    start: '',
+    end: ''
+  });
+  const [sortConfig, setSortConfig] = useState<{
+    key: keyof Payment;
+    direction: 'ascending' | 'descending';
+  }>({
+    key: 'date',
+    direction: 'descending'
+  });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isPaymentDetailsModalOpen, setIsPaymentDetailsModalOpen] = useState(false);
+  const [selectedPaymentDetails, setSelectedPaymentDetails] = useState<PaymentWithHistory | null>(null);
+
+  useEffect(() => {
+    let result = [...payments];
+    
+    if (statusFilter !== 'All') {
+      result = result.filter(payment => payment.status === statusFilter);
+    }
+    
+    if (dateFilter.start) {
+      const startDate = new Date(dateFilter.start);
+      result = result.filter(payment => new Date(payment.date) >= startDate);
+    }
+    
+    if (dateFilter.end) {
+      const endDate = new Date(dateFilter.end);
+      endDate.setHours(23, 59, 59, 999);
+      result = result.filter(payment => new Date(payment.date) <= endDate);
+    }
+    
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(payment => 
+        payment.loadId.toLowerCase().includes(query) ||
+        payment.customer.toLowerCase().includes(query)
+      );
+    }
+    
+    result.sort((a, b) => {
+      const aValue = a[sortConfig.key];
+      const bValue = b[sortConfig.key];
+      
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return sortConfig.direction === 'ascending'
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
+      }
+      
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return sortConfig.direction === 'ascending'
+          ? aValue - bValue
+          : bValue - aValue;
+      }
+      
+      if (sortConfig.key === 'date') {
+        const dateA = new Date(a.date);
+        const dateB = new Date(b.date);
+        return sortConfig.direction === 'ascending'
+          ? dateA.getTime() - dateB.getTime()
+          : dateB.getTime() - dateA.getTime();
+      }
+      
+      return 0;
+    });
+    
+    setFilteredPayments(result);
+  }, [payments, statusFilter, dateFilter, sortConfig, searchQuery]);
+
+  const handleSort = (key: keyof Payment) => {
+    setSortConfig(prevConfig => ({
+      key,
+      direction: prevConfig.key === key && prevConfig.direction === 'ascending' 
+        ? 'descending' 
+        : 'ascending'
+    }));
+  };
+
+  const clearFilters = () => {
+    setStatusFilter('All');
+    setDateFilter({ start: '', end: '' });
+    setSearchQuery('');
+  };
+
   const handleDocuments = (payment: Payment) => {
     setSelectedLoadId(payment.loadId);
     setIsDocumentModalOpen(true);
@@ -150,6 +258,75 @@ const Payments: React.FC = () => {
         ? { ...p, status: 'Requested' as PaymentStatus } 
         : p
     ));
+  };
+
+  const handleViewPaymentDetails = (payment: Payment) => {
+    const paymentWithHistory: PaymentWithHistory = {
+      ...payment,
+      origin: 'Chicago, IL',
+      destination: 'Denver, CO',
+      miles: 1000,
+      rate: payment.amount / 1000,
+      notes: payment.status === 'Requested' ? 'Please process this payment as soon as possible.' : undefined,
+      history: generatePaymentHistory(payment)
+    };
+    
+    setSelectedPaymentDetails(paymentWithHistory);
+    setIsPaymentDetailsModalOpen(true);
+  };
+
+  const generatePaymentHistory = (payment: Payment): PaymentEvent[] => {
+    const history: PaymentEvent[] = [
+      {
+        id: '1',
+        date: payment.date,
+        type: 'created',
+        description: 'Load completed and ready for payment',
+        user: 'System'
+      }
+    ];
+    
+    if (['Requested', 'Processing', 'Paid', 'Canceled'].includes(payment.status)) {
+      history.push({
+        id: '2',
+        date: new Date(new Date(payment.date).getTime() + 24 * 60 * 60 * 1000).toISOString(),
+        type: 'requested',
+        description: 'Payment requested',
+        user: 'John Doe'
+      });
+    }
+    
+    if (payment.status === 'Canceled') {
+      history.push({
+        id: '3',
+        date: new Date(new Date(payment.date).getTime() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+        type: 'canceled',
+        description: 'Payment request canceled',
+        user: 'John Doe'
+      });
+    }
+    
+    if (['Processing', 'Paid'].includes(payment.status)) {
+      history.push({
+        id: '3',
+        date: new Date(new Date(payment.date).getTime() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+        type: 'processing',
+        description: 'Payment is being processed',
+        user: 'Jane Smith'
+      });
+    }
+    
+    if (payment.status === 'Paid') {
+      history.push({
+        id: '4',
+        date: new Date(new Date(payment.date).getTime() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+        type: 'paid',
+        description: 'Payment completed',
+        user: 'Jane Smith'
+      });
+    }
+    
+    return history;
   };
 
   const renderActionButtons = (payment: Payment) => {
@@ -210,13 +387,17 @@ const Payments: React.FC = () => {
   };
 
   const renderPaymentRow = (payment: Payment) => (
-    <tr key={payment.id} className={payment.status === 'Canceled' ? styles.canceledRow : ''}>
+    <tr 
+      key={payment.id} 
+      className={`${payment.status === 'Canceled' ? styles.canceledRow : ''} ${styles.clickableRow}`}
+      onClick={() => handleViewPaymentDetails(payment)}
+    >
       <td>{payment.loadId}</td>
       <td>{payment.date}</td>
       <td>{payment.customer}</td>
       <td>${payment.amount.toFixed(2)}</td>
       <td>{renderPaymentStatus(payment.status)}</td>
-      <td>{renderActionButtons(payment)}</td>
+      <td onClick={(e) => e.stopPropagation()}>{renderActionButtons(payment)}</td>
     </tr>
   );
 
@@ -256,27 +437,63 @@ const Payments: React.FC = () => {
         </div>
 
         <div className={styles.filters}>
-          <input
-            type="text"
-            placeholder="Search..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className={styles.searchInput}
-          />
-          <div className={styles.dateFilters}>
-            <input
-              type="date"
-              value={dateRange.start}
-              onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
-              className={styles.dateInput}
-            />
-            <span>to</span>
-            <input
-              type="date"
-              value={dateRange.end}
-              onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
-              className={styles.dateInput}
-            />
+          <div className={styles.filtersContainer}>
+            <div className={styles.searchContainer}>
+              <input
+                type="text"
+                placeholder="Search by Load ID or Customer"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={styles.searchInput}
+              />
+            </div>
+            
+            <div className={styles.filterGroup}>
+              <label>Status:</label>
+              <select 
+                value={statusFilter} 
+                onChange={(e) => setStatusFilter(e.target.value as PaymentStatus | 'All')}
+                className={styles.filterSelect}
+              >
+                <option value="All">All Statuses</option>
+                <option value="Pending">Pending</option>
+                <option value="Requested">Requested</option>
+                <option value="Paid">Paid</option>
+                <option value="Canceled">Canceled</option>
+                <option value="Processing">Processing</option>
+              </select>
+            </div>
+            
+            <div className={styles.filterGroup}>
+              <label>From:</label>
+              <input
+                type="date"
+                value={dateFilter.start}
+                onChange={(e) => setDateFilter(prev => ({ ...prev, start: e.target.value }))}
+                className={styles.dateInput}
+              />
+            </div>
+            
+            <div className={styles.filterGroup}>
+              <label>To:</label>
+              <input
+                type="date"
+                value={dateFilter.end}
+                onChange={(e) => setDateFilter(prev => ({ ...prev, end: e.target.value }))}
+                className={styles.dateInput}
+              />
+            </div>
+            
+            <button 
+              onClick={clearFilters}
+              className={styles.clearFiltersButton}
+            >
+              Clear Filters
+            </button>
+          </div>
+
+          <div className={styles.resultsInfo}>
+            Showing {filteredPayments.length} of {payments.length} payments
           </div>
         </div>
       </div>
@@ -286,18 +503,59 @@ const Payments: React.FC = () => {
           <table>
             <thead>
               <tr>
-                <th>Payment Date</th>
-                <th>Load ID</th>
-                <th>Customer</th>
-                <th>Amount</th>
-                <th>Method</th>
-                <th>Reference</th>
-                <th>Status</th>
+                <th onClick={() => handleSort('loadId')} className={styles.sortableHeader}>
+                  Load ID
+                  {sortConfig.key === 'loadId' && (
+                    <span className={styles.sortIcon}>
+                      {sortConfig.direction === 'ascending' ? '↑' : '↓'}
+                    </span>
+                  )}
+                </th>
+                <th onClick={() => handleSort('date')} className={styles.sortableHeader}>
+                  Date
+                  {sortConfig.key === 'date' && (
+                    <span className={styles.sortIcon}>
+                      {sortConfig.direction === 'ascending' ? '↑' : '↓'}
+                    </span>
+                  )}
+                </th>
+                <th onClick={() => handleSort('customer')} className={styles.sortableHeader}>
+                  Customer
+                  {sortConfig.key === 'customer' && (
+                    <span className={styles.sortIcon}>
+                      {sortConfig.direction === 'ascending' ? '↑' : '↓'}
+                    </span>
+                  )}
+                </th>
+                <th onClick={() => handleSort('amount')} className={styles.sortableHeader}>
+                  Amount
+                  {sortConfig.key === 'amount' && (
+                    <span className={styles.sortIcon}>
+                      {sortConfig.direction === 'ascending' ? '↑' : '↓'}
+                    </span>
+                  )}
+                </th>
+                <th onClick={() => handleSort('status')} className={styles.sortableHeader}>
+                  Status
+                  {sortConfig.key === 'status' && (
+                    <span className={styles.sortIcon}>
+                      {sortConfig.direction === 'ascending' ? '↑' : '↓'}
+                    </span>
+                  )}
+                </th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {payments.map((payment) => renderPaymentRow(payment))}
+              {filteredPayments.length > 0 ? (
+                filteredPayments.map((payment) => renderPaymentRow(payment))
+              ) : (
+                <tr>
+                  <td colSpan={6} className={styles.noResults}>
+                    No payments match your filters. <button onClick={clearFilters}>Clear filters</button>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -368,6 +626,12 @@ const Payments: React.FC = () => {
           />
         </>
       )}
+
+      <PaymentDetailsModal
+        isOpen={isPaymentDetailsModalOpen}
+        onClose={() => setIsPaymentDetailsModalOpen(false)}
+        payment={selectedPaymentDetails}
+      />
     </div>
   );
 };
