@@ -1,0 +1,241 @@
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: white;
+  border-radius: 8px;
+  width: 800px;
+  max-width: 90%;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.modalHeader h2 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #6c757d;
+}
+
+.tabsContainer {
+  display: flex;
+  border-bottom: 1px solid #e9ecef;
+  overflow-x: auto;
+}
+
+.tabButton {
+  padding: 12px 20px;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  font-weight: 500;
+  color: #6c757d;
+  white-space: nowrap;
+}
+
+.activeTab {
+  border-bottom-color: #0d6efd;
+  color: #0d6efd;
+}
+
+.content {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.content h3 {
+  margin: 0 0 15px 0;
+  font-size: 1.1rem;
+  color: #495057;
+}
+
+.radioGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 25px;
+}
+
+.radioLabel, .checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.formGroup {
+  margin-bottom: 15px;
+}
+
+.formGroup label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+
+.formGroup input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+}
+
+.inputWithAddon {
+  display: flex;
+  align-items: center;
+}
+
+.inputAddon {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  background-color: #e9ecef;
+  border: 1px solid #ced4da;
+  border-right: none;
+  border-radius: 4px 0 0 4px;
+}
+
+.inputWithAddon input {
+  border-radius: 0 4px 4px 0;
+}
+
+.helpText {
+  margin: 5px 0 0 0;
+  font-size: 0.8rem;
+  color: #6c757d;
+}
+
+.checkboxGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 25px;
+}
+
+.templatesList {
+  margin-bottom: 25px;
+}
+
+.templateItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 15px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.templateInfo {
+  flex: 1;
+}
+
+.templateName {
+  font-weight: 500;
+  margin-bottom: 3px;
+}
+
+.templateDetails {
+  font-size: 0.8rem;
+  color: #6c757d;
+}
+
+.deleteTemplateButton {
+  padding: 5px 10px;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.noTemplates {
+  color: #6c757d;
+  font-style: italic;
+}
+
+.addTemplateForm {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.addTemplateForm .formGroup {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.addTemplateButton {
+  padding: 8px 16px;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.addTemplateButton:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 15px 20px;
+  border-top: 1px solid #e9ecef;
+}
+
+.cancelButton {
+  padding: 8px 16px;
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.saveButton {
+  padding: 8px 16px;
+  background-color: #0d6efd;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.cancelButton:disabled,
+.saveButton:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+} 

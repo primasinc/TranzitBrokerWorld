@@ -6,6 +6,8 @@ import FactorRequestModal from '../../components/FactorRequestModal';
 import CancelPaymentRequestModal from '../../components/CancelPaymentRequestModal';
 import PaymentDetailsModal from '../../components/PaymentDetailsModal';
 import PaymentReportsModal from '../../components/PaymentReportsModal';
+import PaymentAnalyticsModal from '../../components/PaymentAnalyticsModal';
+import PaymentSettingsModal, { PaymentSettings } from '../../components/PaymentSettingsModal';
 
 interface Payment {
   id: string;
@@ -139,6 +141,40 @@ const Payments: React.FC = () => {
   const [isPaymentDetailsModalOpen, setIsPaymentDetailsModalOpen] = useState(false);
   const [selectedPaymentDetails, setSelectedPaymentDetails] = useState<PaymentWithHistory | null>(null);
   const [isReportsModalOpen, setIsReportsModalOpen] = useState(false);
+  const [selectedPaymentIds, setSelectedPaymentIds] = useState<string[]>([]);
+  const [bulkActionMenuOpen, setBulkActionMenuOpen] = useState(false);
+  const [isAnalyticsModalOpen, setIsAnalyticsModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [paymentSettings, setPaymentSettings] = useState<PaymentSettings>({
+    preferredPaymentMethod: 'directDeposit',
+    bankInfo: {
+      accountName: '',
+      accountNumber: '',
+      routingNumber: '',
+      bankName: ''
+    },
+    factoring: {
+      defaultFactoringOption: 'none',
+      externalFactoringCompany: '',
+      externalFactoringEmail: '',
+      autoFactorLoadsOver: 0
+    },
+    notifications: {
+      emailNotifications: true,
+      smsNotifications: false,
+      paymentStatusChanges: true,
+      paymentReminders: true,
+      weeklyReports: false
+    },
+    reportTemplates: [
+      {
+        name: 'Monthly Payments',
+        type: 'all',
+        format: 'csv',
+        fields: ['loadId', 'date', 'customer', 'amount', 'status']
+      }
+    ]
+  });
 
   useEffect(() => {
     let result = [...payments];
@@ -388,20 +424,125 @@ const Payments: React.FC = () => {
     }
   };
 
+  const togglePaymentSelection = (paymentId: string) => {
+    setSelectedPaymentIds(prev => 
+      prev.includes(paymentId)
+        ? prev.filter(id => id !== paymentId)
+        : [...prev, paymentId]
+    );
+  };
+
+  const toggleAllPayments = () => {
+    if (selectedPaymentIds.length === filteredPayments.length) {
+      setSelectedPaymentIds([]);
+    } else {
+      setSelectedPaymentIds(filteredPayments.map(p => p.id));
+    }
+  };
+
+  const handleBulkPaymentRequest = async () => {
+    if (selectedPaymentIds.length === 0) return;
+    
+    if (window.confirm(`Are you sure you want to request payment for ${selectedPaymentIds.length} selected items?`)) {
+      try {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        setPayments(payments.map(p => 
+          selectedPaymentIds.includes(p.id)
+            ? { ...p, status: 'Requested' as PaymentStatus }
+            : p
+        ));
+        
+        setSelectedPaymentIds([]);
+        setBulkActionMenuOpen(false);
+        
+        alert(`Successfully requested payment for ${selectedPaymentIds.length} items.`);
+      } catch (error) {
+        console.error('Error processing bulk payment request:', error);
+        alert('Error processing bulk payment request. Please try again.');
+      }
+    }
+  };
+
+  const handleBulkCancelRequest = async () => {
+    if (selectedPaymentIds.length === 0) return;
+    
+    if (window.confirm(`Are you sure you want to cancel payment requests for ${selectedPaymentIds.length} selected items?`)) {
+      try {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        setPayments(payments.map(p => 
+          selectedPaymentIds.includes(p.id) && p.status === 'Requested'
+            ? { ...p, status: 'Canceled' as PaymentStatus }
+            : p
+        ));
+        
+        setSelectedPaymentIds([]);
+        setBulkActionMenuOpen(false);
+        
+        alert(`Successfully canceled payment requests for ${selectedPaymentIds.length} items.`);
+      } catch (error) {
+        console.error('Error processing bulk cancellation:', error);
+        alert('Error processing bulk cancellation. Please try again.');
+      }
+    }
+  };
+
+  const handleBulkFactorRequest = async () => {
+    if (selectedPaymentIds.length === 0) return;
+    
+    if (window.confirm(`Are you sure you want to request factoring for ${selectedPaymentIds.length} selected items?`)) {
+      try {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        setPayments(payments.map(p => 
+          selectedPaymentIds.includes(p.id)
+            ? { ...p, status: 'Processing' as PaymentStatus }
+            : p
+        ));
+        
+        setSelectedPaymentIds([]);
+        setBulkActionMenuOpen(false);
+        
+        alert(`Successfully requested factoring for ${selectedPaymentIds.length} items.`);
+      } catch (error) {
+        console.error('Error processing bulk factoring request:', error);
+        alert('Error processing bulk factoring request. Please try again.');
+      }
+    }
+  };
+
   const renderPaymentRow = (payment: Payment) => (
     <tr 
       key={payment.id} 
-      className={`${payment.status === 'Canceled' ? styles.canceledRow : ''} ${styles.clickableRow}`}
-      onClick={() => handleViewPaymentDetails(payment)}
+      className={`
+        ${payment.status === 'Canceled' ? styles.canceledRow : ''} 
+        ${styles.clickableRow}
+        ${selectedPaymentIds.includes(payment.id) ? styles.selectedRow : ''}
+      `}
     >
-      <td>{payment.loadId}</td>
-      <td>{payment.date}</td>
-      <td>{payment.customer}</td>
-      <td>${payment.amount.toFixed(2)}</td>
-      <td>{renderPaymentStatus(payment.status)}</td>
+      <td className={styles.checkboxCell} onClick={(e) => e.stopPropagation()}>
+        <input
+          type="checkbox"
+          checked={selectedPaymentIds.includes(payment.id)}
+          onChange={() => togglePaymentSelection(payment.id)}
+          className={styles.checkbox}
+        />
+      </td>
+      <td onClick={() => handleViewPaymentDetails(payment)}>{payment.loadId}</td>
+      <td onClick={() => handleViewPaymentDetails(payment)}>{payment.date}</td>
+      <td onClick={() => handleViewPaymentDetails(payment)}>{payment.customer}</td>
+      <td onClick={() => handleViewPaymentDetails(payment)}>${payment.amount.toFixed(2)}</td>
+      <td onClick={() => handleViewPaymentDetails(payment)}>{renderPaymentStatus(payment.status)}</td>
       <td onClick={(e) => e.stopPropagation()}>{renderActionButtons(payment)}</td>
     </tr>
   );
+
+  const handleSaveSettings = (settings: PaymentSettings) => {
+    setPaymentSettings(settings);
+    // In a real app, you would save these to your backend
+    console.log('Saving settings:', settings);
+  };
 
   return (
     <div className={styles.container}>
@@ -500,14 +641,76 @@ const Payments: React.FC = () => {
         </div>
       </div>
 
+      {selectedPaymentIds.length > 0 && (
+        <div className={styles.bulkActionsBar}>
+          <div className={styles.selectedCount}>
+            {selectedPaymentIds.length} {selectedPaymentIds.length === 1 ? 'item' : 'items'} selected
+          </div>
+          
+          <div className={styles.bulkActions}>
+            <div className={styles.bulkActionsDropdown}>
+              <button 
+                className={styles.bulkActionsButton}
+                onClick={() => setBulkActionMenuOpen(!bulkActionMenuOpen)}
+              >
+                Bulk Actions ▼
+              </button>
+              
+              {bulkActionMenuOpen && (
+                <div className={styles.bulkActionsMenu}>
+                  <button 
+                    onClick={handleBulkPaymentRequest}
+                    className={styles.bulkActionItem}
+                  >
+                    Request Payment
+                  </button>
+                  <button 
+                    onClick={handleBulkFactorRequest}
+                    className={styles.bulkActionItem}
+                  >
+                    Request Factoring
+                  </button>
+                  <button 
+                    onClick={handleBulkCancelRequest}
+                    className={styles.bulkActionItem}
+                  >
+                    Cancel Payment Requests
+                  </button>
+                  <button 
+                    onClick={() => setSelectedPaymentIds([])}
+                    className={styles.bulkActionItem}
+                  >
+                    Clear Selection
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className={styles.pageHeader}>
         <h1>Payments</h1>
-        <button 
-          className={styles.reportsButton}
-          onClick={() => setIsReportsModalOpen(true)}
-        >
-          Generate Reports
-        </button>
+        <div className={styles.headerButtons}>
+          <button 
+            className={styles.settingsButton}
+            onClick={() => setIsSettingsModalOpen(true)}
+          >
+            Settings
+          </button>
+          <button 
+            className={styles.analyticsButton}
+            onClick={() => setIsAnalyticsModalOpen(true)}
+          >
+            Analytics
+          </button>
+          <button 
+            className={styles.reportsButton}
+            onClick={() => setIsReportsModalOpen(true)}
+          >
+            Generate Reports
+          </button>
+        </div>
       </div>
 
       {activeTab === 'payments' ? (
@@ -515,6 +718,14 @@ const Payments: React.FC = () => {
           <table>
             <thead>
               <tr>
+                <th className={styles.checkboxHeader}>
+                  <input
+                    type="checkbox"
+                    checked={selectedPaymentIds.length === filteredPayments.length && filteredPayments.length > 0}
+                    onChange={toggleAllPayments}
+                    className={styles.checkbox}
+                  />
+                </th>
                 <th onClick={() => handleSort('loadId')} className={styles.sortableHeader}>
                   Load ID
                   {sortConfig.key === 'loadId' && (
@@ -649,6 +860,19 @@ const Payments: React.FC = () => {
         isOpen={isReportsModalOpen}
         onClose={() => setIsReportsModalOpen(false)}
         payments={payments}
+      />
+
+      <PaymentAnalyticsModal
+        isOpen={isAnalyticsModalOpen}
+        onClose={() => setIsAnalyticsModalOpen(false)}
+        payments={payments}
+      />
+
+      <PaymentSettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        settings={paymentSettings}
+        onSaveSettings={handleSaveSettings}
       />
     </div>
   );

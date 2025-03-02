@@ -335,4 +335,114 @@
 
 .reportsButton:before {
   content: '📊';
+}
+
+.checkboxCell {
+  width: 40px;
+  text-align: center;
+}
+
+.checkboxHeader {
+  width: 40px;
+  text-align: center;
+}
+
+.checkbox {
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+}
+
+.selectedRow {
+  background-color: #e8f4ff !important;
+}
+
+.bulkActionsBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #e8f4ff;
+  padding: 10px 15px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+}
+
+.selectedCount {
+  font-weight: 500;
+}
+
+.bulkActionsDropdown {
+  position: relative;
+}
+
+.bulkActionsButton {
+  padding: 8px 16px;
+  background-color: #0d6efd;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.bulkActionsMenu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+  min-width: 200px;
+}
+
+.bulkActionItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 15px;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.bulkActionItem:hover {
+  background-color: #f8f9fa;
+}
+
+.headerButtons {
+  display: flex;
+  gap: 10px;
+}
+
+.analyticsButton {
+  padding: 8px 16px;
+  background-color: #6610f2;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.analyticsButton:before {
+  content: '📈';
+}
+
+.settingsButton {
+  padding: 8px 16px;
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settingsButton:before {
+  content: '⚙️';
 } 
