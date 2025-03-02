@@ -78,7 +78,7 @@ function App() {
               <Route path="invoices" element={<PayInvoices />} />
               <Route path="archive" element={<ShipmentArchive />} />
               <Route path="directory" element={<CarrierDirectory />} />
-              <Route path="carrier-partners/:id" element={<CarrierDetails />} />
+              <Route path="carrier-partners/:partnerId" element={<CarrierDetails partnerId={params.partnerId} />} />
             </Route>
 
             {/* Auth Routes */}
