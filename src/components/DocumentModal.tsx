@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ref, uploadBytes, listAll, getDownloadURL } from 'firebase/storage';
-import { storage } from '../config/firebase';
+import { firebaseStorage as storage } from '../services/firebase';
 import styles from './DocumentModal.module.css';
 
 interface DocumentModalProps {
@@ -12,73 +12,68 @@ interface DocumentModalProps {
 interface Document {
   name: string;
   url: string;
-  uploadDate: string;
 }
 
 const DocumentModal: React.FC<DocumentModalProps> = ({ isOpen, onClose, loadId }) => {
-  const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
-  const [documents, setDocuments] = useState<Document[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [documents, setDocuments] = useState<Document[]>([]);
 
+  // Fetch documents when modal opens
   useEffect(() => {
-    if (isOpen && loadId) {
-      loadDocuments();
+    if (isOpen) {
+      fetchDocuments();
     }
   }, [isOpen, loadId]);
 
-  const loadDocuments = async () => {
+  const fetchDocuments = async () => {
     try {
-      const loadFolderRef = ref(storage, `loads/${loadId}/documents`);
-      const result = await listAll(loadFolderRef);
+      const folderRef = ref(storage, `loads/${loadId}/documents`);
+      const result = await listAll(folderRef);
       
       const docs = await Promise.all(
         result.items.map(async (item) => {
           const url = await getDownloadURL(item);
           return {
             name: item.name,
-            url,
-            uploadDate: new Date().toISOString() // In real app, get from metadata
+            url
           };
         })
       );
       
       setDocuments(docs);
     } catch (error) {
-      console.error('Error loading documents:', error);
+      console.error('Error fetching documents:', error);
     }
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSelectedFiles(e.target.files);
-  };
+  const handleUploadClick = async () => {
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.multiple = true;
+    
+    fileInput.click();
 
-  const handleUpload = async () => {
-    if (!selectedFiles) return;
+    fileInput.onchange = async (e) => {
+      const files = (e.target as HTMLInputElement).files;
+      if (!files?.length) return;
 
-    setUploading(true);
-    setUploadProgress(0);
-
-    try {
-      for (let i = 0; i < selectedFiles.length; i++) {
-        const file = selectedFiles[i];
-        const fileRef = ref(storage, `loads/${loadId}/documents/${file.name}`);
+      try {
+        setUploading(true);
         
-        await uploadBytes(fileRef, file);
-        setUploadProgress(((i + 1) / selectedFiles.length) * 100);
+        for (const file of Array.from(files)) {
+          const storageRef = ref(storage, `loads/${loadId}/documents/${file.name}`);
+          await uploadBytes(storageRef, file);
+        }
+        
+        // Just fetch the updated list without showing an alert
+        await fetchDocuments();
+      } catch (error) {
+        console.error('Error uploading files:', error);
+        alert('Error uploading files. Please try again.');  // Keep error alert for user feedback
+      } finally {
+        setUploading(false);
       }
-
-      await loadDocuments();
-      setSelectedFiles(null);
-      // Reset file input
-      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-      if (fileInput) fileInput.value = '';
-    } catch (error) {
-      console.error('Error uploading files:', error);
-    } finally {
-      setUploading(false);
-      setUploadProgress(0);
-    }
+    };
   };
 
   if (!isOpen) return null;
@@ -89,31 +84,13 @@ const DocumentModal: React.FC<DocumentModalProps> = ({ isOpen, onClose, loadId }
         <h2>Load Documents - {loadId}</h2>
         
         <div className={styles.content}>
-          <div className={styles.uploadSection}>
-            <input
-              type="file"
-              multiple
-              onChange={handleFileChange}
-              className={styles.fileInput}
-              disabled={uploading}
-            />
-            <button 
-              onClick={handleUpload}
-              className={styles.uploadButton}
-              disabled={!selectedFiles || uploading}
-            >
-              {uploading ? 'Uploading...' : 'Upload Documents'}
-            </button>
-          </div>
-
-          {uploading && (
-            <div className={styles.progressBar}>
-              <div 
-                className={styles.progressFill} 
-                style={{ width: `${uploadProgress}%` }}
-              />
-            </div>
-          )}
+          <button 
+            onClick={handleUploadClick}
+            className={styles.uploadButton}
+            disabled={uploading}
+          >
+            {uploading ? 'Uploading...' : 'Choose & Upload Files'}
+          </button>
 
           <div className={styles.documentList}>
             <h3>Uploaded Documents</h3>
