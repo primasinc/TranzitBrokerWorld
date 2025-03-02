@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import styles from './Payments.module.css';
+import DocumentModal from '../../components/DocumentModal';
 
 interface Payment {
   id: string;
@@ -10,6 +11,15 @@ interface Payment {
   method: string;
   reference: string;
   customer: string;
+  documentCount?: number;
+  factoring?: {
+    status: 'available' | 'requested' | 'approved' | 'processing';
+    rate?: number;
+  };
+  paymentRequest?: {
+    status: 'not_requested' | 'pending' | 'approved' | 'rejected';
+    requestDate?: string;
+  };
 }
 
 interface Invoice {
@@ -26,6 +36,8 @@ const Payments: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'payments' | 'invoices'>('payments');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [searchTerm, setSearchTerm] = useState('');
+  const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false);
+  const [selectedLoadId, setSelectedLoadId] = useState<string>('');
 
   const payments: Payment[] = [
     {
@@ -80,6 +92,21 @@ const Payments: React.FC = () => {
   const pendingPayments = payments
     .filter(p => p.status === 'Pending' || p.status === 'Processing')
     .reduce((sum, p) => sum + p.amount, 0);
+
+  const handleDocuments = (payment: Payment) => {
+    setSelectedLoadId(payment.loadId);
+    setIsDocumentModalOpen(true);
+  };
+
+  const handlePaymentRequest = (payment: Payment) => {
+    // TODO: Implement direct payment request to shipper
+    console.log('Requesting direct payment for load:', payment.loadId);
+  };
+
+  const handleFactorRequest = (payment: Payment) => {
+    // TODO: Implement factoring request
+    console.log('Requesting factoring for load:', payment.loadId);
+  };
 
   return (
     <div className={styles.container}>
@@ -173,8 +200,26 @@ const Payments: React.FC = () => {
                   </td>
                   <td>
                     <div className={styles.actions}>
-                      <button className={styles.viewButton}>View</button>
-                      <button className={styles.downloadButton}>Receipt</button>
+                      <button 
+                        className={`${styles.actionButton} ${styles.documentsButton}`}
+                        onClick={() => handleDocuments(payment)}
+                      >
+                        Documents
+                      </button>
+                      <button 
+                        className={`${styles.actionButton} ${styles.paymentButton}`}
+                        onClick={() => handlePaymentRequest(payment)}
+                        disabled={payment.status === 'Paid'}
+                      >
+                        Payment Request
+                      </button>
+                      <button 
+                        className={`${styles.actionButton} ${styles.factorButton}`}
+                        onClick={() => handleFactorRequest(payment)}
+                        disabled={payment.status === 'Paid' || payment.factoring?.status === 'processing'}
+                      >
+                        Factor Request
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -223,6 +268,12 @@ const Payments: React.FC = () => {
           </table>
         </div>
       )}
+
+      <DocumentModal
+        isOpen={isDocumentModalOpen}
+        onClose={() => setIsDocumentModalOpen(false)}
+        loadId={selectedLoadId}
+      />
     </div>
   );
 };
