@@ -52,7 +52,7 @@ function App() {
       >
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Navigate to="/carrier/home" replace />} />
+            <Route path="/" element={<Navigate to="/login" replace />} />
             
             {/* Carrier Routes */}
             <Route path="/carrier" element={<CarrierLayout />}>
