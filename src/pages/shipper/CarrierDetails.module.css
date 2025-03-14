@@ -11,8 +11,30 @@
   margin-bottom: 30px;
 }
 
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.headerRight {
+  display: flex;
+  gap: 10px;
+}
+
 .header h1 {
   margin: 0;
+  font-size: 24px;
+}
+
+.backButton {
+  padding: 8px 12px;
+  background-color: #f2f2f2;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  color: #333;
 }
 
 .status {
@@ -29,6 +51,31 @@
 .inactive {
   background-color: #ffebee;
   color: #d32f2f;
+}
+
+.tabs {
+  display: flex;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 20px;
+}
+
+.tab {
+  padding: 12px 20px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-weight: 500;
+  color: #666;
+}
+
+.tab:hover {
+  color: #333;
+}
+
+.activeTab {
+  color: #4a90e2;
+  border-bottom: 2px solid #4a90e2;
 }
 
 .content {
@@ -54,6 +101,22 @@
 .stars {
   color: #ffc107;
   letter-spacing: 2px;
+  font-size: 20px;
+}
+
+.description {
+  margin-bottom: 20px;
+}
+
+.description h2 {
+  font-size: 18px;
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
+.description p {
+  line-height: 1.6;
+  color: #555;
 }
 
 .stats {
@@ -80,8 +143,20 @@
   font-weight: 500;
 }
 
-.specialties {
+.specialtiesSection, .lanesSection, .infoSection {
   margin-bottom: 20px;
+}
+
+.specialtiesSection h2, .lanesSection h2, .infoSection h2 {
+  font-size: 18px;
+  margin-top: 0;
+  margin-bottom: 15px;
+}
+
+.specialties {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .specialty {
@@ -90,7 +165,33 @@
   background-color: #e3f2fd;
   color: #1976d2;
   border-radius: 4px;
-  margin: 0 8px 8px 0;
+}
+
+.lanesList {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.lanesList li {
+  margin-bottom: 8px;
+  color: #555;
+}
+
+.infoGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.infoItem label {
+  display: block;
+  color: #666;
+  margin-bottom: 5px;
+}
+
+.infoItem p {
+  margin: 0;
+  font-weight: 500;
 }
 
 .contactInfo {
@@ -98,10 +199,12 @@
   border-radius: 8px;
   padding: 20px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  align-self: start;
 }
 
 .contactInfo h2 {
   margin: 0 0 20px 0;
+  font-size: 18px;
 }
 
 .contactDetail {
@@ -114,19 +217,209 @@
   margin-bottom: 5px;
 }
 
+.contactDetail p {
+  margin: 0;
+  font-weight: 500;
+}
+
 .contactButton {
   width: 100%;
   padding: 10px;
-  background-color: #007bff;
+  background-color: #4a90e2;
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
   margin-top: 20px;
+  font-weight: 500;
 }
 
 .contactButton:hover {
-  background-color: #0056b3;
+  background-color: #3a7bc8;
+}
+
+.documentsTab, .ratesTab, .performanceTab {
+  grid-column: 1 / -1;
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.documentsTab h2, .ratesTab h2, .performanceTab h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  font-size: 18px;
+}
+
+.documentsTable, .ratesTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.documentsTable th, .ratesTable th {
+  text-align: left;
+  padding: 12px;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #eee;
+}
+
+.documentsTable td, .ratesTable td {
+  padding: 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.docStatus, .agreementStatus {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8em;
+}
+
+.valid, .active {
+  background-color: #e8f5e9;
+  color: #388e3c;
+}
+
+.expired {
+  background-color: #ffebee;
+  color: #d32f2f;
+}
+
+.pending {
+  background-color: #fff8e1;
+  color: #f57c00;
+}
+
+.viewButton, .editButton, .primaryButton {
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.viewButton {
+  background-color: #f2f2f2;
+  color: #333;
+  margin-right: 5px;
+}
+
+.editButton {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.primaryButton {
+  background-color: #4a90e2;
+  color: white;
+  padding: 8px 16px;
+}
+
+.documentActions, .ratesHeader {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.ratesHeader {
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.metricsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.metricCard {
+  background-color: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.metricCard h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 16px;
+  color: #666;
+}
+
+.metricValue {
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.metricBar {
+  height: 8px;
+  background-color: #f2f2f2;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.metricFill {
+  height: 100%;
+  background-color: #4caf50;
+  border-radius: 4px;
+}
+
+.inverseFill {
+  background-color: #f44336;
+}
+
+.performanceHistory {
+  background-color: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.performanceHistory h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 16px;
+}
+
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 300px;
+}
+
+.loader {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #4a90e2;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.errorContainer {
+  text-align: center;
+  padding: 40px;
+}
+
+.errorContainer h2 {
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
+.errorContainer p {
+  margin-bottom: 20px;
+  color: #666;
 }
 
 @media (max-width: 768px) {
@@ -136,5 +429,10 @@
   
   .stats {
     grid-template-columns: 1fr 1fr;
+  }
+  
+  .tabs {
+    overflow-x: auto;
+    white-space: nowrap;
   }
 } 
