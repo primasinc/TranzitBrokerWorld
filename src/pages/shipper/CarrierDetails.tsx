@@ -19,6 +19,8 @@ interface CarrierDetail {
   description: string;
   yearEstablished: number;
   fleetSize: number;
+  usdotNumber?: string;
+  mcNumber?: string;
   insuranceCoverage: string;
   paymentTerms: string;
   preferredLanes: string[];
@@ -57,44 +59,88 @@ const CarrierDetails: React.FC = () => {
         // In a real app, this would be an API call
         // For now, we'll use mock data
         setTimeout(() => {
-          setCarrier({
-            id: partnerId || "C001",
-            name: "ABC Trucking Co",
-            rating: 4.8,
-            completedLoads: 156,
-            activeLoads: 3,
-            specialties: ["Refrigerated", "Hazmat", "LTL"],
-            status: "Active" as 'Active',
-            location: "Chicago, IL",
-            contact: {
-              name: "John Smith",
-              phone: "(555) 123-4567",
-              email: "john@abctrucking.com"
-            },
-            description: "ABC Trucking is a reliable carrier with over 10 years of experience in the transportation industry. We specialize in refrigerated, hazardous materials, and less-than-truckload shipments across the Midwest and Northeast regions.",
-            yearEstablished: 2012,
-            fleetSize: 45,
-            insuranceCoverage: "$2,000,000 General Liability, $1,000,000 Auto Liability",
-            paymentTerms: "Net 30",
-            preferredLanes: ["Chicago to New York", "Detroit to Atlanta", "Indianapolis to Dallas"],
-            performanceMetrics: {
-              onTimeDelivery: 97.5,
-              loadAcceptanceRate: 92.3,
-              claimRate: 0.5,
-              avgResponseTime: "15 minutes"
-            },
-            documents: [
-              { name: "Operating Authority", dateUploaded: "2023-01-15", status: "Valid" as 'Valid' },
-              { name: "Insurance Certificate", dateUploaded: "2023-02-10", status: "Valid" as 'Valid' },
-              { name: "W-9 Form", dateUploaded: "2023-01-05", status: "Valid" as 'Valid' },
-              { name: "Safety Rating", dateUploaded: "2022-11-20", status: "Valid" as 'Valid' }
-            ],
-            rateAgreements: [
-              { id: "RA001", name: "Standard Rate Agreement", effectiveDate: "2023-01-01", expirationDate: "2023-12-31", status: "Active" as 'Active' },
-              { id: "RA002", name: "Refrigerated Loads Agreement", effectiveDate: "2023-02-15", expirationDate: "2023-12-31", status: "Active" as 'Active' },
-              { id: "RA003", name: "Hazmat Surcharge Agreement", effectiveDate: "2023-03-01", expirationDate: "2023-12-31", status: "Active" as 'Active' }
-            ]
-          });
+          if (partnerId === "C003") {
+            // SMR CONSULTING LLC data
+            setCarrier({
+              id: partnerId,
+              name: "SMR CONSULTING LLC",
+              rating: 4.2,
+              completedLoads: 91,
+              activeLoads: 1,
+              specialties: ["Interstate", "General Freight"],
+              status: "Active" as 'Active',
+              location: "HURON, OH",
+              usdotNumber: "3688871",
+              mcNumber: "MC-1285125",
+              contact: {
+                name: "Contact Person",
+                phone: "(724) 344-4978",
+                email: "contact@smrconsulting.com"
+              },
+              description: "SMR CONSULTING LLC is a carrier based in HURON, OH. We specialize in interstate transportation and general freight. Our company has been providing reliable transportation services since 2018.",
+              yearEstablished: 2018,
+              fleetSize: 1,
+              insuranceCoverage: "$750,000 General Liability, $1,000,000 Auto Liability",
+              paymentTerms: "Net 30",
+              preferredLanes: ["Ohio to Kentucky", "Ohio to Pennsylvania", "Ohio to Michigan"],
+              performanceMetrics: {
+                onTimeDelivery: 95.0,
+                loadAcceptanceRate: 90.0,
+                claimRate: 0.8,
+                avgResponseTime: "20 minutes"
+              },
+              documents: [
+                { name: "Operating Authority", dateUploaded: "2023-05-15", status: "Valid" as 'Valid' },
+                { name: "Insurance Certificate", dateUploaded: "2023-06-10", status: "Valid" as 'Valid' },
+                { name: "W-9 Form", dateUploaded: "2023-05-05", status: "Valid" as 'Valid' }
+              ],
+              rateAgreements: [
+                { id: "RA001", name: "Standard Rate Agreement", effectiveDate: "2023-01-01", expirationDate: "2023-12-31", status: "Active" as 'Active' }
+              ]
+            });
+          } else {
+            // Default carrier data (ABC Trucking Co)
+            setCarrier({
+              id: partnerId || "C001",
+              name: "ABC Trucking Co",
+              rating: 4.8,
+              completedLoads: 156,
+              activeLoads: 3,
+              specialties: ["Refrigerated", "Hazmat", "LTL"],
+              status: "Active" as 'Active',
+              location: "Chicago, IL",
+              usdotNumber: "1234567",
+              mcNumber: "MC-987654",
+              contact: {
+                name: "John Smith",
+                phone: "(555) 123-4567",
+                email: "john@abctrucking.com"
+              },
+              description: "ABC Trucking is a reliable carrier with over 10 years of experience in the transportation industry. We specialize in refrigerated, hazardous materials, and less-than-truckload shipments across the Midwest and Northeast regions.",
+              yearEstablished: 2012,
+              fleetSize: 45,
+              insuranceCoverage: "$2,000,000 General Liability, $1,000,000 Auto Liability",
+              paymentTerms: "Net 30",
+              preferredLanes: ["Chicago to New York", "Detroit to Atlanta", "Indianapolis to Dallas"],
+              performanceMetrics: {
+                onTimeDelivery: 97.5,
+                loadAcceptanceRate: 92.3,
+                claimRate: 0.5,
+                avgResponseTime: "15 minutes"
+              },
+              documents: [
+                { name: "Operating Authority", dateUploaded: "2023-01-15", status: "Valid" as 'Valid' },
+                { name: "Insurance Certificate", dateUploaded: "2023-02-10", status: "Valid" as 'Valid' },
+                { name: "W-9 Form", dateUploaded: "2023-01-05", status: "Valid" as 'Valid' },
+                { name: "Safety Rating", dateUploaded: "2022-11-20", status: "Valid" as 'Valid' }
+              ],
+              rateAgreements: [
+                { id: "RA001", name: "Standard Rate Agreement", effectiveDate: "2023-01-01", expirationDate: "2023-12-31", status: "Active" as 'Active' },
+                { id: "RA002", name: "Refrigerated Loads Agreement", effectiveDate: "2023-02-15", expirationDate: "2023-12-31", status: "Active" as 'Active' },
+                { id: "RA003", name: "Hazmat Surcharge Agreement", effectiveDate: "2023-03-01", expirationDate: "2023-12-31", status: "Active" as 'Active' }
+              ]
+            });
+          }
           setIsLoading(false);
         }, 800);
       } catch (error) {
@@ -118,6 +164,15 @@ const CarrierDetails: React.FC = () => {
         {'☆'.repeat(emptyStars)}
       </>
     );
+  };
+
+  const handleViewSafer = () => {
+    // Open the SAFER website in a new tab with the carrier's USDOT number if available
+    if (carrier?.usdotNumber) {
+      window.open(`https://safer.fmcsa.dot.gov/query.asp?searchtype=ANY&query_type=queryCarrierSnapshot&query_param=USDOT&query_string=${carrier.usdotNumber}`, '_blank');
+    } else {
+      window.open('https://safer.fmcsa.dot.gov/CompanySnapshot.aspx', '_blank');
+    }
   };
 
   if (isLoading) {
@@ -160,6 +215,12 @@ const CarrierDetails: React.FC = () => {
           </span>
         </div>
         <div className={styles.headerRight}>
+          <button 
+            className={styles.saferButton}
+            onClick={handleViewSafer}
+          >
+            View SAFER
+          </button>
           <button className={styles.contactButton}>Contact Carrier</button>
         </div>
       </div>
@@ -251,6 +312,18 @@ const CarrierDetails: React.FC = () => {
                     <label>Location</label>
                     <p>{carrier.location}</p>
                   </div>
+                  {carrier.usdotNumber && (
+                    <div className={styles.infoItem}>
+                      <label>USDOT Number</label>
+                      <p>{carrier.usdotNumber}</p>
+                    </div>
+                  )}
+                  {carrier.mcNumber && (
+                    <div className={styles.infoItem}>
+                      <label>MC Number</label>
+                      <p>{carrier.mcNumber}</p>
+                    </div>
+                  )}
                   <div className={styles.infoItem}>
                     <label>Insurance Coverage</label>
                     <p>{carrier.insuranceCoverage}</p>

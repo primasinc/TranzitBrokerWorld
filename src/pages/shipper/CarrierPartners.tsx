@@ -11,6 +11,8 @@ interface CarrierPartner {
   specialties: string[];
   status: 'Active' | 'Inactive';
   location: string;
+  usdotNumber?: string;
+  mcNumber?: string;
   contact: {
     name: string;
     phone: string;
@@ -33,6 +35,8 @@ const CarrierPartners: React.FC = () => {
       specialties: ["Refrigerated", "Hazmat", "LTL"],
       status: "Active",
       location: "Chicago, IL",
+      usdotNumber: "1234567",
+      mcNumber: "MC-987654",
       contact: {
         name: "John Smith",
         phone: "(555) 123-4567",
@@ -54,7 +58,23 @@ const CarrierPartners: React.FC = () => {
         email: "sarah@xyzlogistics.com"
       }
     },
-    // Add more carriers as needed
+    {
+      id: "C003",
+      name: "SMR CONSULTING LLC",
+      rating: 4.2,
+      completedLoads: 91,
+      activeLoads: 1,
+      specialties: ["Interstate", "General Freight"],
+      status: "Active",
+      location: "HURON, OH",
+      usdotNumber: "3688871",
+      mcNumber: "MC-1285125",
+      contact: {
+        name: "Contact Person",
+        phone: "(724) 344-4978",
+        email: "contact@smrconsulting.com"
+      }
+    }
   ];
 
   const renderStars = (rating: number) => {
