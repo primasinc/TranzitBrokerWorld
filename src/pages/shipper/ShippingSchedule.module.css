@@ -9,23 +9,63 @@
   margin-bottom: 20px;
 }
 
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.filterBadge {
+  display: flex;
+  align-items: center;
+  background-color: #e8f0fe;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 0.875rem;
+  color: #1a73e8;
+  gap: 8px;
+}
+
+.clearFilter {
+  background: none;
+  border: none;
+  color: #5f6368;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.clearFilter:hover {
+  color: #1a73e8;
+}
+
 .viewToggle {
   display: flex;
-  gap: 10px;
+  gap: 8px;
 }
 
 .toggleButton {
   padding: 8px 16px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  border: 1px solid #dadce0;
   background: white;
+  border-radius: 4px;
   cursor: pointer;
+  font-size: 0.875rem;
+  color: #5f6368;
+  transition: all 0.2s ease;
+}
+
+.toggleButton:hover {
+  background: #f1f3f4;
 }
 
 .toggleButton.active {
-  background-color: #007bff;
+  background: #1a73e8;
   color: white;
-  border-color: #007bff;
+  border-color: #1a73e8;
 }
 
 .calendar {
@@ -48,25 +88,67 @@
   gap: 10px;
 }
 
+.listView {
+  margin-top: 20px;
+}
+
 .listView table {
   width: 100%;
   border-collapse: collapse;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .listView th,
 .listView td {
-  padding: 12px 16px;
+  padding: 12px;
   text-align: left;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid #dadce0;
+}
+
+.listView th {
+  font-weight: 500;
+  color: #5f6368;
+  background-color: #f8f9fa;
+}
+
+.filterHeader {
+  margin: 20px 0;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #4285F4;
+}
+
+.filterHeader h2 {
+  margin: 0;
+  color: #1a73e8;
+  font-size: 1.5rem;
 }
 
 .status {
   padding: 4px 8px;
   border-radius: 4px;
-  font-size: 0.9em;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.active {
+  background-color: #e6f4ea;
+  color: #1e7e34;
+}
+
+.delayed {
+  background-color: #fce8e6;
+  color: #d93025;
+}
+
+.completed {
+  background-color: #e8f0fe;
+  color: #1a73e8;
+}
+
+.cancelled {
+  background-color: #f1f3f4;
+  color: #5f6368;
 }
 
 .confirmed {
@@ -80,15 +162,25 @@
 }
 
 .actionButton {
-  margin: 0 4px;
   padding: 6px 12px;
+  margin-right: 8px;
   border: none;
   border-radius: 4px;
-  background-color: #007bff;
+  background-color: #1a73e8;
   color: white;
   cursor: pointer;
+  font-size: 0.875rem;
+  transition: background-color 0.2s ease;
 }
 
 .actionButton:hover {
-  background-color: #0056b3;
+  background-color: #1557b0;
+}
+
+.actionButton:last-child {
+  background-color: #dc3545;
+}
+
+.actionButton:last-child:hover {
+  background-color: #c82333;
 } 

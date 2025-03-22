@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { GoogleMap, Marker, Circle } from '@react-google-maps/api';
+import { useNavigate } from 'react-router-dom';
 import styles from './Dashboard.module.css';
 
 interface Shipment {
@@ -24,6 +25,7 @@ interface AvailableCarrier {
 }
 
 const ShipperDashboard: React.FC = () => {
+  const navigate = useNavigate();
   const [selectedPeriod, setSelectedPeriod] = useState('week');
   const [showActiveShipments, setShowActiveShipments] = useState(true);
   const [radiusInMiles, setRadiusInMiles] = useState(50);
@@ -128,14 +130,34 @@ const ShipperDashboard: React.FC = () => {
     return "★".repeat(Math.floor(rating)) + "☆".repeat(5 - Math.floor(rating));
   };
 
+  // Handle metric card clicks
+  const handleMetricClick = (type: 'active' | 'delayed') => {
+    navigate('/shipper/schedule', { 
+      state: { 
+        filter: type,
+        period: selectedPeriod 
+      }
+    });
+  };
+
   return (
     <div className={styles.dashboard}>
       <div className={styles.metricsGrid}>
-        <div className={styles.metricCard}>
+        <div 
+          className={`${styles.metricCard} ${styles.clickable}`}
+          onClick={() => handleMetricClick('active')}
+          role="button"
+          tabIndex={0}
+        >
           <h3>Active Shipments</h3>
           <div className={styles.metricValue}>{metrics.activeShipments}</div>
         </div>
-        <div className={styles.metricCard}>
+        <div 
+          className={`${styles.metricCard} ${styles.clickable}`}
+          onClick={() => handleMetricClick('delayed')}
+          role="button"
+          tabIndex={0}
+        >
           <h3>Delayed Shipments</h3>
           <div className={styles.metricValue}>{metrics.delayedShipments}</div>
         </div>
