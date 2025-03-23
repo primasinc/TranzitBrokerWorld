@@ -90,6 +90,25 @@
   background-color: #5a6268;
 }
 
+.error {
+  color: #dc3545;
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+  padding: 10px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.devNote {
+  margin-top: 20px;
+  padding: 10px;
+  background-color: #e8f4f8;
+  border-radius: 4px;
+  text-align: center;
+  color: #666;
+}
+
 @media (max-width: 480px) {
   .loginBox {
     padding: 1.5rem;

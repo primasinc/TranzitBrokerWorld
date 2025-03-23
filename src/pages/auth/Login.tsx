@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../../config/firebase';
 import styles from './Login.module.css';
 
 const Login: React.FC = () => {
@@ -10,14 +12,30 @@ const Login: React.FC = () => {
     userType: 'shipper',
     rememberMe: false
   });
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // For testing, navigate based on user type
-    if (formData.userType === 'shipper') {
-      navigate('/shipper/dashboard');
-    } else {
-      navigate('/carrier/home');
+    setError('');
+
+    try {
+      // For development/testing, use these credentials:
+      // If no email/password provided, use test credentials
+      const email = formData.email || 'test@tranzit.com';
+      const password = formData.password || 'test123';
+
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      console.log('Logged in user:', userCredential.user);
+
+      // Navigate based on user type
+      if (formData.userType === 'shipper') {
+        navigate('/shipper/dashboard');
+      } else {
+        navigate('/carrier/home');
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('Invalid email or password');
     }
   };
 
@@ -25,6 +43,8 @@ const Login: React.FC = () => {
     <div className={styles.loginContainer}>
       <div className={styles.loginBox}>
         <h1>Welcome to Tranzit</h1>
+        
+        {error && <div className={styles.error}>{error}</div>}
         
         <form onSubmit={handleSubmit} className={styles.form}>
           <div className={styles.inputGroup}>
@@ -48,7 +68,7 @@ const Login: React.FC = () => {
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               className={styles.input}
-              placeholder="Enter your email"
+              placeholder="Enter your email (or leave empty for test account)"
             />
           </div>
 
@@ -60,7 +80,7 @@ const Login: React.FC = () => {
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               className={styles.input}
-              placeholder="Enter your password"
+              placeholder="Enter your password (or leave empty for test account)"
             />
           </div>
 
@@ -86,6 +106,16 @@ const Login: React.FC = () => {
           >
             Register
           </button>
+
+          {process.env.NODE_ENV === 'development' && (
+            <div className={styles.devNote}>
+              <small>
+                Development Note: Leave email/password empty to use test account:<br />
+                Email: test@tranzit.com<br />
+                Password: test123
+              </small>
+            </div>
+          )}
         </form>
       </div>
     </div>
