@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GoogleMap, Marker, Circle } from '@react-google-maps/api';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import { subscribeToShipperMetrics } from '../../services/shipmentService';
+import { generateTestData } from '../../utils/seedTestData';
 import styles from './Dashboard.module.css';
 
 interface Shipment {
@@ -26,10 +29,19 @@ interface AvailableCarrier {
 
 const ShipperDashboard: React.FC = () => {
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
   const [selectedPeriod, setSelectedPeriod] = useState('week');
   const [showActiveShipments, setShowActiveShipments] = useState(true);
   const [radiusInMiles, setRadiusInMiles] = useState(50);
   const [userLocation, setUserLocation] = useState<google.maps.LatLngLiteral>({ lat: 41.8781, lng: -87.6298 }); // Default to Chicago
+  const [metrics, setMetrics] = useState({
+    activeShipments: 0,
+    delayedShipments: 0,
+    onTimeDelivery: 0,
+    averageCost: 0
+  });
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Mock shipments data
   const shipments: Shipment[] = [
@@ -108,12 +120,31 @@ const ShipperDashboard: React.FC = () => {
   // Filter carriers based on radius
   const filteredCarriers = availableCarriers.filter(carrier => carrier.distance <= radiusInMiles);
 
-  const metrics = {
-    activeShipments: 12,
-    delayedShipments: 2,
-    onTimeDelivery: 95,
-    averageCost: 2300
-  };
+  // Subscribe to metrics updates
+  useEffect(() => {
+    if (!currentUser) return;
+
+    console.log('Setting up metrics subscription for user:', currentUser.uid);
+    const unsubscribe = subscribeToShipperMetrics(currentUser.uid, (metricsData) => {
+      console.log('Raw metrics data received:', metricsData);
+      
+      // Calculate metrics from the raw data
+      const newMetrics = {
+        activeShipments: metricsData.totalShipments - metricsData.completedShipments || 0,
+        delayedShipments: metricsData.completedShipments - metricsData.onTimeDeliveries || 0,
+        onTimeDelivery: Number(metricsData.onTimeDeliveryPercentage?.toFixed(1)) || 0,
+        averageCost: Math.round(metricsData.averageCostPerLoad || 0)
+      };
+      
+      console.log('Setting dashboard metrics:', newMetrics);
+      setMetrics(newMetrics);
+    });
+
+    return () => {
+      console.log('Cleaning up metrics subscription');
+      unsubscribe();
+    };
+  }, [currentUser]);
 
   // Handle radius change
   const handleRadiusChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -140,8 +171,42 @@ const ShipperDashboard: React.FC = () => {
     });
   };
 
+  const handleGenerateTestData = async () => {
+    if (!currentUser) {
+      setError('Please log in to generate test data.');
+      return;
+    }
+
+    setIsGenerating(true);
+    setError(null);
+    
+    console.log('Starting test data generation for user:', currentUser.uid);
+    const success = await generateTestData(currentUser.uid);
+    
+    if (success) {
+      console.log('Test data generation completed successfully');
+    } else {
+      console.error('Failed to generate test data');
+      setError('Failed to generate test data. Please try again.');
+    }
+
+    setIsGenerating(false);
+  };
+
   return (
     <div className={styles.dashboard}>
+      {process.env.NODE_ENV === 'development' && (
+        <>
+          <button 
+            className={`${styles.devButton} ${isGenerating ? styles.loading : ''}`}
+            onClick={handleGenerateTestData}
+            disabled={isGenerating}
+          >
+            {isGenerating ? 'Generating...' : 'Generate Test Data'}
+          </button>
+          {error && <div className={styles.error}>{error}</div>}
+        </>
+      )}
       <div className={styles.metricsGrid}>
         <div 
           className={`${styles.metricCard} ${styles.clickable}`}
@@ -163,11 +228,11 @@ const ShipperDashboard: React.FC = () => {
         </div>
         <div className={styles.metricCard}>
           <h3>On-Time Delivery</h3>
-          <div className={styles.metricValue}>{metrics.onTimeDelivery}%</div>
+          <div className={styles.metricValue}>{metrics.onTimeDelivery.toFixed(1)}%</div>
         </div>
         <div className={styles.metricCard}>
           <h3>Average Cost/Load</h3>
-          <div className={styles.metricValue}>${metrics.averageCost}</div>
+          <div className={styles.metricValue}>${metrics.averageCost.toLocaleString()}</div>
         </div>
       </div>
 

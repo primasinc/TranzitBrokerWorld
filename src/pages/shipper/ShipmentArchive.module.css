@@ -9,8 +9,12 @@
   margin-bottom: 20px;
 }
 
+.header h1 {
+  margin: 0;
+}
+
 .exportButton button {
-  padding: 10px 20px;
+  padding: 8px 16px;
   background-color: #28a745;
   color: white;
   border: none;
@@ -19,17 +23,18 @@
 }
 
 .filters {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
   gap: 20px;
   margin-bottom: 20px;
   align-items: center;
 }
 
 .searchBar input {
+  width: 100%;
   padding: 8px 12px;
   border: 1px solid #ddd;
   border-radius: 4px;
-  width: 300px;
 }
 
 .dateFilters {
@@ -47,14 +52,14 @@
   padding: 8px 12px;
   border: 1px solid #ddd;
   border-radius: 4px;
-  background-color: white;
+  min-width: 150px;
 }
 
 .statsCards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 20px;
-  margin-bottom: 30px;
+  margin-bottom: 20px;
 }
 
 .statCard {
@@ -66,16 +71,16 @@
 }
 
 .statCard h3 {
-  margin: 0;
+  margin: 0 0 10px 0;
   color: #666;
   font-size: 0.9em;
 }
 
 .statCard p {
-  margin: 10px 0 0 0;
-  font-size: 24px;
+  margin: 0;
+  font-size: 1.5em;
   font-weight: 600;
-  color: #007bff;
+  color: #333;
 }
 
 .shipmentsTable {
@@ -108,14 +113,19 @@
   font-size: 0.9em;
 }
 
-.completed {
+.delivered {
   background-color: #e8f5e9;
   color: #388e3c;
 }
 
-.cancelled {
-  background-color: #ffebee;
-  color: #d32f2f;
+.in_transit {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.scheduled {
+  background-color: #fff3e0;
+  color: #f57c00;
 }
 
 .actions {
@@ -125,7 +135,7 @@
 
 .viewButton,
 .downloadButton {
-  padding: 6px 12px;
+  padding: 4px 8px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -142,10 +152,32 @@
   color: white;
 }
 
-.viewButton:hover {
-  background-color: #5a6268;
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #666;
 }
 
-.downloadButton:hover {
-  background-color: #0056b3;
+.error {
+  text-align: center;
+  padding: 20px;
+  color: #dc3545;
+  background-color: #f8d7da;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+  margin: 20px 0;
+}
+
+@media (max-width: 1024px) {
+  .filters {
+    grid-template-columns: 1fr;
+  }
+  
+  .statsCards {
+    grid-template-columns: 1fr;
+  }
+  
+  .shipmentsTable {
+    overflow-x: auto;
+  }
 } 
