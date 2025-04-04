@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import styles from './CarrierDirectory.module.css';
 
 interface Carrier {
@@ -17,6 +18,8 @@ interface Carrier {
   operatingStates: string[];
   fleetSize: number;
   yearEstablished: number;
+  usdotNumber?: string;
+  mcNumber?: string;
 }
 
 const CarrierDirectory: React.FC = () => {
@@ -24,6 +27,7 @@ const CarrierDirectory: React.FC = () => {
   const [selectedType, setSelectedType] = useState('all');
   const [selectedState, setSelectedState] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const navigate = useNavigate();
 
   const carriers: Carrier[] = [
     {
@@ -75,6 +79,28 @@ const CarrierDirectory: React.FC = () => {
     const matchesState = selectedState === 'all' || carrier.operatingStates.includes(selectedState);
     return matchesSearch && matchesType && matchesState;
   });
+
+  const handleAddToPartners = (carrier: Carrier) => {
+    // Convert directory carrier to partner format
+    const partnerCarrier = {
+      id: carrier.id,
+      name: carrier.name,
+      rating: carrier.rating,
+      completedLoads: 0,
+      activeLoads: 0,
+      specialties: carrier.type,
+      status: 'Active' as const,
+      location: carrier.location,
+      contact: carrier.contact,
+      usdotNumber: carrier.usdotNumber,
+      mcNumber: carrier.mcNumber
+    };
+
+    // In a real app, you would make an API call here to add the carrier
+    // For now, we'll just show a success message and navigate
+    alert(`${carrier.name} has been added to your partners!`);
+    navigate('/shipper/partners');
+  };
 
   return (
     <div className={styles.container}>
@@ -169,6 +195,12 @@ const CarrierDirectory: React.FC = () => {
               <div className={styles.actions}>
                 <button className={styles.viewButton}>View Details</button>
                 <button className={styles.contactButton}>Contact</button>
+                <button 
+                  className={styles.addButton}
+                  onClick={() => handleAddToPartners(carrier)}
+                >
+                  Add Carrier
+                </button>
               </div>
             </div>
           ))}
@@ -206,6 +238,12 @@ const CarrierDirectory: React.FC = () => {
                     <div className={styles.actions}>
                       <button className={styles.viewButton}>View</button>
                       <button className={styles.contactButton}>Contact</button>
+                      <button 
+                        className={styles.addButton}
+                        onClick={() => handleAddToPartners(carrier)}
+                      >
+                        Add
+                      </button>
                     </div>
                   </td>
                 </tr>

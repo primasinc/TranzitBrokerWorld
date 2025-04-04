@@ -204,4 +204,19 @@
 .carrierList th {
   background-color: #f8f9fa;
   font-weight: 600;
+}
+
+.addButton {
+  flex: 1;
+  padding: 8px 16px;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.addButton:hover {
+  background-color: #218838;
 } 
