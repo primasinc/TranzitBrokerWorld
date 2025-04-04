@@ -25,7 +25,7 @@ const CarrierPartners: React.FC = () => {
         <h1>Carrier Partners</h1>
         <button 
           className={styles.addButton}
-          onClick={() => navigate('/shipper/carrier-directory')}
+          onClick={() => navigate('/shipper/directory')}
         >
           Add New Carrier
         </button>
