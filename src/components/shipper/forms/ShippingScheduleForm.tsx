@@ -101,7 +101,7 @@ const ShippingScheduleForm: React.FC = () => {
     name: 'equipmentRequirements'
   });
 
-  const onSubmit = async (data: ShippingScheduleFormData) => {
+    const onSubmit = async (data: ShippingScheduleFormData) => {
     try {
       // Set initial status based on the selected option
       data.status = selectedOption === 'marketplace' ? 'open' : 'pending';

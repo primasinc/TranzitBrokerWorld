@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useCarrierContext } from '../../context/CarrierContext';
 import styles from './CarrierDirectory.module.css';
 
 interface Carrier {
@@ -28,6 +29,7 @@ const CarrierDirectory: React.FC = () => {
   const [selectedState, setSelectedState] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const navigate = useNavigate();
+  const { addPartnerCarrier } = useCarrierContext();
 
   const carriers: Carrier[] = [
     {
@@ -96,8 +98,8 @@ const CarrierDirectory: React.FC = () => {
       mcNumber: carrier.mcNumber
     };
 
-    // In a real app, you would make an API call here to add the carrier
-    // For now, we'll just show a success message and navigate
+    // Add the carrier to partners list
+    addPartnerCarrier(partnerCarrier);
     alert(`${carrier.name} has been added to your partners!`);
     navigate('/shipper/partners');
   };
