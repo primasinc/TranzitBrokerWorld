@@ -27,6 +27,7 @@ import PayInvoices from './pages/shipper/PayInvoices';
 import ShipmentArchive from './pages/shipper/ShipmentArchive';
 import CarrierDirectory from './pages/shipper/CarrierDirectory';
 import CarrierDetails from './pages/shipper/CarrierDetails';
+import { TestPurchaseOrder } from './pages/shipper/TestPurchaseOrder';
 
 // Carrier Pages
 import HomeFeed from './pages/carrier/HomeFeed';
@@ -86,6 +87,7 @@ function App() {
                 <Route path="archive" element={<ShipmentArchive />} />
                 <Route path="directory" element={<CarrierDirectory />} />
                 <Route path="carrier-partners/:partnerId" element={<CarrierDetails />} />
+                <Route path="test-po" element={<TestPurchaseOrder />} />
               </Route>
 
               {/* Auth Routes */}
