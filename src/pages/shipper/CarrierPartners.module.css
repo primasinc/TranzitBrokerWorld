@@ -177,4 +177,15 @@
   color: #666;
   font-size: 1.1em;
   margin: 0;
+}
+
+.selectButton {
+  background-color: #28a745 !important;
+  color: white !important;
+  font-weight: 600;
+  width: 100%;
+}
+
+.selectButton:hover {
+  background-color: #218838 !important;
 } 

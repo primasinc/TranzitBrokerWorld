@@ -1,13 +1,39 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useCarrierContext } from '../../context/CarrierContext';
 import styles from './CarrierPartners.module.css';
+
+interface LocationState {
+  poData?: any;
+  rate?: string;
+}
 
 const CarrierPartners: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterSpecialty, setFilterSpecialty] = useState('all');
   const navigate = useNavigate();
+  const location = useLocation();
   const { partnerCarriers } = useCarrierContext();
+
+  // Check if we came from PO creation
+  const locationState = location.state as LocationState;
+  const isFromPO = Boolean(locationState?.poData);
+
+  const handleSelectCarrier = (carrierId: string, carrierName: string) => {
+    // Here you would typically:
+    // 1. Create the PO in your database
+    // 2. Create a shipping schedule
+    // 3. Send the rate proposal to the carrier
+    console.log('Selected carrier for PO:', {
+      carrierId,
+      carrierName,
+      poData: locationState?.poData,
+      proposedRate: locationState?.rate
+    });
+    
+    // Navigate to a confirmation or details page
+    navigate(`/shipper/purchase-orders`);
+  };
 
   const renderStars = (rating: number) => {
     return "★".repeat(Math.floor(rating)) + "☆".repeat(5 - Math.floor(rating));
@@ -23,12 +49,14 @@ const CarrierPartners: React.FC = () => {
     <div className={styles.container}>
       <div className={styles.header}>
         <h1>Carrier Partners</h1>
-        <button 
-          className={styles.addButton}
-          onClick={() => navigate('/shipper/directory')}
-        >
-          Add New Carrier
-        </button>
+        {!isFromPO && (
+          <button 
+            className={styles.addButton}
+            onClick={() => navigate('/shipper/directory')}
+          >
+            Add New Carrier
+          </button>
+        )}
       </div>
 
       <div className={styles.filters}>
@@ -105,13 +133,24 @@ const CarrierPartners: React.FC = () => {
               </div>
 
               <div className={styles.actions}>
-                <button 
-                  className={styles.actionButton}
-                  onClick={() => navigate(`/shipper/partners/${carrier.id}`)}
-                >
-                  View Details
-                </button>
-                <button className={styles.actionButton}>Contact</button>
+                {isFromPO ? (
+                  <button 
+                    className={`${styles.actionButton} ${styles.selectButton}`}
+                    onClick={() => handleSelectCarrier(carrier.id, carrier.name)}
+                  >
+                    Select Carrier
+                  </button>
+                ) : (
+                  <>
+                    <button 
+                      className={styles.actionButton}
+                      onClick={() => navigate(`/shipper/partners/${carrier.id}`)}
+                    >
+                      View Details
+                    </button>
+                    <button className={styles.actionButton}>Contact</button>
+                  </>
+                )}
               </div>
             </div>
           ))
