@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import styles from './PurchaseOrders.module.css';
 
 interface PurchaseOrder {
@@ -12,6 +13,7 @@ interface PurchaseOrder {
 }
 
 const PurchaseOrders: React.FC = () => {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
 
@@ -48,7 +50,12 @@ const PurchaseOrders: React.FC = () => {
     <div className={styles.container}>
       <div className={styles.header}>
         <h1>Purchase Orders</h1>
-        <button className={styles.createButton}>Create New PO</button>
+        <button 
+          className={styles.createButton}
+          onClick={() => navigate('/shipper/test-po')}
+        >
+          Create New PO
+        </button>
       </div>
 
       <div className={styles.filters}>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, ChangeEvent } from 'react';
 import styles from './PurchaseOrderForm.module.css';
 
 interface CompanyInfo {
@@ -16,25 +16,18 @@ interface PurchaseOrderItem {
   total: number;
 }
 
+interface ShipTo {
+  name: string;
+  streetAddress: string;
+  cityStateZip: string;
+  contact: string;
+  instructions: string;
+}
+
 interface PurchaseOrderFormProps {
   onSubmit: (data: any) => void;
   onCancel: () => void;
 }
-
-const emptyCompanyInfo: CompanyInfo = {
-  name: '',
-  streetAddress: '',
-  cityStateZip: '',
-  contact: ''
-};
-
-const emptyItem: PurchaseOrderItem = {
-  itemNumber: '',
-  description: '',
-  quantity: 0,
-  price: 0,
-  total: 0
-};
 
 export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
   onSubmit,
@@ -43,10 +36,32 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
   const [formData, setFormData] = useState({
     poNumber: '',
     date: new Date().toISOString().split('T')[0],
-    companyInfo: { ...emptyCompanyInfo },
-    vendorInfo: { ...emptyCompanyInfo },
-    shipTo: { ...emptyCompanyInfo },
-    items: [{ ...emptyItem }],
+    companyInfo: {
+      name: '',
+      streetAddress: '',
+      cityStateZip: '',
+      contact: ''
+    },
+    vendorInfo: {
+      name: '',
+      streetAddress: '',
+      cityStateZip: '',
+      contact: ''
+    },
+    shipTo: {
+      name: '',
+      streetAddress: '',
+      cityStateZip: '',
+      contact: '',
+      instructions: ''
+    },
+    items: [{
+      itemNumber: '',
+      description: '',
+      quantity: 0,
+      price: 0,
+      total: 0
+    }],
     comments: '',
     subtotal: 0,
     discount: 0,
@@ -56,45 +71,6 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
 
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>('');
-
-  const handleCompanyInfoChange = (
-    section: 'companyInfo' | 'vendorInfo' | 'shipTo',
-    field: keyof CompanyInfo,
-    value: string
-  ) => {
-    setFormData(prev => ({
-      ...prev,
-      [section]: {
-        ...prev[section],
-        [field]: value
-      }
-    }));
-  };
-
-  const handleItemChange = (index: number, field: keyof PurchaseOrderItem, value: any) => {
-    setFormData(prev => {
-      const newItems = [...prev.items];
-      newItems[index] = {
-        ...newItems[index],
-        [field]: value,
-        total: field === 'quantity' || field === 'price' 
-          ? Number(value) * (field === 'quantity' ? newItems[index].price : newItems[index].quantity)
-          : newItems[index].total
-      };
-      
-      const subtotal = newItems.reduce((sum, item) => sum + item.total, 0);
-      const discountAmount = (subtotal * prev.discount) / 100;
-      const taxAmount = ((subtotal - discountAmount) * prev.tax) / 100;
-      const grandTotal = subtotal - discountAmount + taxAmount;
-
-      return { 
-        ...prev, 
-        items: newItems,
-        subtotal,
-        grandTotal
-      };
-    });
-  };
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -108,47 +84,57 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
     }
   };
 
-  const addItem = () => {
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
+
+  const calculateTotal = (quantity: number, price: number) => {
+    return quantity * price;
+  };
+
+  const handleItemChange = (index: number, field: keyof PurchaseOrderItem, value: any) => {
+    const newItems = [...formData.items];
+    newItems[index] = {
+      ...newItems[index],
+      [field]: value,
+      total: field === 'quantity' || field === 'price' 
+        ? calculateTotal(
+            field === 'quantity' ? Number(value) : newItems[index].quantity,
+            field === 'price' ? Number(value) : newItems[index].price
+          )
+        : newItems[index].total
+    };
+
+    const subtotal = newItems.reduce((sum, item) => sum + item.total, 0);
+    const discountAmount = (subtotal * formData.discount) / 100;
+    const taxAmount = ((subtotal - discountAmount) * formData.tax) / 100;
+    const grandTotal = subtotal - discountAmount + taxAmount;
+
     setFormData(prev => ({
       ...prev,
-      items: [...prev.items, { ...emptyItem }]
+      items: newItems,
+      subtotal,
+      grandTotal
     }));
   };
 
-  const removeItem = (index: number) => {
-    setFormData(prev => {
-      const newItems = prev.items.filter((_, i) => i !== index);
-      const subtotal = newItems.reduce((sum, item) => sum + item.total, 0);
-      const discountAmount = (subtotal * prev.discount) / 100;
-      const taxAmount = ((subtotal - discountAmount) * prev.tax) / 100;
-      const grandTotal = subtotal - discountAmount + taxAmount;
-
-      return {
-        ...prev,
-        items: newItems,
-        subtotal,
-        grandTotal
-      };
-    });
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSubmit({
-      ...formData,
-      logo: logoFile
-    });
+  const addItem = () => {
+    setFormData(prev => ({
+      ...prev,
+      items: [...prev.items, { itemNumber: '', description: '', quantity: 0, price: 0, total: 0 }]
+    }));
   };
 
   return (
-    <form onSubmit={handleSubmit} className={styles.form}>
+    <form className={styles.form} onSubmit={handleSubmit}>
       <div className={styles.header}>
         <div className={styles.logoSection}>
           {logoPreview ? (
             <img src={logoPreview} alt="Company Logo" className={styles.logo} />
           ) : (
             <div className={styles.logoPlaceholder}>
-              <span>YOUR LOGO HERE</span>
+              Click to Upload Logo
               <input
                 type="file"
                 accept="image/*"
@@ -158,18 +144,59 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
             </div>
           )}
         </div>
-        <div className={styles.title}>PURCHASE ORDER</div>
-        <div className={styles.poInfo}>
-          <div>
-            <label>DATE: </label>
+        <h1 className={styles.title}>PURCHASE ORDER</h1>
+      </div>
+
+      <div className={styles.companySection}>
+        <div className={styles.companyInfo}>
+          <input
+            type="text"
+            value={formData.companyInfo.name}
+            onChange={(e) => setFormData(prev => ({
+              ...prev,
+              companyInfo: { ...prev.companyInfo, name: e.target.value }
+            }))}
+            placeholder="Company Name"
+          />
+          <input
+            type="text"
+            value={formData.companyInfo.streetAddress}
+            onChange={(e) => setFormData(prev => ({
+              ...prev,
+              companyInfo: { ...prev.companyInfo, streetAddress: e.target.value }
+            }))}
+            placeholder="Address"
+          />
+          <input
+            type="text"
+            value={formData.companyInfo.cityStateZip}
+            onChange={(e) => setFormData(prev => ({
+              ...prev,
+              companyInfo: { ...prev.companyInfo, cityStateZip: e.target.value }
+            }))}
+            placeholder="City, State, Zip Code"
+          />
+          <input
+            type="text"
+            value={formData.companyInfo.contact}
+            onChange={(e) => setFormData(prev => ({
+              ...prev,
+              companyInfo: { ...prev.companyInfo, contact: e.target.value }
+            }))}
+            placeholder="Contact"
+          />
+        </div>
+        <div className={styles.poDetails}>
+          <div className={styles.poDate}>
+            <span>Date:</span>
             <input
               type="date"
               value={formData.date}
               onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
             />
           </div>
-          <div>
-            <label>PO#: </label>
+          <div className={styles.poNumber}>
+            <span>PO Number:</span>
             <input
               type="text"
               value={formData.poNumber}
@@ -179,118 +206,110 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
         </div>
       </div>
 
-      <div className={styles.companyInfo}>
-        <div className={styles.infoSection}>
+      <div className={styles.infoGrid}>
+        <div className={styles.vendorInfo}>
+          <div className={styles.sectionHeader}>VENDOR</div>
           <input
             type="text"
-            placeholder="Company Name"
-            value={formData.companyInfo.name}
-            onChange={(e) => handleCompanyInfoChange('companyInfo', 'name', e.target.value)}
+            value={formData.vendorInfo.name}
+            onChange={(e) => setFormData(prev => ({
+              ...prev,
+              vendorInfo: { ...prev.vendorInfo, name: e.target.value }
+            }))}
+            placeholder="Vendor Name"
           />
           <input
             type="text"
-            placeholder="Street Address"
-            value={formData.companyInfo.streetAddress}
-            onChange={(e) => handleCompanyInfoChange('companyInfo', 'streetAddress', e.target.value)}
+            value={formData.vendorInfo.streetAddress}
+            onChange={(e) => setFormData(prev => ({
+              ...prev,
+              vendorInfo: { ...prev.vendorInfo, streetAddress: e.target.value }
+            }))}
+            placeholder="Address"
           />
           <input
             type="text"
+            value={formData.vendorInfo.cityStateZip}
+            onChange={(e) => setFormData(prev => ({
+              ...prev,
+              vendorInfo: { ...prev.vendorInfo, cityStateZip: e.target.value }
+            }))}
             placeholder="City, State, Zip Code"
-            value={formData.companyInfo.cityStateZip}
-            onChange={(e) => handleCompanyInfoChange('companyInfo', 'cityStateZip', e.target.value)}
           />
           <input
             type="text"
+            value={formData.vendorInfo.contact}
+            onChange={(e) => setFormData(prev => ({
+              ...prev,
+              vendorInfo: { ...prev.vendorInfo, contact: e.target.value }
+            }))}
             placeholder="Contact"
-            value={formData.companyInfo.contact}
-            onChange={(e) => handleCompanyInfoChange('companyInfo', 'contact', e.target.value)}
           />
         </div>
-      </div>
 
-      <div className={styles.vendorShipTo}>
-        <div className={styles.section}>
-          <h3>VENDOR INFORMATION</h3>
-          <div className={styles.infoSection}>
-            <input
-              type="text"
-              placeholder="Vendor Name"
-              value={formData.vendorInfo.name}
-              onChange={(e) => handleCompanyInfoChange('vendorInfo', 'name', e.target.value)}
-            />
-            <input
-              type="text"
-              placeholder="Street Address"
-              value={formData.vendorInfo.streetAddress}
-              onChange={(e) => handleCompanyInfoChange('vendorInfo', 'streetAddress', e.target.value)}
-            />
-            <input
-              type="text"
-              placeholder="City, State, Zip Code"
-              value={formData.vendorInfo.cityStateZip}
-              onChange={(e) => handleCompanyInfoChange('vendorInfo', 'cityStateZip', e.target.value)}
-            />
-            <input
-              type="text"
-              placeholder="Contact"
-              value={formData.vendorInfo.contact}
-              onChange={(e) => handleCompanyInfoChange('vendorInfo', 'contact', e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div className={styles.section}>
-          <h3>SHIP TO</h3>
-          <div className={styles.infoSection}>
-            <input
-              type="text"
-              placeholder="Company Name"
-              value={formData.shipTo.name}
-              onChange={(e) => handleCompanyInfoChange('shipTo', 'name', e.target.value)}
-            />
-            <input
-              type="text"
-              placeholder="Street Address"
-              value={formData.shipTo.streetAddress}
-              onChange={(e) => handleCompanyInfoChange('shipTo', 'streetAddress', e.target.value)}
-            />
-            <input
-              type="text"
-              placeholder="City, State, Zip Code"
-              value={formData.shipTo.cityStateZip}
-              onChange={(e) => handleCompanyInfoChange('shipTo', 'cityStateZip', e.target.value)}
-            />
-            <input
-              type="text"
-              placeholder="Contact"
-              value={formData.shipTo.contact}
-              onChange={(e) => handleCompanyInfoChange('shipTo', 'contact', e.target.value)}
-            />
-          </div>
+        <div className={styles.shipTo}>
+          <div className={styles.sectionHeader}>SHIP TO</div>
+          <input
+            type="text"
+            value={formData.shipTo.name}
+            onChange={(e) => setFormData(prev => ({
+              ...prev,
+              shipTo: { ...prev.shipTo, name: e.target.value }
+            }))}
+            placeholder="Recipient Name"
+          />
+          <input
+            type="text"
+            value={formData.shipTo.streetAddress}
+            onChange={(e) => setFormData(prev => ({
+              ...prev,
+              shipTo: { ...prev.shipTo, streetAddress: e.target.value }
+            }))}
+            placeholder="Shipping Address"
+          />
+          <input
+            type="text"
+            value={formData.shipTo.cityStateZip}
+            onChange={(e) => setFormData(prev => ({
+              ...prev,
+              shipTo: { ...prev.shipTo, cityStateZip: e.target.value }
+            }))}
+            placeholder="City, State, Zip Code"
+          />
+          <input
+            type="text"
+            value={formData.shipTo.contact}
+            onChange={(e) => setFormData(prev => ({
+              ...prev,
+              shipTo: { ...prev.shipTo, contact: e.target.value }
+            }))}
+            placeholder="Phone"
+          />
+          <input
+            type="text"
+            value={formData.shipTo.instructions}
+            onChange={(e) => setFormData(prev => ({
+              ...prev,
+              shipTo: { ...prev.shipTo, instructions: e.target.value }
+            }))}
+            placeholder="Special Instructions"
+          />
         </div>
       </div>
 
       <table className={styles.itemsTable}>
         <thead>
           <tr>
-            <th>ITEM #</th>
-            <th>DESCRIPTION</th>
-            <th>QTY</th>
-            <th>PRICE</th>
-            <th>TOTAL</th>
-            <th></th>
+            <th>Item Description</th>
+            <th>Quantity</th>
+            <th>Unit Price</th>
+            <th>Total</th>
+            <th>Action</th>
           </tr>
         </thead>
         <tbody>
           {formData.items.map((item, index) => (
             <tr key={index}>
-              <td>
-                <input
-                  type="text"
-                  value={item.itemNumber}
-                  onChange={(e) => handleItemChange(index, 'itemNumber', e.target.value)}
-                />
-              </td>
               <td>
                 <input
                   type="text"
@@ -312,45 +331,35 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
                   onChange={(e) => handleItemChange(index, 'price', Number(e.target.value))}
                 />
               </td>
-              <td>${item.total.toFixed(2)}</td>
+              <td>${(item.quantity * item.price).toFixed(2)}</td>
               <td>
-                <button
-                  type="button"
-                  onClick={() => removeItem(index)}
-                  className={styles.removeButton}
-                >
-                  ×
-                </button>
+                <button type="button" onClick={() => handleItemChange(index, 'quantity', 0)}>×</button>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      <button
-        type="button"
-        onClick={addItem}
-        className={styles.addButton}
-      >
+      <button type="button" className={styles.addItemButton} onClick={addItem}>
         Add Item
       </button>
 
       <div className={styles.footer}>
         <div className={styles.comments}>
-          <h3>Comments or Special Instructions</h3>
+          <div className={styles.sectionHeader}>COMMENTS</div>
           <textarea
             value={formData.comments}
             onChange={(e) => setFormData(prev => ({ ...prev, comments: e.target.value }))}
+            placeholder="Enter any additional comments or special instructions..."
           />
         </div>
-
         <div className={styles.totals}>
           <div className={styles.totalRow}>
-            <label>SUB TOTAL</label>
+            <span>Subtotal:</span>
             <span>${formData.subtotal.toFixed(2)}</span>
           </div>
           <div className={styles.totalRow}>
-            <label>DISCOUNT</label>
+            <span>Discount:</span>
             <input
               type="number"
               value={formData.discount}
@@ -358,7 +367,7 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
             />
           </div>
           <div className={styles.totalRow}>
-            <label>TAX</label>
+            <span>Tax Rate (%):</span>
             <input
               type="number"
               value={formData.tax}
@@ -366,18 +375,22 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
             />
           </div>
           <div className={styles.totalRow}>
-            <label>GRAND TOTAL</label>
+            <span>Tax Amount:</span>
+            <span>${((formData.subtotal * formData.tax) / 100).toFixed(2)}</span>
+          </div>
+          <div className={styles.totalRow}>
+            <span>Total:</span>
             <span>${formData.grandTotal.toFixed(2)}</span>
           </div>
         </div>
       </div>
 
-      <div className={styles.actions}>
-        <button type="button" onClick={onCancel} className={styles.cancelButton}>
-          Cancel
-        </button>
+      <div className={styles.formActions}>
         <button type="submit" className={styles.submitButton}>
-          Create Purchase Order
+          Submit Order
+        </button>
+        <button type="button" className={styles.cancelButton} onClick={onCancel}>
+          Cancel
         </button>
       </div>
     </form>
