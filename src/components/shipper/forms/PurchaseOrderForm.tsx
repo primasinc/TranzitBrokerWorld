@@ -104,7 +104,7 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
     // Handle form submission based on selected option
     if (selectedOption === 'carrier') {
       // Navigate to carrier partners with PO data
-      navigate('/shipper/carrier-partners', { 
+      navigate('/shipper/partners', { 
         state: { 
           poData: formData,
           rate: carrierRate 
