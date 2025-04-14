@@ -2,12 +2,25 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styles from './PurchaseOrders.module.css';
 
+enum PurchaseOrderStatus {
+  DRAFT = 'Draft',
+  PENDING_APPROVAL = 'Pending Approval',
+  APPROVED = 'Approved',
+  PROCESSING = 'Processing',
+  PARTIALLY_SHIPPED = 'Partially Shipped',
+  SHIPPED = 'Shipped',
+  DELIVERED = 'Delivered',
+  COMPLETED = 'Completed',
+  CANCELLED = 'Cancelled',
+  ON_HOLD = 'On Hold'
+}
+
 interface PurchaseOrder {
   poNumber: string;
   date: string;
   vendor: string;
   amount: number;
-  status: string;
+  status: PurchaseOrderStatus;
   items: number;
   deliveryDate: string;
 }
@@ -23,7 +36,7 @@ const PurchaseOrders: React.FC = () => {
       date: "2024-02-23",
       vendor: "ABC Supplies",
       amount: 5000.00,
-      status: "Processing",
+      status: PurchaseOrderStatus.PROCESSING,
       items: 3,
       deliveryDate: "2024-03-01"
     },
@@ -32,7 +45,7 @@ const PurchaseOrders: React.FC = () => {
       date: "2024-02-22",
       vendor: "XYZ Corp",
       amount: 7500.00,
-      status: "Shipped",
+      status: PurchaseOrderStatus.SHIPPED,
       items: 5,
       deliveryDate: "2024-02-28"
     },
@@ -73,10 +86,16 @@ const PurchaseOrders: React.FC = () => {
             onChange={(e) => setFilterStatus(e.target.value)}
           >
             <option value="all">All Status</option>
-            <option value="Processing">Processing</option>
-            <option value="Shipped">Shipped</option>
-            <option value="Delivered">Delivered</option>
-            <option value="Cancelled">Cancelled</option>
+            <option value={PurchaseOrderStatus.DRAFT}>Draft</option>
+            <option value={PurchaseOrderStatus.PENDING_APPROVAL}>Pending Approval</option>
+            <option value={PurchaseOrderStatus.APPROVED}>Approved</option>
+            <option value={PurchaseOrderStatus.PROCESSING}>Processing</option>
+            <option value={PurchaseOrderStatus.PARTIALLY_SHIPPED}>Partially Shipped</option>
+            <option value={PurchaseOrderStatus.SHIPPED}>Shipped</option>
+            <option value={PurchaseOrderStatus.DELIVERED}>Delivered</option>
+            <option value={PurchaseOrderStatus.COMPLETED}>Completed</option>
+            <option value={PurchaseOrderStatus.CANCELLED}>Cancelled</option>
+            <option value={PurchaseOrderStatus.ON_HOLD}>On Hold</option>
           </select>
         </div>
       </div>

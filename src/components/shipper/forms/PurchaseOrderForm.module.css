@@ -219,4 +219,99 @@
 
 .cancelButton:hover {
   background: #c82333;
+}
+
+.carrierSelectionSection {
+  margin: 2rem 0;
+  padding: 1.5rem;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+}
+
+.carrierSelectionSection h3 {
+  margin-bottom: 1rem;
+  color: #2c3e50;
+  font-size: 1.25rem;
+}
+
+.carrierOptions {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.optionButton {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1.5rem;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.optionButton:hover {
+  border-color: #007bff;
+  background-color: #f8f9ff;
+}
+
+.optionButton.selected {
+  border-color: #007bff;
+  background-color: #f0f7ff;
+}
+
+.optionIcon {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.optionLabel {
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 0.5rem;
+}
+
+.optionDescription {
+  font-size: 0.875rem;
+  color: #6c757d;
+  text-align: center;
+}
+
+.rateInput {
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: white;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+}
+
+.rateInput label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #495057;
+  font-weight: 500;
+}
+
+.rateInput input {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.rateInput input:focus {
+  border-color: #007bff;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+}
+
+.selectionHint {
+  margin-top: 1rem;
+  color: #dc3545;
+  font-size: 0.875rem;
+  text-align: center;
 } 
