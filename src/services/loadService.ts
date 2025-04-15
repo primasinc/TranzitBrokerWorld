@@ -12,6 +12,25 @@ interface LoadItem {
   status: string;
 }
 
+interface LoadDetails {
+  id: string;
+  pickupLocation: {
+    address: string;
+    position: [number, number];
+  };
+  deliveryLocation: {
+    address: string;
+    position: [number, number];
+  };
+  title: string;
+  shipper: string;
+  status: string;
+  payment: number;
+  weight: string;
+  dimensions: string;
+  items: LoadItem[];
+}
+
 export const loadService = {
   updateLoadStatus: async (update: StatusUpdate) => {
     // This would be an API call in production
@@ -58,5 +77,37 @@ export const loadService = {
       { id: '1', name: 'Electronics Pallet 1', status: 'loaded' },
       { id: '2', name: 'Electronics Pallet 2', status: 'loaded' },
     ];
+  },
+
+  getLoadById: async (loadId: string): Promise<LoadDetails> => {
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      return {
+        id: loadId,
+        title: 'Electronics Shipment',
+        shipper: 'ABC Electronics',
+        pickupLocation: {
+          address: '123 Main St, Chicago, IL',
+          position: [-87.6298, 41.8781]
+        },
+        deliveryLocation: {
+          address: '456 Oak St, New York, NY',
+          position: [-74.0060, 40.7128]
+        },
+        status: 'in_progress',
+        payment: 2500,
+        weight: '15,000 lbs',
+        dimensions: '53\' Trailer',
+        items: [
+          { id: '1', name: 'Electronics Pallet 1', status: 'loaded' },
+          { id: '2', name: 'Electronics Pallet 2', status: 'loaded' }
+        ]
+      };
+    } catch (error) {
+      console.error('Error fetching load details:', error);
+      throw error;
+    }
   }
 }; 

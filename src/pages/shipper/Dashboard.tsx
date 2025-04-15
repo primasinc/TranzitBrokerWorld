@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { GoogleMap, Marker, Circle } from '@react-google-maps/api';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { subscribeToShipperMetrics } from '../../services/shipmentService';
 import { generateTestData } from '../../utils/seedTestData';
 import styles from './Dashboard.module.css';
+import MapboxMap from '../../components/common/MapboxMap';
 
 interface Shipment {
   id: string;
@@ -33,7 +33,7 @@ const ShipperDashboard: React.FC = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('week');
   const [showActiveShipments, setShowActiveShipments] = useState(true);
   const [radiusInMiles, setRadiusInMiles] = useState(50);
-  const [userLocation, setUserLocation] = useState<google.maps.LatLngLiteral>({ lat: 41.8781, lng: -87.6298 }); // Default to Chicago
+  const [userLocation, setUserLocation] = useState<[number, number]>([-87.6298, 41.8781]); // Chicago coordinates
   const [metrics, setMetrics] = useState({
     activeShipments: 0,
     delayedShipments: 0,
@@ -193,6 +193,42 @@ const ShipperDashboard: React.FC = () => {
     setIsGenerating(false);
   };
 
+  // Convert shipments and carriers to Mapbox markers
+  const getMapMarkers = () => {
+    if (showActiveShipments) {
+      return shipments.map(shipment => ({
+        id: shipment.id,
+        position: [shipment.position.lng, shipment.position.lat] as [number, number],
+        type: 'carrier' as const,
+        onClick: () => {
+          // Handle shipment marker click
+          console.log('Shipment clicked:', shipment);
+        }
+      }));
+    } else {
+      return [
+        // User location marker
+        {
+          id: 'user',
+          position: userLocation,
+          type: 'shipper' as const,
+          onClick: () => {
+            console.log('User location clicked');
+          }
+        },
+        // Available carriers markers
+        ...filteredCarriers.map(carrier => ({
+          id: carrier.id,
+          position: [carrier.position.lng, carrier.position.lat] as [number, number],
+          type: 'carrier' as const,
+          onClick: () => {
+            console.log('Carrier clicked:', carrier);
+          }
+        }))
+      ];
+    }
+  };
+
   return (
     <div className={styles.dashboard}>
       {process.env.NODE_ENV === 'development' && (
@@ -273,51 +309,43 @@ const ShipperDashboard: React.FC = () => {
           </div>
           
           <div className={styles.mapContainer}>
-            <GoogleMap
-              mapContainerStyle={{ width: '100%', height: '400px' }}
+            <MapboxMap
               center={userLocation}
               zoom={showActiveShipments ? 4 : 9}
-            >
-              {showActiveShipments ? (
-                // Show active shipments
-                shipments.map((shipment) => (
-                  <Marker 
-                    key={shipment.id}
-                    position={shipment.position}
-                    title={shipment.carrier}
-                  />
-                ))
-              ) : (
-                // Show available carriers and radius circle
-                <>
-                  <Circle
-                    center={userLocation}
-                    radius={radiusInMiles * 1609.34} // Convert miles to meters
-                    options={{
-                      fillColor: 'rgba(66, 133, 244, 0.1)',
-                      fillOpacity: 0.4,
-                      strokeColor: '#4285F4',
-                      strokeOpacity: 0.8,
-                      strokeWeight: 2,
-                    }}
-                  />
-                  <Marker
-                    position={userLocation}
-                    title="Your Location"
-                    icon={{
-                      url: 'http://maps.google.com/mapfiles/ms/icons/blue-dot.png'
-                    }}
-                  />
-                  {filteredCarriers.map((carrier) => (
-                    <Marker 
-                      key={carrier.id}
-                      position={carrier.position}
-                      title={carrier.name}
-                    />
-                  ))}
-                </>
-              )}
-            </GoogleMap>
+              markers={getMapMarkers()}
+              onMapLoad={(map) => {
+                // If showing available carriers, add a circle for the radius
+                if (!showActiveShipments) {
+                  const radiusInMeters = radiusInMiles * 1609.34;
+                  map.addSource('radius', {
+                    type: 'geojson',
+                    data: {
+                      type: 'Feature',
+                      geometry: {
+                        type: 'Point',
+                        coordinates: userLocation
+                      },
+                      properties: {
+                        radius: radiusInMeters
+                      }
+                    }
+                  });
+
+                  map.addLayer({
+                    id: 'radius',
+                    type: 'circle',
+                    source: 'radius',
+                    paint: {
+                      'circle-radius': ['/', ['get', 'radius'], ['cos', ['*', ['get', 'lat'], 0.0174533]]],
+                      'circle-color': '#4285F4',
+                      'circle-opacity': 0.1,
+                      'circle-stroke-width': 2,
+                      'circle-stroke-color': '#4285F4'
+                    }
+                  });
+                }
+              }}
+            />
           </div>
         </div>
 

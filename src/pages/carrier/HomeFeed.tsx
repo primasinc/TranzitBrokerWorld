@@ -1,30 +1,46 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GoogleMap, Marker } from '@react-google-maps/api';
+import { useAuth } from '../../contexts/AuthContext';
+import MapboxMap from '../../components/common/MapboxMap';
 import styles from './HomeFeed.module.css';
 
-interface Load {
+interface AvailableLoad {
   id: string;
-  position: google.maps.LatLngLiteral;
+  pickupLocation: {
+    address: string;
+    position: [number, number];
+  };
+  deliveryLocation: {
+    address: string;
+    position: [number, number];
+  };
   title: string;
-  pickup: string;
-  delivery: string;
+  // ... other existing properties ...
 }
-
-const defaultCenter = {
-  lat: 39.8283,  // Center of US roughly
-  lng: -98.5795
-};
-
-const mapContainerStyle = {
-  width: '100%',
-  height: '400px'
-};
 
 const HomeFeed: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [viewType, setViewType] = useState<'map' | 'list'>('map');
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
+  const [availableLoads, setAvailableLoads] = useState<AvailableLoad[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [userLocation, setUserLocation] = useState<[number, number]>([-87.6298, 41.8781]); // Default to Chicago
+
+  // Get user's current location
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation([position.coords.longitude, position.coords.latitude]);
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+        }
+      );
+    }
+  }, []);
 
   const currentLoad = {
     poNumber: 'PO-12345',
@@ -47,20 +63,30 @@ const HomeFeed: React.FC = () => {
   };
 
   // Sample loads data
-  const loads: Load[] = [
+  const loads: AvailableLoad[] = [
     {
       id: '1',
-      position: { lat: 41.8781, lng: -87.6298 }, // Chicago
-      title: 'Chicago to New York',
-      pickup: 'Chicago, IL',
-      delivery: 'New York, NY'
+      pickupLocation: {
+        address: '123 Main St, Chicago, IL',
+        position: [-87.6298, 41.8781]
+      },
+      deliveryLocation: {
+        address: '456 Oak St, New York, NY',
+        position: [-74.0060, 40.7128]
+      },
+      title: 'Chicago to New York'
     },
     {
       id: '2',
-      position: { lat: 34.0522, lng: -118.2437 }, // Los Angeles
-      title: 'LA to San Francisco',
-      pickup: 'Los Angeles, CA',
-      delivery: 'San Francisco, CA'
+      pickupLocation: {
+        address: '123 Main St, Los Angeles, CA',
+        position: [-118.2437, 34.0522]
+      },
+      deliveryLocation: {
+        address: '123 Main St, San Francisco, CA',
+        position: [-122.4194, 37.7749]
+      },
+      title: 'LA to San Francisco'
     },
     // Add more sample loads as needed
   ];
@@ -69,13 +95,8 @@ const HomeFeed: React.FC = () => {
     navigate('/login');
   };
 
-  const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
-  if (!apiKey) {
-    console.error('Google Maps API key is missing');
-  }
-
   return (
-    <div className={styles.dashboard}>
+    <div className={styles.container}>
       <main className={styles.mainContent}>
         <header className={styles.header}>
           <h1>Carrier Dashboard</h1>
@@ -162,33 +183,37 @@ const HomeFeed: React.FC = () => {
 
             {viewType === 'map' ? (
               <div className={styles.mapContainer}>
-                <GoogleMap
-                  mapContainerStyle={mapContainerStyle}
-                  center={defaultCenter}
-                  zoom={4}
-                  options={{
-                    zoomControl: true,
-                    mapTypeControl: false,
-                    streetViewControl: false,
-                    fullscreenControl: true,
-                  }}
-                >
-                  {loads.map((load) => (
-                    <Marker
-                      key={load.id}
-                      position={load.position}
-                      title={load.title}
-                    />
-                  ))}
-                </GoogleMap>
+                <MapboxMap
+                  center={userLocation}
+                  zoom={10}
+                  markers={[
+                    {
+                      id: 'user',
+                      position: userLocation,
+                      type: 'carrier',
+                      onClick: () => {
+                        console.log('User location clicked');
+                      }
+                    },
+                    ...loads.map(load => ({
+                      id: load.id,
+                      position: load.pickupLocation.position,
+                      type: 'shipper' as const,
+                      onClick: () => {
+                        console.log('Load clicked:', load);
+                        navigate(`/carrier/loads/${load.id}`);
+                      }
+                    }))
+                  ]}
+                />
               </div>
             ) : (
               <div className={styles.listView}>
                 {loads.map((load) => (
                   <div key={load.id} className={styles.loadCard}>
                     <h3>{load.title}</h3>
-                    <p>Pickup: {load.pickup}</p>
-                    <p>Delivery: {load.delivery}</p>
+                    <p>Pickup: {load.pickupLocation.address}</p>
+                    <p>Delivery: {load.deliveryLocation.address}</p>
                     <button onClick={() => console.log('View details:', load)}>
                       View Details
                     </button>

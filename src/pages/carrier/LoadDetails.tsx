@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import { GoogleMap } from '@react-google-maps/api';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import MapboxMap from '../../components/common/MapboxMap';
 import { loadService } from '../../services/loadService';
 import { LoadDetailsSkeleton } from '../../components/LoadingSkeleton';
+import mapboxgl from 'mapbox-gl';
 import styles from './LoadDetails.module.css';
 
 interface LoadStatus {
@@ -39,8 +41,23 @@ interface Load {
   }>;
 }
 
+interface LoadDetails {
+  id: string;
+  pickupLocation: {
+    address: string;
+    position: [number, number];
+  };
+  deliveryLocation: {
+    address: string;
+    position: [number, number];
+  };
+  // ... other existing properties ...
+}
+
 const LoadDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { currentUser } = useAuth();
   const [isUpdating, setIsUpdating] = useState(false);
   const [newStatus, setNewStatus] = useState('');
   const [newNotes, setNewNotes] = useState('');
@@ -69,7 +86,9 @@ const LoadDetails: React.FC = () => {
     dimensions: '',
     items: []
   });
-  const [map, setMap] = useState<google.maps.Map | null>(null);
+  const [load, setLoad] = useState<LoadDetails | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchLoadDetails = async () => {
@@ -114,41 +133,25 @@ const LoadDetails: React.FC = () => {
   }, [id]);
 
   useEffect(() => {
-    if (map && loadData.pickup.coordinates && loadData.delivery.coordinates) {
-      // Create markers using AdvancedMarkerElement
-      const pickupMarker = new google.maps.marker.AdvancedMarkerElement({
-        map,
-        position: loadData.pickup.coordinates,
-        title: 'Pickup Location'
-      });
+    // Load data from your service
+    const fetchLoad = async () => {
+      try {
+        // Replace with your actual data fetching logic
+        const loadData = await loadService.getLoadById(id!);
+        setLoad(loadData);
+      } catch (err) {
+        setError('Failed to load load details');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-      const deliveryMarker = new google.maps.marker.AdvancedMarkerElement({
-        map,
-        position: loadData.delivery.coordinates,
-        title: 'Delivery Location'
-      });
+    fetchLoad();
+  }, [id]);
 
-      // Fit bounds to show both markers
-      const bounds = new google.maps.LatLngBounds();
-      bounds.extend(loadData.pickup.coordinates);
-      bounds.extend(loadData.delivery.coordinates);
-      map.fitBounds(bounds);
-
-      // Cleanup markers on unmount
-      return () => {
-        pickupMarker.map = null;
-        deliveryMarker.map = null;
-      };
-    }
-  }, [map, loadData]);
-
-  const onMapLoad = (map: google.maps.Map) => {
-    setMap(map);
-  };
-
-  if (isLoading) {
-    return <LoadDetailsSkeleton />;
-  }
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error}</div>;
+  if (!load) return <div>Load not found</div>;
 
   const handleStatusUpdate = async () => {
     if (!id || !newStatus) return;
@@ -251,17 +254,36 @@ const LoadDetails: React.FC = () => {
 
         <section className={styles.mapSection}>
           <h2>Route Map</h2>
-          <GoogleMap
-            mapContainerStyle={{
-              width: '100%',
-              height: '400px'
-            }}
-            center={loadData.pickup.coordinates}
-            zoom={7}
-            onLoad={onMapLoad}
-          >
-            {/* Markers are now handled in useEffect */}
-          </GoogleMap>
+          <div className={styles.mapContainer}>
+            <MapboxMap
+              center={load.pickupLocation.position}
+              zoom={10}
+              markers={[
+                {
+                  id: 'pickup',
+                  position: load.pickupLocation.position,
+                  type: 'shipper',
+                  onClick: () => {
+                    console.log('Pickup location clicked:', load.pickupLocation);
+                  }
+                },
+                {
+                  id: 'delivery',
+                  position: load.deliveryLocation.position,
+                  type: 'shipper',
+                  onClick: () => {
+                    console.log('Delivery location clicked:', load.deliveryLocation);
+                  }
+                }
+              ]}
+              onMapLoad={(map) => {
+                const bounds = new mapboxgl.LngLatBounds();
+                bounds.extend(load.pickupLocation.position);
+                bounds.extend(load.deliveryLocation.position);
+                map.fitBounds(bounds, { padding: 50 });
+              }}
+            />
+          </div>
         </section>
 
         <section className={styles.itemTracking}>
