@@ -1,0 +1,25 @@
+.marker {
+  position: relative;
+}
+
+.status-dot {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid white;
+}
+
+.status-dot.online {
+  background-color: #4CAF50;
+}
+
+.status-dot.offline {
+  background-color: #F44336;
+}
+
+.status-dot.inactive {
+  background-color: #9E9E9E;
+} 

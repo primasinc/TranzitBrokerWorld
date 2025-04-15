@@ -12,6 +12,12 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    // Locations collection
+    match /locations/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+    }
+
     // Shipments collection
     match /shipments/{shipmentId} {
       allow read: if isAuthenticated();
