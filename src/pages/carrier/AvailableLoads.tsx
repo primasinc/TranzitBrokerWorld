@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { GoogleMap, Marker } from '@react-google-maps/api';
+import React, { useState } from 'react';
+import MapboxMap from '../../components/common/MapboxMap';
 import styles from './AvailableLoads.module.css';
 
 interface Load {
   id: string;
-  position: google.maps.LatLngLiteral;
+  position: [number, number];
   title: string;
   pickup: string;
   delivery: string;
@@ -14,55 +14,14 @@ interface Load {
   dimensions: string;
 }
 
-const defaultCenter = {
-  lat: 39.8283,
-  lng: -98.5795
-};
-
-const mapContainerStyle = {
-  width: '100%',
-  height: '500px'
-};
-
 const AvailableLoads: React.FC = () => {
   const [viewType, setViewType] = useState<'map' | 'list'>('map');
-  const [isMapLoaded, setIsMapLoaded] = useState(false);
-  const [mapError, setMapError] = useState<string | null>(null);
   const [selectedLoad, setSelectedLoad] = useState<Load | null>(null);
-
-  const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
-
-  useEffect(() => {
-    if (!apiKey) {
-      setMapError('Google Maps API key is missing');
-      return;
-    }
-    
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}`;
-    script.async = true;
-    script.onload = () => setIsMapLoaded(true);
-    script.onerror = () => setMapError('Failed to load Google Maps');
-    document.body.appendChild(script);
-
-    return () => {
-      document.body.removeChild(script);
-    };
-  }, [apiKey]);
-
-  if (mapError) {
-    return (
-      <div className={styles.error}>
-        <p>{mapError}</p>
-        <button onClick={() => setViewType('list')}>Switch to List View</button>
-      </div>
-    );
-  }
 
   const loads: Load[] = [
     {
       id: '1',
-      position: { lat: 41.8781, lng: -87.6298 },
+      position: [-87.6298, 41.8781], // [longitude, latitude] for Mapbox
       title: 'Chicago to New York',
       pickup: 'Chicago, IL',
       delivery: 'New York, NY',
@@ -73,7 +32,7 @@ const AvailableLoads: React.FC = () => {
     },
     {
       id: '2',
-      position: { lat: 34.0522, lng: -118.2437 },
+      position: [-118.2437, 34.0522], // [longitude, latitude] for Mapbox
       title: 'LA to San Francisco',
       pickup: 'Los Angeles, CA',
       delivery: 'San Francisco, CA',
@@ -84,6 +43,25 @@ const AvailableLoads: React.FC = () => {
     },
     // Add more sample loads as needed
   ];
+
+  const renderLoadCard = (load: Load) => (
+    <div 
+      key={load.id} 
+      className={`${styles.loadCard} ${selectedLoad?.id === load.id ? styles.selected : ''}`}
+      onClick={() => setSelectedLoad(load)}
+    >
+      <h3>{load.title}</h3>
+      <div className={styles.loadDetails}>
+        <p><strong>Pickup:</strong> {load.pickup}</p>
+        <p><strong>Delivery:</strong> {load.delivery}</p>
+        <p><strong>Rate:</strong> ${load.rate.toLocaleString()}</p>
+        <p><strong>Distance:</strong> {load.distance}</p>
+        <p><strong>Weight:</strong> {load.weight}</p>
+        <p><strong>Dimensions:</strong> {load.dimensions}</p>
+      </div>
+      <button className={styles.detailsButton}>View Details</button>
+    </div>
+  );
 
   return (
     <div className={styles.container}>
@@ -107,87 +85,27 @@ const AvailableLoads: React.FC = () => {
 
       {viewType === 'map' ? (
         <div className={styles.mapSection}>
-          {isMapLoaded ? (
-            <div className={styles.mapContainer}>
-              <GoogleMap
-                mapContainerStyle={mapContainerStyle}
-                center={defaultCenter}
-                zoom={4}
-                options={{
-                  zoomControl: true,
-                  mapTypeControl: false,
-                  streetViewControl: false,
-                  fullscreenControl: true,
-                }}
-              >
-                {loads.map((load) => (
-                  <Marker
-                    key={load.id}
-                    position={load.position}
-                    title={load.title}
-                    onClick={() => setSelectedLoad(load)}
-                  />
-                ))}
-              </GoogleMap>
-            </div>
-          ) : (
-            <div className={styles.loading}>Loading map...</div>
-          )}
+          <div className={styles.mapContainer}>
+            <MapboxMap
+              center={[-98.5795, 39.8283]} // US center
+              zoom={4}
+              markers={loads.map(load => ({
+                id: load.id,
+                position: load.position,
+                type: 'shipper',
+                onClick: () => setSelectedLoad(load)
+              }))}
+            />
+          </div>
           {selectedLoad && (
-            <div className={styles.loadDetails}>
-              <h2>{selectedLoad.title}</h2>
-              <div className={styles.detailsGrid}>
-                <div>
-                  <strong>Pickup:</strong> {selectedLoad.pickup}
-                </div>
-                <div>
-                  <strong>Delivery:</strong> {selectedLoad.delivery}
-                </div>
-                <div>
-                  <strong>Rate:</strong> ${selectedLoad.rate}
-                </div>
-                <div>
-                  <strong>Distance:</strong> {selectedLoad.distance}
-                </div>
-                <div>
-                  <strong>Weight:</strong> {selectedLoad.weight}
-                </div>
-                <div>
-                  <strong>Dimensions:</strong> {selectedLoad.dimensions}
-                </div>
-              </div>
-              <button className={styles.bookButton}>Book Load</button>
+            <div className={styles.selectedLoadDetails}>
+              {renderLoadCard(selectedLoad)}
             </div>
           )}
         </div>
       ) : (
         <div className={styles.listView}>
-          {loads.map((load) => (
-            <div key={load.id} className={styles.loadCard}>
-              <h3>{load.title}</h3>
-              <div className={styles.loadInfo}>
-                <div>
-                  <strong>Pickup:</strong> {load.pickup}
-                </div>
-                <div>
-                  <strong>Delivery:</strong> {load.delivery}
-                </div>
-                <div>
-                  <strong>Rate:</strong> ${load.rate}
-                </div>
-                <div>
-                  <strong>Distance:</strong> {load.distance}
-                </div>
-                <div>
-                  <strong>Weight:</strong> {load.weight}
-                </div>
-                <div>
-                  <strong>Dimensions:</strong> {load.dimensions}
-                </div>
-              </div>
-              <button className={styles.bookButton}>Book Load</button>
-            </div>
-          ))}
+          {loads.map(renderLoadCard)}
         </div>
       )}
     </div>

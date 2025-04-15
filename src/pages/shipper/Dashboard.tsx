@@ -14,7 +14,7 @@ interface Shipment {
   status: 'In Transit' | 'Scheduled' | 'Delivered' | 'Delayed';
   eta: string;
   cost: number;
-  position: google.maps.LatLngLiteral;
+  position: [number, number]; // [longitude, latitude] for Mapbox
 }
 
 interface AvailableCarrier {
@@ -23,7 +23,7 @@ interface AvailableCarrier {
   rating: number;
   equipmentType: string;
   distance: number; // in miles
-  position: google.maps.LatLngLiteral;
+  position: [number, number]; // [longitude, latitude] for Mapbox
   availableDate: string;
 }
 
@@ -53,7 +53,7 @@ const ShipperDashboard: React.FC = () => {
       status: 'In Transit',
       eta: '2024-02-25 14:00',
       cost: 2500,
-      position: { lat: 41.8781, lng: -87.6298 }
+      position: [-87.6298, 41.8781] // [longitude, latitude] for Chicago
     },
     {
       id: 'SH002',
@@ -63,7 +63,7 @@ const ShipperDashboard: React.FC = () => {
       status: 'Scheduled',
       eta: '2024-02-26 10:00',
       cost: 1800,
-      position: { lat: 32.7767, lng: -96.7970 }
+      position: [-96.7970, 32.7767] // [longitude, latitude] for Dallas
     },
     {
       id: 'SH003',
@@ -73,7 +73,7 @@ const ShipperDashboard: React.FC = () => {
       status: 'In Transit',
       eta: '2024-02-24 16:30',
       cost: 3200,
-      position: { lat: 34.0522, lng: -118.2437 }
+      position: [-118.2437, 34.0522] // [longitude, latitude] for LA
     }
   ];
 
@@ -85,7 +85,7 @@ const ShipperDashboard: React.FC = () => {
       rating: 4.8,
       equipmentType: 'Dry Van',
       distance: 15,
-      position: { lat: 41.9742, lng: -87.6582 },
+      position: [-87.6582, 41.9742], // [longitude, latitude] for carrier location
       availableDate: '2024-02-23'
     },
     {
@@ -94,7 +94,7 @@ const ShipperDashboard: React.FC = () => {
       rating: 4.5,
       equipmentType: 'Refrigerated',
       distance: 28,
-      position: { lat: 41.7508, lng: -87.5247 },
+      position: [-87.5247, 41.7508], // [longitude, latitude] for carrier location
       availableDate: '2024-02-24'
     },
     {
@@ -103,7 +103,7 @@ const ShipperDashboard: React.FC = () => {
       rating: 4.2,
       equipmentType: 'Flatbed',
       distance: 42,
-      position: { lat: 41.6646, lng: -87.8611 },
+      position: [-87.8611, 41.6646], // [longitude, latitude] for carrier location
       availableDate: '2024-02-23'
     },
     {
@@ -112,7 +112,7 @@ const ShipperDashboard: React.FC = () => {
       rating: 4.7,
       equipmentType: 'Dry Van',
       distance: 55,
-      position: { lat: 42.0451, lng: -87.9083 },
+      position: [-87.9083, 42.0451], // [longitude, latitude] for carrier location
       availableDate: '2024-02-25'
     }
   ];
@@ -198,7 +198,7 @@ const ShipperDashboard: React.FC = () => {
     if (showActiveShipments) {
       return shipments.map(shipment => ({
         id: shipment.id,
-        position: [shipment.position.lng, shipment.position.lat] as [number, number],
+        position: shipment.position,
         type: 'carrier' as const,
         onClick: () => {
           // Handle shipment marker click
@@ -219,7 +219,7 @@ const ShipperDashboard: React.FC = () => {
         // Available carriers markers
         ...filteredCarriers.map(carrier => ({
           id: carrier.id,
-          position: [carrier.position.lng, carrier.position.lat] as [number, number],
+          position: carrier.position,
           type: 'carrier' as const,
           onClick: () => {
             console.log('Carrier clicked:', carrier);
