@@ -10,6 +10,9 @@ import ShipperLayout from './layouts/ShipperLayout';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 
+// Test Pages
+import TestKonexial from './pages/TestKonexial';
+
 // Shipper Pages
 import ShipperDashboard from './pages/shipper/Dashboard';
 import LoadsOverview from './pages/shipper/LoadsOverview';
@@ -53,6 +56,9 @@ function App() {
           <Routes>
             <Route path="/" element={<Navigate to="/login" replace />} />
             
+            {/* Test Routes */}
+            <Route path="/test-konexial" element={<TestKonexial />} />
+
             {/* Carrier Routes */}
             <Route path="/carrier" element={<CarrierLayout />}>
               <Route index element={<Navigate to="/carrier/home" replace />} />

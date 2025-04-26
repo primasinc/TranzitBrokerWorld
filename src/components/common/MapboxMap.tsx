@@ -1,7 +1,9 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import styles from './MapboxMap.module.css';
+import { konexialService } from '../../services/konexialService';
+import type { KonexialVehicle } from '../../services/konexialService';
 
 // Set the Mapbox token
 mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_TOKEN || '';
@@ -23,6 +25,7 @@ interface MapboxMapProps {
   pickupLocation?: [number, number];
   deliveryLocation?: [number, number];
   enableRealtime?: boolean;
+  showKonexialVehicles?: boolean;
 }
 
 const MapboxMap: React.FC<MapboxMapProps> = ({
@@ -32,11 +35,14 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
   onMapLoad,
   pickupLocation,
   deliveryLocation,
-  enableRealtime = false
+  enableRealtime = false,
+  showKonexialVehicles = false
 }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<{ [key: string]: mapboxgl.Marker }>({});
+  const [konexialMarkers, setKonexialMarkers] = useState<MapMarker[]>([]);
+  const updateInterval = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
     if (!mapContainer.current) return;
@@ -75,20 +81,38 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
     };
   }, [center, zoom, onMapLoad]);
 
+  // Create marker element with status dot
+  const createMarkerElement = (marker: MapMarker) => {
+    const el = document.createElement('div');
+    el.className = styles.marker;
+    
+    // Add status dot if status is provided
+    if (marker.status) {
+      const statusDot = document.createElement('div');
+      statusDot.className = `${styles['status-dot']} ${styles[marker.status]}`;
+      el.appendChild(statusDot);
+    }
+    
+    return el;
+  };
+
   // Handle marker updates
   useEffect(() => {
     if (!map.current) return;
 
-    // Remove markers that are no longer in the props
+    // Combine prop markers and Konexial markers
+    const allMarkers = [...markers, ...konexialMarkers];
+
+    // Remove markers that are no longer in either array
     Object.keys(markersRef.current).forEach(id => {
-      if (!markers.find(m => m.id === id)) {
+      if (!allMarkers.find(m => m.id === id)) {
         markersRef.current[id].remove();
         delete markersRef.current[id];
       }
     });
 
     // Update or add markers
-    markers.forEach(marker => {
+    allMarkers.forEach(marker => {
       const el = createMarkerElement(marker);
 
       if (markersRef.current[marker.id]) {
@@ -140,38 +164,65 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
         deliveryMarker.remove();
       };
     }
-  }, [markers, pickupLocation, deliveryLocation]);
+  }, [markers, konexialMarkers, pickupLocation, deliveryLocation]);
 
-  return (
-    <div 
-      ref={mapContainer} 
-      style={{ 
-        width: '100%', 
-        height: '400px',
-        borderRadius: '8px',
-        overflow: 'hidden'
-      }} 
-    />
-  );
-};
+  // Handle Konexial vehicle updates
+  useEffect(() => {
+    if (!showKonexialVehicles) return;
 
-const createMarkerElement = (marker: MapMarker) => {
-  const el = document.createElement('div');
-  el.className = styles.marker;
-  
-  const markerIcon = document.createElement('img');
-  markerIcon.src = marker.icon || (marker.type === 'carrier' ? '/truck-icon.svg' : '/warehouse-icon.svg');
-  markerIcon.width = 30;
-  markerIcon.height = 30;
-  el.appendChild(markerIcon);
+    const updateVehiclePositions = async () => {
+      try {
+        console.log('Fetching Konexial vehicles...');
+        const vehicles = await konexialService.getVehicles();
+        console.log('Received vehicles:', vehicles);
 
-  if (marker.status) {
-    const statusDot = document.createElement('div');
-    statusDot.className = `${styles['status-dot']} ${styles[marker.status]}`;
-    el.appendChild(statusDot);
-  }
+        const newMarkers: MapMarker[] = vehicles
+          .filter((vehicle: KonexialVehicle) => {
+            console.log('Vehicle data:', vehicle);
+            return vehicle.last_position;
+          })
+          .map((vehicle: KonexialVehicle) => ({
+            id: vehicle.id,
+            position: [vehicle.last_position!.longitude, vehicle.last_position!.latitude] as [number, number],
+            type: 'carrier',
+            status: 'online',
+            onClick: () => {
+              const popup = new mapboxgl.Popup()
+                .setHTML(`
+                  <div>
+                    <h3>Truck ${vehicle.truck_number}</h3>
+                    <p>Last Update: ${new Date(vehicle.last_position!.timestamp).toLocaleString()}</p>
+                    ${vehicle.last_position!.speed ? `<p>Speed: ${vehicle.last_position!.speed} mph</p>` : ''}
+                    ${vehicle.last_position!.heading ? `<p>Heading: ${vehicle.last_position!.heading}°</p>` : ''}
+                  </div>
+                `);
+              markersRef.current[vehicle.id].setPopup(popup);
+            }
+          }));
 
-  return el;
+        console.log('Created markers:', newMarkers);
+        setKonexialMarkers(newMarkers);
+      } catch (error) {
+        console.error('Error updating vehicle positions:', error);
+      }
+    };
+
+    // Initial update
+    updateVehiclePositions();
+
+    // Set up interval for updates if realtime is enabled
+    if (enableRealtime) {
+      updateInterval.current = setInterval(updateVehiclePositions, 30000);
+    }
+
+    return () => {
+      if (updateInterval.current) {
+        clearInterval(updateInterval.current);
+      }
+    };
+  }, [showKonexialVehicles]);
+
+  return <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />;
 };
 
 export default MapboxMap; 
