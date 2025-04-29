@@ -5,6 +5,12 @@ const PROXY_BASE = 'http://localhost:3001/api';
 export interface KonexialVehicle {
   id: string;
   truck_number: string;
+  carrier_name: string;
+  truck_make: string;
+  truck_model: string;
+  license_plate_number: string;
+  license_state_name: string;
+  vin: string;
   last_position?: {
     latitude: number;
     longitude: number;
@@ -12,12 +18,6 @@ export interface KonexialVehicle {
     speed?: number;
     heading?: number;
   };
-}
-
-interface KonexialResponse<T> {
-  data: T;
-  status: number;
-  message?: string;
 }
 
 interface ErrorResponse {
@@ -32,9 +32,22 @@ export const konexialService = {
   async getVehicles(): Promise<KonexialVehicle[]> {
     try {
       console.log('Making request to proxy for vehicles...');
-      const response = await axios.get<KonexialResponse<KonexialVehicle[]>>(`${PROXY_BASE}/vehicles`);
+      const response = await axios.get<KonexialVehicle[]>(`${PROXY_BASE}/vehicles`);
       console.log('Proxy Response:', response.status, response.statusText);
-      return response.data.data || [];
+      
+      // Transform the response to include last_position
+      const vehicles = response.data.map(vehicle => ({
+        ...vehicle,
+        // Add empty last_position if not present
+        last_position: {
+          latitude: 0,
+          longitude: 0,
+          timestamp: new Date().toISOString(),
+        }
+      }));
+      
+      console.log('Processed vehicles:', vehicles);
+      return vehicles;
     } catch (error: unknown) {
       console.error('Error fetching vehicles:', error);
       const err = error as ErrorResponse;
@@ -50,9 +63,9 @@ export const konexialService = {
   async getVehiclePosition(vehicleId: string): Promise<KonexialVehicle | null> {
     try {
       console.log(`Fetching position for vehicle ${vehicleId}...`);
-      const response = await axios.get<KonexialResponse<KonexialVehicle>>(`${PROXY_BASE}/vehicles/${vehicleId}`);
+      const response = await axios.get<KonexialVehicle>(`${PROXY_BASE}/vehicles/${vehicleId}`);
       console.log('Vehicle position response:', response.status, response.statusText);
-      return response.data.data;
+      return response.data;
     } catch (error: unknown) {
       console.error('Error fetching vehicle position:', error);
       const err = error as ErrorResponse;
