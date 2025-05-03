@@ -9,7 +9,6 @@ const Login: React.FC = () => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    userType: 'shipper',
     rememberMe: false
   });
   const [error, setError] = useState('');
@@ -19,19 +18,24 @@ const Login: React.FC = () => {
     setError('');
 
     try {
-      // For development/testing, use these credentials:
-      // If no email/password provided, use test credentials
+      // For development/testing, use these credentials if fields are empty
       const email = formData.email || 'test@tranzit.com';
       const password = formData.password || 'test123';
 
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      console.log('Logged in user:', userCredential.user);
+      const user = userCredential.user;
 
-      // Navigate based on user type
-      if (formData.userType === 'shipper') {
+      // Get custom claims (role)
+      const idTokenResult = await user.getIdTokenResult();
+      const role = idTokenResult.claims.role;
+
+      // Route based on role
+      if (role === 'shipper') {
         navigate('/shipper/dashboard');
-      } else {
+      } else if (role === 'carrier') {
         navigate('/carrier/home');
+      } else {
+        setError('No role assigned to this user.');
       }
     } catch (err) {
       console.error('Login error:', err);
@@ -47,19 +51,6 @@ const Login: React.FC = () => {
         {error && <div className={styles.error}>{error}</div>}
         
         <form onSubmit={handleSubmit} className={styles.form}>
-          <div className={styles.inputGroup}>
-            <label htmlFor="userType">Login As</label>
-            <select
-              id="userType"
-              value={formData.userType}
-              onChange={(e) => setFormData({ ...formData, userType: e.target.value })}
-              className={styles.select}
-            >
-              <option value="shipper">Shipper</option>
-              <option value="carrier">Carrier</option>
-            </select>
-          </div>
-
           <div className={styles.inputGroup}>
             <label htmlFor="email">Email</label>
             <input

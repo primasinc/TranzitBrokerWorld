@@ -31,6 +31,7 @@ import ShipmentArchive from './pages/shipper/ShipmentArchive';
 import CarrierDirectory from './pages/shipper/CarrierDirectory';
 import CarrierDetails from './pages/shipper/CarrierDetails';
 import { TestPurchaseOrder } from './pages/shipper/TestPurchaseOrder';
+import ShipperProfilePage from './pages/shipper/Profile';
 
 // Carrier Pages
 import HomeFeed from './pages/carrier/HomeFeed';
@@ -42,6 +43,7 @@ import Payments from './pages/carrier/Payments';
 import Settings from './pages/carrier/Settings';
 import { AuthProvider } from './contexts/AuthContext';
 import CarrierProvider from './context/CarrierContext';
+import CarrierProfilePage from './pages/carrier/Profile';
 
 const ViewProfileWrapper = () => {
   const { id } = useParams();
@@ -69,6 +71,7 @@ function App() {
               <Route path="documents" element={<Documents />} />
               <Route path="payments" element={<Payments />} />
               <Route path="settings" element={<Settings />} />
+              <Route path="profile" element={<CarrierProfilePage />} />
             </Route>
 
             {/* Shipper Routes */}
@@ -90,6 +93,7 @@ function App() {
               <Route path="directory" element={<CarrierDirectory />} />
               <Route path="carrier-partners/:partnerId" element={<CarrierDetails />} />
               <Route path="test-po" element={<TestPurchaseOrder />} />
+              <Route path="profile" element={<ShipperProfilePage />} />
             </Route>
 
             {/* Auth Routes */}

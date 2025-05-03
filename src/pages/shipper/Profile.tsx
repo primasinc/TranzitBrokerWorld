@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import styles from './Settings.module.css';
+import styles from '../carrier/Settings.module.css';
 
 interface Profile {
   companyName: string;
-  mcNumber: string;
-  dotNumber: string;
+  companyRep: string;
   email: string;
   phone: string;
   address: string;
@@ -13,17 +12,16 @@ interface Profile {
   zip: string;
 }
 
-const ProfilePage: React.FC = () => {
+const ShipperProfilePage: React.FC = () => {
   const [profile, setProfile] = useState<Profile>({
-    companyName: "ABC Trucking LLC",
-    mcNumber: "MC-123456",
-    dotNumber: "DOT-789012",
-    email: "contact@abctrucking.com",
-    phone: "(555) 123-4567",
-    address: "123 Transport Ave",
-    city: "Chicago",
-    state: "IL",
-    zip: "60601"
+    companyName: "Acme Shipper Inc.",
+    companyRep: "Jane Doe",
+    email: "contact@acmeshipper.com",
+    phone: "(555) 987-6543",
+    address: "456 Shipping Blvd",
+    city: "Dallas",
+    state: "TX",
+    zip: "75201"
   });
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
@@ -73,19 +71,11 @@ const ProfilePage: React.FC = () => {
               />
             </div>
             <div className={styles.formGroup}>
-              <label>MC Number</label>
+              <label>Company Representative</label>
               <input 
                 type="text" 
-                value={profile.mcNumber}
-                onChange={(e) => setProfile({...profile, mcNumber: e.target.value})}
-              />
-            </div>
-            <div className={styles.formGroup}>
-              <label>DOT Number</label>
-              <input 
-                type="text" 
-                value={profile.dotNumber}
-                onChange={(e) => setProfile({...profile, dotNumber: e.target.value})}
+                value={profile.companyRep}
+                onChange={(e) => setProfile({...profile, companyRep: e.target.value})}
               />
             </div>
             <div className={styles.formGroup}>
@@ -188,4 +178,4 @@ const ProfilePage: React.FC = () => {
   );
 };
 
-export default ProfilePage; 
+export default ShipperProfilePage; 

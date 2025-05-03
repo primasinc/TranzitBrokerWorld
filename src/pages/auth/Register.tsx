@@ -10,10 +10,13 @@ type UserType = 'shipper' | 'carrier';
 const Register: React.FC = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
+    userType: 'shipper' as UserType,
+    companyName: '',
+    companyRep: '',
+    phoneNumber: '',
     email: '',
     password: '',
-    confirmPassword: '',
-    userType: 'shipper' as UserType
+    confirmPassword: ''
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -23,9 +26,20 @@ const Register: React.FC = () => {
     setError('');
     setLoading(true);
 
+    // Validate required fields
+    if (!formData.companyName.trim() || !formData.phoneNumber.trim() || !formData.email.trim() || !formData.password || !formData.confirmPassword) {
+      setError('Please fill out all required fields.');
+      setLoading(false);
+      return;
+    }
     // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
       setError('Passwords do not match');
+      setLoading(false);
+      return;
+    }
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters.');
       setLoading(false);
       return;
     }
@@ -40,6 +54,8 @@ const Register: React.FC = () => {
 
       // Set user role using Firebase Functions
       await setUserRole(formData.userType);
+
+      // TODO: Optionally, save company info to Firestore here
 
       console.log('Registered user:', userCredential.user);
 
@@ -79,7 +95,45 @@ const Register: React.FC = () => {
           </div>
 
           <div className={styles.inputGroup}>
-            <label htmlFor="email">Email</label>
+            <label htmlFor="companyName">Company Name<span style={{color: 'red'}}>*</span></label>
+            <input
+              type="text"
+              id="companyName"
+              value={formData.companyName}
+              onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+              className={styles.input}
+              placeholder="Enter your company name"
+              required
+            />
+          </div>
+
+          <div className={styles.inputGroup}>
+            <label htmlFor="companyRep">Company Representative</label>
+            <input
+              type="text"
+              id="companyRep"
+              value={formData.companyRep}
+              onChange={(e) => setFormData({ ...formData, companyRep: e.target.value })}
+              className={styles.input}
+              placeholder="Enter company representative (optional)"
+            />
+          </div>
+
+          <div className={styles.inputGroup}>
+            <label htmlFor="phoneNumber">Phone Number<span style={{color: 'red'}}>*</span></label>
+            <input
+              type="tel"
+              id="phoneNumber"
+              value={formData.phoneNumber}
+              onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+              className={styles.input}
+              placeholder="Enter your phone number"
+              required
+            />
+          </div>
+
+          <div className={styles.inputGroup}>
+            <label htmlFor="email">Email<span style={{color: 'red'}}>*</span></label>
             <input
               type="email"
               id="email"
@@ -92,7 +146,7 @@ const Register: React.FC = () => {
           </div>
 
           <div className={styles.inputGroup}>
-            <label htmlFor="password">Password</label>
+            <label htmlFor="password">Password<span style={{color: 'red'}}>*</span></label>
             <input
               type="password"
               id="password"
@@ -106,7 +160,7 @@ const Register: React.FC = () => {
           </div>
 
           <div className={styles.inputGroup}>
-            <label htmlFor="confirmPassword">Confirm Password</label>
+            <label htmlFor="confirmPassword">Confirm Password<span style={{color: 'red'}}>*</span></label>
             <input
               type="password"
               id="confirmPassword"
