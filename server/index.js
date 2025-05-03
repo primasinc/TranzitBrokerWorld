@@ -2,6 +2,8 @@ require('dotenv').config({ path: '../.env' });
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
+const path = require('path');
+const favicon = require('serve-favicon');
 
 const app = express();
 const port = 3001;
@@ -10,6 +12,8 @@ const port = 3001;
 app.use(cors({
   origin: 'http://localhost:3000'
 }));
+
+app.use(favicon(path.join(__dirname, '../public/favicon.ico')));
 
 // Konexial API configuration - using exact values from their example
 const KONEXIAL_API_BASE = 'https://user-service.konexial.com/public_api/v1';
@@ -22,7 +26,7 @@ const headers = {
 async function getVehiclePosition(vehicleId) {
   try {
     console.log(`Fetching position for vehicle ${vehicleId}...`);
-    const response = await axios.get(`${KONEXIAL_API_BASE}/vehicle/${vehicleId}/position`, { headers });
+    const response = await axios.get(`${KONEXIAL_API_BASE}/vehicles/${vehicleId}`, { headers });
     console.log(`Position response for ${vehicleId}:`, response.status);
     return response.data;
   } catch (error) {
@@ -37,22 +41,13 @@ app.get('/api/vehicles', async (req, res) => {
     console.log('Proxying request to Konexial API for vehicles...');
     console.log('Using headers:', headers);
     
-    // Get vehicles
+    // Get vehicles - last_position is already included in response
     const vehiclesResponse = await axios.get(`${KONEXIAL_API_BASE}/vehicles?page_count=100`, { headers });
     console.log('Konexial API Response:', vehiclesResponse.status);
     
-    // Get position for each vehicle
-    const vehicles = await Promise.all(
-      vehiclesResponse.data.map(async (vehicle) => {
-        const position = await getVehiclePosition(vehicle.id);
-        return {
-          ...vehicle,
-          last_position: position
-        };
-      })
-    );
+    // Send the response directly - it already contains last_position
+    res.json(vehiclesResponse.data);
     
-    res.json(vehicles);
   } catch (error) {
     console.error('Error fetching vehicles:', error.response?.data || error.message);
     if (error.response?.data) {
@@ -61,6 +56,23 @@ app.get('/api/vehicles', async (req, res) => {
     res.status(error.response?.status || 500).json({
       error: error.response?.data || 'Internal Server Error'
     });
+  }
+});
+
+// Add fleet locations endpoint
+app.get('/api/vehicles/locations', async (req, res) => {
+  try {
+    console.log('Proxying request to Konexial API for vehicle locations...');
+    const { data, status } = await axios.get(
+      `${KONEXIAL_API_BASE}/vehicles/locations`,
+      { headers }
+    );
+    console.log('Konexial locations status:', status);
+    console.dir(data.locations, { depth: null }); // Debug output they suggested
+    res.json(data.locations ?? []); // docs say payload is { locations: [...] }
+  } catch (err) {
+    console.error('Error fetching locations:', err.response?.data || err.message);
+    res.status(err.response?.status || 500).send(err.response?.data || err.message);
   }
 });
 

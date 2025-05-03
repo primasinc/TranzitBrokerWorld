@@ -72,10 +72,21 @@ export const KonexialApi = {
   // Get vehicle position by ID (using My20 internal ID from vehicles endpoint)
   async getVehiclePosition(vehicleId: string): Promise<KonexialVehiclePosition> {
     try {
-      const response = await konexialClient.get(`/vehicles/${vehicleId}`);
-      return response.data;
+      const response = await konexialClient.get(`/vehicles/${vehicleId}/locations?limit=1`);
+      return response.data?.locations?.[0] ?? null;
     } catch (error) {
       console.error('Error fetching Konexial vehicle position:', error);
+      throw error;
+    }
+  },
+
+  // Get locations for all vehicles in one call
+  async getFleetLocations(): Promise<any[]> {
+    try {
+      const response = await konexialClient.get('/vehicles/locations');
+      return response.data.locations || [];
+    } catch (error) {
+      console.error('Error fetching fleet locations:', error);
       throw error;
     }
   },
