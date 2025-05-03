@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '../../config/firebase';
+import { collection, getDocs, query, where, doc, setDoc, getDoc } from 'firebase/firestore';
+import { db, auth } from '../../config/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 import styles from './CarrierDirectory.module.css';
 
 interface CarrierUser {
@@ -31,7 +32,23 @@ const CarrierDirectory: React.FC = () => {
   const [loadTypeFilter, setLoadTypeFilter] = useState('');
   const [trailerTypeFilter, setTrailerTypeFilter] = useState('');
   const [endorsementFilter, setEndorsementFilter] = useState('');
+  const [userId, setUserId] = useState<string | null>(null);
+  const [partnerIds, setPartnerIds] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setUserId(user.uid);
+        // Fetch current shipper's partners
+        const partnersSnapshot = await getDocs(collection(db, 'users', user.uid, 'partners'));
+        const ids = new Set<string>();
+        partnersSnapshot.forEach(doc => ids.add(doc.id));
+        setPartnerIds(ids);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     const fetchCarriers = async () => {
@@ -67,6 +84,45 @@ const CarrierDirectory: React.FC = () => {
     const matchesEndorsement = !endorsementFilter || (carrier.endorsements && carrier.endorsements.includes(endorsementFilter));
     return matchesSearch && matchesState && matchesLoadType && matchesTrailerType && matchesEndorsement;
   });
+
+  const handleAddToPartners = async (carrier: CarrierUser) => {
+    if (!userId) return;
+    const partnerRef = doc(db, 'users', userId, 'partners', carrier.id);
+    console.log('Current userId:', userId);
+    console.log('Writing to Firestore path:', partnerRef.path);
+    const partnerDoc = await getDoc(partnerRef);
+    if (!partnerDoc.exists()) {
+      // Only include defined fields
+      const partnerData: any = {
+        companyName: carrier.companyName,
+        addedAt: new Date()
+      };
+      if (carrier.companyRep) partnerData.companyRep = carrier.companyRep;
+      if (carrier.phoneNumber) partnerData.phoneNumber = carrier.phoneNumber;
+      if (carrier.email) partnerData.email = carrier.email;
+      if (carrier.state) partnerData.state = carrier.state;
+      if (carrier.loadTypes) partnerData.loadTypes = carrier.loadTypes;
+      if (carrier.trailerTypes) partnerData.trailerTypes = carrier.trailerTypes;
+      if (carrier.endorsements) partnerData.endorsements = carrier.endorsements;
+
+      await setDoc(partnerRef, partnerData);
+
+      // Create notification for the carrier
+      const notificationRef = doc(collection(db, 'notifications'));
+      await setDoc(notificationRef, {
+        type: 'partner_request',
+        recipientId: carrier.id,
+        senderId: userId,
+        senderName: auth.currentUser?.displayName || 'A shipper',
+        message: `${auth.currentUser?.displayName || 'A shipper'} has added you as a partner`,
+        read: false,
+        createdAt: new Date()
+      });
+
+      setPartnerIds(new Set([...Array.from(partnerIds), carrier.id]));
+      navigate('/shipper/partners');
+    }
+  };
 
   return (
     <div className={styles.container}>
@@ -113,6 +169,13 @@ const CarrierDirectory: React.FC = () => {
                 {carrier.loadTypes && <p>Load Types: {carrier.loadTypes.join(', ')}</p>}
                 {carrier.trailerTypes && <p>Trailer Types: {carrier.trailerTypes.join(', ')}</p>}
                 {carrier.endorsements && <p>Endorsements: {carrier.endorsements.join(', ')}</p>}
+                <button
+                  className={styles.addButton}
+                  onClick={() => handleAddToPartners(carrier)}
+                  disabled={partnerIds.has(carrier.id)}
+                >
+                  {partnerIds.has(carrier.id) ? 'Added' : 'Add to Partners'}
+                </button>
               </div>
             ))
           )}

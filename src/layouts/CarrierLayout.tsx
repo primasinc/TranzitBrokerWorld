@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import styles from './CarrierLayout.module.css';
+import NotificationsTray from '../pages/carrier/NotificationsTray';
 
 const CarrierLayout: React.FC = () => {
+  const [showNotifications, setShowNotifications] = useState(false);
   return (
     <div className={styles.layout}>
       <nav className={styles.sidebar}>
@@ -48,6 +50,12 @@ const CarrierLayout: React.FC = () => {
         </NavLink>
       </nav>
       <main className={styles.main}>
+        <div className={styles.topRightTray}>
+          <button className={styles.bellButton} onClick={() => setShowNotifications(v => !v)}>
+            <span role="img" aria-label="Notifications">🔔</span>
+          </button>
+          {showNotifications && <NotificationsTray onClose={() => setShowNotifications(false)} />}
+        </div>
         <Outlet />
       </main>
     </div>

@@ -44,6 +44,7 @@ import Settings from './pages/carrier/Settings';
 import { AuthProvider } from './contexts/AuthContext';
 import CarrierProvider from './context/CarrierContext';
 import CarrierProfilePage from './pages/carrier/Profile';
+import Notifications from './pages/carrier/Notifications';
 
 const ViewProfileWrapper = () => {
   const { id } = useParams();
@@ -63,13 +64,14 @@ function App() {
 
             {/* Carrier Routes */}
             <Route path="/carrier" element={<CarrierLayout />}>
-              <Route index element={<Navigate to="/carrier/home" replace />} />
+              <Route index element={<Navigate to="home" />} />
               <Route path="home" element={<HomeFeed />} />
               <Route path="available-loads" element={<AvailableLoads />} />
               <Route path="my-loads" element={<MyLoads />} />
               <Route path="loads/:id" element={<LoadDetails />} />
               <Route path="documents" element={<Documents />} />
               <Route path="payments" element={<Payments />} />
+              <Route path="notifications" element={<Notifications />} />
               <Route path="settings" element={<Settings />} />
               <Route path="profile" element={<CarrierProfilePage />} />
             </Route>
