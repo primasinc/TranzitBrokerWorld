@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styles from './Settings.module.css';
+import { db, auth } from '../../config/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 
 interface Profile {
   companyName: string;
@@ -15,15 +18,15 @@ interface Profile {
 
 const ProfilePage: React.FC = () => {
   const [profile, setProfile] = useState<Profile>({
-    companyName: "ABC Trucking LLC",
-    mcNumber: "MC-123456",
-    dotNumber: "DOT-789012",
-    email: "contact@abctrucking.com",
-    phone: "(555) 123-4567",
-    address: "123 Transport Ave",
-    city: "Chicago",
-    state: "IL",
-    zip: "60601"
+    companyName: "",
+    mcNumber: "",
+    dotNumber: "",
+    email: "",
+    phone: "",
+    address: "",
+    city: "",
+    state: "",
+    zip: ""
   });
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
@@ -32,9 +35,31 @@ const ProfilePage: React.FC = () => {
     confirm: ''
   });
   const [passwordError, setPasswordError] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
 
-  const handleProfileUpdate = (e: React.FormEvent) => {
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setUserId(user.uid);
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          setProfile({
+            ...profile,
+            ...userDoc.data(),
+          } as Profile);
+        }
+      }
+      setLoading(false);
+    });
+    return () => unsubscribe();
+    // eslint-disable-next-line
+  }, []);
+
+  const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!userId) return;
+    await setDoc(doc(db, 'users', userId), profile, { merge: true });
     alert('Profile updated successfully!');
   };
 
@@ -54,6 +79,8 @@ const ProfilePage: React.FC = () => {
     setShowPasswordModal(false);
     setPasswordForm({ current: '', new: '', confirm: '' });
   };
+
+  if (loading) return <div>Loading...</div>;
 
   return (
     <div className={styles.container}>

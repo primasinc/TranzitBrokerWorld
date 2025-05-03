@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../config/firebase';
 import { setUserRole } from '../../services/authService';
+import { db } from '../../config/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 import styles from './Login.module.css';
 
 type UserType = 'shipper' | 'carrier';
@@ -55,7 +57,15 @@ const Register: React.FC = () => {
       // Set user role using Firebase Functions
       await setUserRole(formData.userType);
 
-      // TODO: Optionally, save company info to Firestore here
+      // Save user profile info to Firestore
+      await setDoc(doc(db, 'users', userCredential.user.uid), {
+        companyName: formData.companyName,
+        companyRep: formData.companyRep,
+        phoneNumber: formData.phoneNumber,
+        email: formData.email,
+        userType: formData.userType,
+        createdAt: new Date()
+      });
 
       console.log('Registered user:', userCredential.user);
 
