@@ -72,7 +72,7 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ onClose }) => {
   };
 
   return (
-    <div ref={trayRef} className={styles.tray}>
+    <div ref={trayRef} className={styles.tray} style={{ position: 'absolute', top: 50, right: 0, zIndex: 2000, minWidth: 320 }}>
       <div className={styles.trayHeader}>
         <span>Notifications</span>
         <button className={styles.closeButton} onClick={onClose}>×</button>
@@ -109,5 +109,25 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ onClose }) => {
     </div>
   );
 };
+
+// Utility hook to get unread count for bell badge
+export function useUnreadNotifications() {
+  const [unreadCount, setUnreadCount] = useState(0);
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        const q = query(
+          collection(db, 'notifications'),
+          where('recipientId', '==', user.uid),
+          where('read', '==', false)
+        );
+        const querySnapshot = await getDocs(q);
+        setUnreadCount(querySnapshot.size);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+  return unreadCount;
+}
 
 export default NotificationsTray; 
