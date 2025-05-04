@@ -44,6 +44,12 @@ const CarrierLayout: React.FC = () => {
           Payments
         </NavLink>
         <NavLink 
+          to="/carrier/partners" 
+          className={({ isActive }) => isActive ? styles.activeLink : styles.link}
+        >
+          Shipper Partners
+        </NavLink>
+        <NavLink 
           to="/carrier/settings" 
           className={({ isActive }) => isActive ? styles.activeLink : styles.link}
         >

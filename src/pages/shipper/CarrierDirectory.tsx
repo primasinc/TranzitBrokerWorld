@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, getDocs, query, where, doc, setDoc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, query, where, doc, setDoc, getDoc, writeBatch } from 'firebase/firestore';
 import { db, auth } from '../../config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import styles from './CarrierDirectory.module.css';
@@ -85,42 +85,89 @@ const CarrierDirectory: React.FC = () => {
     return matchesSearch && matchesState && matchesLoadType && matchesTrailerType && matchesEndorsement;
   });
 
+  // Helper to remove undefined values from objects
+  function removeUndefined(obj: any) {
+    return Object.fromEntries(Object.entries(obj).filter(([_, v]) => v !== undefined));
+  }
+
   const handleAddToPartners = async (carrier: CarrierUser) => {
-    if (!userId) return;
-    const partnerRef = doc(db, 'users', userId, 'partners', carrier.id);
-    console.log('Current userId:', userId);
-    console.log('Writing to Firestore path:', partnerRef.path);
-    const partnerDoc = await getDoc(partnerRef);
-    if (!partnerDoc.exists()) {
-      // Only include defined fields
-      const partnerData: any = {
-        companyName: carrier.companyName,
-        addedAt: new Date()
+    if (!userId) {
+      alert('You must be logged in to add partners');
+      return;
+    }
+    try {
+      // Check if carrier document exists
+      const carrierDocRef = doc(db, 'users', carrier.id);
+      const carrierDoc = await getDoc(carrierDocRef);
+      if (!carrierDoc.exists()) {
+        throw new Error('Carrier document not found');
+      }
+
+      // Defensive: Ensure all required carrier fields are defined
+      const partnerData = {
+        companyName: carrier.companyName || '',
+        companyRep: carrier.companyRep || '',
+        phoneNumber: carrier.phoneNumber || '',
+        email: carrier.email || '',
+        loadTypes: Array.isArray(carrier.loadTypes) ? carrier.loadTypes : [],
+        trailerTypes: Array.isArray(carrier.trailerTypes) ? carrier.trailerTypes : [],
+        endorsements: Array.isArray(carrier.endorsements) ? carrier.endorsements : [],
+        addedAt: new Date(),
+        partnerId: carrier.id || '',
+        state: 'active', // Always set to a valid value
       };
-      if (carrier.companyRep) partnerData.companyRep = carrier.companyRep;
-      if (carrier.phoneNumber) partnerData.phoneNumber = carrier.phoneNumber;
-      if (carrier.email) partnerData.email = carrier.email;
-      if (carrier.state) partnerData.state = carrier.state;
-      if (carrier.loadTypes) partnerData.loadTypes = carrier.loadTypes;
-      if (carrier.trailerTypes) partnerData.trailerTypes = carrier.trailerTypes;
-      if (carrier.endorsements) partnerData.endorsements = carrier.endorsements;
+      const partnerRef = doc(db, 'users', userId, 'partners', carrier.id);
 
-      await setDoc(partnerRef, partnerData);
+      // Defensive: Fetch and check shipper data
+      const shipperDocRef = doc(db, 'users', userId);
+      const shipperDoc = await getDoc(shipperDocRef);
+      if (!shipperDoc.exists()) {
+        throw new Error('Shipper document not found');
+      }
+      const shipperData = shipperDoc.data() || {};
+      const shipperPartnerData = {
+        companyName: shipperData.companyName || '',
+        companyRep: shipperData.companyRep || '',
+        phoneNumber: shipperData.phoneNumber || '',
+        email: shipperData.email || '',
+        addedAt: new Date(),
+        partnerId: userId,
+        state: 'active', // Always set to a valid value
+      };
+      const carrierPartnerRef = doc(db, 'users', carrier.id, 'partners', userId);
 
-      // Create notification for the carrier
+      // Notification data
       const notificationRef = doc(collection(db, 'notifications'));
-      await setDoc(notificationRef, {
+      const notificationData = {
         type: 'partner_request',
         recipientId: carrier.id,
         senderId: userId,
-        senderName: auth.currentUser?.displayName || 'A shipper',
-        message: `${auth.currentUser?.displayName || 'A shipper'} has added you as a partner`,
+        senderName: auth.currentUser?.displayName || shipperData.companyName || 'A shipper',
+        message: `${auth.currentUser?.displayName || shipperData.companyName || 'A shipper'} has added you as a partner`,
         read: false,
         createdAt: new Date()
-      });
+      };
 
+      // Batch write
+      const batch = writeBatch(db);
+      batch.set(partnerRef, removeUndefined(partnerData));
+      batch.set(carrierPartnerRef, removeUndefined(shipperPartnerData));
+      batch.set(notificationRef, notificationData);
+      await batch.commit();
+
+      // Update local state
       setPartnerIds(new Set([...Array.from(partnerIds), carrier.id]));
+      
+      // Show success message
+      alert('Partner added successfully!');
       navigate('/shipper/partners');
+    } catch (error) {
+      console.error('Error adding partner:', error);
+      if (error instanceof Error) {
+        alert(`There was an error adding the carrier as a partner: ${error.message}`);
+      } else {
+        alert('There was an unknown error adding the carrier as a partner. Please try again.');
+      }
     }
   };
 

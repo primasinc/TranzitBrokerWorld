@@ -32,10 +32,23 @@ service cloud.firestore {
       allow write: if isOwner(userId);
     }
 
-    // User profiles
+    // User profiles and their subcollections
     match /users/{userId} {
       allow read: if isAuthenticated();
       allow write: if isOwner(userId);
+      
+      // Updated partners subcollection rules
+      match /partners/{partnerId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && (
+          request.auth.uid == userId || 
+          request.auth.uid == partnerId
+        );
+        allow update, delete: if isAuthenticated() && (
+          request.auth.uid == userId || 
+          request.auth.uid == partnerId
+        );
+      }
     }
 
     // Carriers collection

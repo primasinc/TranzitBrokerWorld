@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '../../config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import styles from './CarrierPartners.module.css';
@@ -40,36 +40,91 @@ const CarrierPartners: React.FC = () => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         setUserId(user.uid);
+        console.log('Current logged-in user UID:', user.uid);
         setLoading(true);
-        const partnersSnapshot = await getDocs(collection(db, 'users', user.uid, 'partners'));
-        const partnerList: Partner[] = [];
-        partnersSnapshot.forEach(docSnap => {
-          const data = docSnap.data();
-          partnerList.push({
-            id: docSnap.id,
-            companyName: data.companyName,
-            companyRep: data.companyRep,
-            phoneNumber: data.phoneNumber,
-            email: data.email,
-            state: data.state,
-            loadTypes: data.loadTypes,
-            trailerTypes: data.trailerTypes,
-            endorsements: data.endorsements,
-            addedAt: data.addedAt
+        try {
+          console.log('Fetching partners from Firestore...');
+          const partnersSnapshot = await getDocs(collection(db, 'users', user.uid, 'partners'));
+          console.log('Partners snapshot size:', partnersSnapshot.size);
+          const partnerList: Partner[] = [];
+          partnersSnapshot.forEach(docSnap => {
+            const data = docSnap.data();
+            console.log('Raw partner doc:', docSnap.id, data);
+            // Validate required fields
+            if (!data.companyName) {
+              console.warn('Partner document missing required companyName field:', docSnap.id);
+              return;
+            }
+            const partner: Partner = {
+              id: docSnap.id,
+              companyName: data.companyName,
+              addedAt: data.addedAt
+            };
+            // Add optional fields if they exist
+            if (data.companyRep) partner.companyRep = data.companyRep;
+            if (data.phoneNumber) partner.phoneNumber = data.phoneNumber;
+            if (data.email) partner.email = data.email;
+            if (data.state) partner.state = data.state;
+            if (data.loadTypes) partner.loadTypes = data.loadTypes;
+            if (data.trailerTypes) partner.trailerTypes = data.trailerTypes;
+            if (data.endorsements) partner.endorsements = data.endorsements;
+            partnerList.push(partner);
           });
-        });
-        setPartners(partnerList);
+          console.log('Final partner list:', partnerList);
+          setPartners(partnerList);
+        } catch (error) {
+          console.error('Error fetching partners:', error);
+          alert('There was an error loading your partners. Please try refreshing the page.');
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        console.log('No user logged in');
         setLoading(false);
+        navigate('/login');
       }
     });
     return () => unsubscribe();
-  }, []);
+  }, [navigate]);
 
   const filteredPartners = partners.filter(partner => {
     const matchesSearch = partner.companyName.toLowerCase().includes(searchTerm.toLowerCase());
     // You can add more filters here if needed
     return matchesSearch;
   });
+
+  const handleRemovePartner = async (partner: Partner) => {
+    if (!userId) {
+      console.error('No user ID found');
+      alert('You must be logged in to remove partners');
+      return;
+    }
+
+    const confirmed = window.confirm(`Are you sure you want to remove ${partner.companyName} as a partner?`);
+    if (!confirmed) return;
+
+    try {
+      console.log('Starting partner removal process...');
+      console.log('Removing partner:', partner.id);
+      
+      // Remove from current user's partners
+      const userPartnerRef = doc(db, 'users', userId, 'partners', partner.id);
+      console.log('Removing from user partners:', userPartnerRef.path);
+      await deleteDoc(userPartnerRef);
+      
+      // Remove current user from partner's partners
+      const partnerPartnerRef = doc(db, 'users', partner.id, 'partners', userId);
+      console.log('Removing from partner partners:', partnerPartnerRef.path);
+      await deleteDoc(partnerPartnerRef);
+      
+      // Update local state
+      setPartners(prev => prev.filter(p => p.id !== partner.id));
+      console.log('Partner removed successfully');
+    } catch (error) {
+      console.error('Error removing partner:', error);
+      alert('There was an error removing the partner. Please try again.');
+    }
+  };
 
   return (
     <div className={styles.container}>
@@ -124,7 +179,7 @@ const CarrierPartners: React.FC = () => {
                 >
                   View Details
                 </button>
-                <button className={styles.actionButton}>Contact</button>
+                <button className={styles.actionButton} onClick={() => handleRemovePartner(partner)} style={{backgroundColor:'#dc3545'}}>Remove Partnership</button>
               </div>
             </div>
           ))

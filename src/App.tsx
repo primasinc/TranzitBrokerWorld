@@ -45,6 +45,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import CarrierProvider from './context/CarrierContext';
 import CarrierProfilePage from './pages/carrier/Profile';
 import Notifications from './pages/carrier/Notifications';
+import ShipperPartners from './pages/carrier/ShipperPartners';
 
 const ViewProfileWrapper = () => {
   const { id } = useParams();
@@ -71,6 +72,7 @@ function App() {
               <Route path="loads/:id" element={<LoadDetails />} />
               <Route path="documents" element={<Documents />} />
               <Route path="payments" element={<Payments />} />
+              <Route path="partners" element={<ShipperPartners />} />
               <Route path="notifications" element={<Notifications />} />
               <Route path="settings" element={<Settings />} />
               <Route path="profile" element={<CarrierProfilePage />} />
