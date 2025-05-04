@@ -37,17 +37,9 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow write: if isOwner(userId);
       
-      // Updated partners subcollection rules
+      // Partners subcollection (open to all authenticated users)
       match /partners/{partnerId} {
-        allow read: if isAuthenticated();
-        allow create: if isAuthenticated() && (
-          request.auth.uid == userId || 
-          request.auth.uid == partnerId
-        );
-        allow update, delete: if isAuthenticated() && (
-          request.auth.uid == userId || 
-          request.auth.uid == partnerId
-        );
+        allow read, create, update, delete: if isAuthenticated();
       }
     }
 
