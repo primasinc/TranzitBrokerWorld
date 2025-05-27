@@ -29,7 +29,7 @@ interface AvailableCarrier {
 
 const ShipperDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const { user } = useAuth();
   const [selectedPeriod, setSelectedPeriod] = useState('week');
   const [showActiveShipments, setShowActiveShipments] = useState(true);
   const [radiusInMiles, setRadiusInMiles] = useState(50);
@@ -122,10 +122,10 @@ const ShipperDashboard: React.FC = () => {
 
   // Subscribe to metrics updates
   useEffect(() => {
-    if (!currentUser) return;
+    if (!user) return;
 
-    console.log('Setting up metrics subscription for user:', currentUser.uid);
-    const unsubscribe = subscribeToShipperMetrics(currentUser.uid, (metricsData) => {
+    console.log('Setting up metrics subscription for user:', user.id);
+    const unsubscribe = subscribeToShipperMetrics(user.id, (metricsData) => {
       console.log('Raw metrics data received:', metricsData);
       
       // Calculate metrics from the raw data
@@ -144,7 +144,7 @@ const ShipperDashboard: React.FC = () => {
       console.log('Cleaning up metrics subscription');
       unsubscribe();
     };
-  }, [currentUser]);
+  }, [user]);
 
   // Handle radius change
   const handleRadiusChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -172,7 +172,7 @@ const ShipperDashboard: React.FC = () => {
   };
 
   const handleGenerateTestData = async () => {
-    if (!currentUser) {
+    if (!user) {
       setError('Please log in to generate test data.');
       return;
     }
@@ -180,8 +180,8 @@ const ShipperDashboard: React.FC = () => {
     setIsGenerating(true);
     setError(null);
     
-    console.log('Starting test data generation for user:', currentUser.uid);
-    const success = await generateTestData(currentUser.uid);
+    console.log('Starting test data generation for user:', user.id);
+    const success = await generateTestData(user.id);
     
     if (success) {
       console.log('Test data generation completed successfully');

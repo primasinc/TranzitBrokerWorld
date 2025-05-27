@@ -1,5 +1,8 @@
 {
   "projects": {
-    "default": "tranzit-79cbe"
-  }
+    "default": "tranzitti-90210",
+    "tranzitti": "tranzitti-90210"
+  },
+  "targets": {},
+  "etags": {}
 }

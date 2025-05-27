@@ -41,11 +41,11 @@ import MyLoads from './pages/carrier/MyLoads';
 import Documents from './pages/carrier/Documents';
 import Payments from './pages/carrier/Payments';
 import Settings from './pages/carrier/Settings';
-import { AuthProvider } from './contexts/AuthContext';
 import CarrierProvider from './context/CarrierContext';
 import CarrierProfilePage from './pages/carrier/Profile';
 import Notifications from './pages/carrier/Notifications';
 import ShipperPartners from './pages/carrier/ShipperPartners';
+import { AuthProvider } from './contexts/AuthContext';
 
 const ViewProfileWrapper = () => {
   const { id } = useParams();

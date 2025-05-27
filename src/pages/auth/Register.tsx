@@ -54,9 +54,6 @@ const Register: React.FC = () => {
         formData.password
       );
 
-      // Set user role using Firebase Functions
-      await setUserRole(formData.userType);
-
       // Save user profile info to Firestore
       await setDoc(doc(db, 'users', userCredential.user.uid), {
         companyName: formData.companyName,
@@ -69,12 +66,8 @@ const Register: React.FC = () => {
 
       console.log('Registered user:', userCredential.user);
 
-      // Navigate based on user type
-      if (formData.userType === 'shipper') {
-        navigate('/shipper/dashboard');
-      } else {
-        navigate('/carrier/home');
-      }
+      // Navigate to login page after successful registration
+      navigate('/login');
     } catch (err) {
       console.error('Registration error:', err);
       setError('Failed to create account. Please try again.');

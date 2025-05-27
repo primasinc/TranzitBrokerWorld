@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../config/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../../config/firebase';
 import styles from './Login.module.css';
 
 const Login: React.FC = () => {
@@ -18,24 +20,32 @@ const Login: React.FC = () => {
     setError('');
 
     try {
-      // For development/testing, use these credentials if fields are empty
       const email = formData.email || 'test@tranzit.com';
       const password = formData.password || 'test123';
 
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // Get custom claims (role)
-      const idTokenResult = await user.getIdTokenResult();
-      const role = idTokenResult.claims.role;
+      // Try to fetch Firestore user data, but don't block login if missing
+      let userData: any = null;
+      try {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        userData = userDoc.data() || null;
+        if (!userData) {
+          setError('User profile not found. Please register your account.');
+          return;
+        }
+      } catch (firestoreErr) {
+        setError('Could not fetch user profile. Please contact support.');
+        return;
+      }
 
-      // Route based on role
-      if (role === 'shipper') {
+      if (userData && userData.userType === 'shipper') {
         navigate('/shipper/dashboard');
-      } else if (role === 'carrier') {
+      } else if (userData && userData.userType === 'carrier') {
         navigate('/carrier/home');
       } else {
-        setError('No role assigned to this user.');
+        setError('User type is invalid. Please contact support.');
       }
     } catch (err) {
       console.error('Login error:', err);

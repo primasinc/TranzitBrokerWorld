@@ -21,5 +21,7 @@ const storage = getStorage(app);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+console.log('FIREBASE API KEY:', process.env.REACT_APP_FIREBASE_API_KEY);
+
 // Export services
 export { app as default, storage, auth, db }; 

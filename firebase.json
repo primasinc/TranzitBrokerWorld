@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "tranzitti-90210",
     "public": "build",
     "ignore": [
       "firebase.json",

@@ -22,7 +22,7 @@ const HomeFeed: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [viewType, setViewType] = useState<'map' | 'list'>('map');
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const { user } = useAuth();
   const [availableLoads, setAvailableLoads] = useState<AvailableLoad[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

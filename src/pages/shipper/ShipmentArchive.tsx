@@ -5,7 +5,7 @@ import { ShipmentData } from '../../types/shipment';
 import styles from './ShipmentArchive.module.css';
 
 const ShipmentArchive: React.FC = () => {
-  const { currentUser } = useAuth();
+  const { user } = useAuth();
   const [shipments, setShipments] = useState<ShipmentData[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -23,7 +23,7 @@ const ShipmentArchive: React.FC = () => {
   const ITEMS_PER_PAGE = 10;
 
   const loadShipments = async () => {
-    if (!currentUser) return;
+    if (!user) return;
 
     setLoading(true);
     setError(null);
@@ -41,7 +41,7 @@ const ShipmentArchive: React.FC = () => {
         limit: ITEMS_PER_PAGE
       };
 
-      const result = await getShipperShipments(currentUser.uid, filters, pagination);
+      const result = await getShipperShipments(user.id, filters, pagination);
       
       setShipments(result.shipments);
       setTotalCount(result.totalCount);
@@ -56,7 +56,7 @@ const ShipmentArchive: React.FC = () => {
 
   useEffect(() => {
     loadShipments();
-  }, [currentUser, searchTerm, startDate, endDate, status, currentPage]);
+  }, [user, searchTerm, startDate, endDate, status, currentPage]);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
