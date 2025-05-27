@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import MapboxMap from '../../components/common/MapboxMap';
 import styles from './AvailableLoads.module.css';
+import { useNavigate } from 'react-router-dom';
 
 interface Load {
   id: string;
@@ -17,6 +18,8 @@ interface Load {
 const AvailableLoads: React.FC = () => {
   const [viewType, setViewType] = useState<'map' | 'list'>('map');
   const [selectedLoad, setSelectedLoad] = useState<Load | null>(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const navigate = useNavigate();
 
   const loads: Load[] = [
     {
@@ -44,6 +47,10 @@ const AvailableLoads: React.FC = () => {
     // Add more sample loads as needed
   ];
 
+  const handleLogout = () => navigate('/login');
+  const handleProfile = () => navigate('/carrier/profile');
+  const handleSettings = () => navigate('/carrier/settings');
+
   const renderLoadCard = (load: Load) => (
     <div 
       key={load.id} 
@@ -65,21 +72,55 @@ const AvailableLoads: React.FC = () => {
 
   return (
     <div className={styles.container}>
-      <div className={styles.header}>
-        <h1>Available Loads</h1>
-        <div className={styles.viewToggle}>
-          <button 
-            className={`${styles.toggleButton} ${viewType === 'map' ? styles.active : ''}`}
-            onClick={() => setViewType('map')}
-          >
-            Map View
-          </button>
-          <button 
-            className={`${styles.toggleButton} ${viewType === 'list' ? styles.active : ''}`}
-            onClick={() => setViewType('list')}
-          >
-            List View
-          </button>
+      <div className={styles.headerCard}>
+        <div className={styles.headerRow}>
+          <div className={styles.headerLeft}>
+            <h1>Available Loads</h1>
+            <div className={styles.viewToggle}>
+              <button 
+                className={`${styles.toggleButton} ${viewType === 'map' ? styles.active : ''}`}
+                onClick={() => setViewType('map')}
+              >
+                Map View
+              </button>
+              <button 
+                className={`${styles.toggleButton} ${viewType === 'list' ? styles.active : ''}`}
+                onClick={() => setViewType('list')}
+              >
+                List View
+              </button>
+            </div>
+          </div>
+          <div className={styles.headerRight}>
+            <button
+              className={styles.bellButton}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, position: 'relative' }}
+              tabIndex={0}
+              aria-label="Notifications"
+            >
+              <span role="img" aria-label="Notifications">🔔</span>
+            </button>
+            <div className={styles.menuContainer}>
+              <button 
+                className={styles.hamburgerButton}
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                aria-label="Menu"
+              >
+                <div className={styles.hamburgerIcon}>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+              </button>
+              {isMenuOpen && (
+                <div className={styles.dropdownMenu}>
+                  <button onClick={handleProfile}>Account</button>
+                  <button onClick={handleSettings}>Settings</button>
+                  <button onClick={handleLogout} className={styles.logoutButton}>Logout</button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
