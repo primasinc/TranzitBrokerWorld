@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import styles from './ShippingSchedule.module.css';
+import { db } from '../../firebase';
+import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 
 interface LocationState {
   filter?: 'active' | 'delayed';
@@ -15,6 +17,7 @@ interface ScheduledShipment {
   carrier: string;
   status: 'Active' | 'Delayed' | 'Completed' | 'Cancelled';
   type: string;
+  shipTo?: string;
 }
 
 const ShippingSchedule: React.FC = () => {
@@ -23,6 +26,11 @@ const ShippingSchedule: React.FC = () => {
   const [viewType, setViewType] = useState<'calendar' | 'list'>('list');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [filter, setFilter] = useState<'active' | 'delayed' | null>(null);
+  const [schedules, setSchedules] = useState<ScheduledShipment[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDate, setEditDate] = useState('');
+  const [editTime, setEditTime] = useState('');
+  const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
 
   // Get filter from navigation state
   useEffect(() => {
@@ -34,44 +42,26 @@ const ShippingSchedule: React.FC = () => {
     }
   }, [location, navigate]);
 
-  const schedules: ScheduledShipment[] = [
-    {
-      id: "SH001",
-      date: "2024-02-23",
-      time: "14:00",
-      destination: "New York, NY",
-      carrier: "ABC Trucking",
-      status: "Active",
-      type: "Full Load"
-    },
-    {
-      id: "SH002",
-      date: "2024-02-24",
-      time: "09:00",
-      destination: "Los Angeles, CA",
-      carrier: "XYZ Logistics",
-      status: "Delayed",
-      type: "Partial Load"
-    },
-    {
-      id: "SH003",
-      date: "2024-02-25",
-      time: "11:00",
-      destination: "Chicago, IL",
-      carrier: "Fast Transit",
-      status: "Active",
-      type: "Full Load"
-    },
-    {
-      id: "SH004",
-      date: "2024-02-26",
-      time: "13:30",
-      destination: "Miami, FL",
-      carrier: "South Logistics",
-      status: "Delayed",
-      type: "Partial Load"
-    }
-  ];
+  useEffect(() => {
+    const fetchSchedules = async () => {
+      const querySnapshot = await getDocs(collection(db, 'purchaseOrders'));
+      const schedulesData = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          date: data.date || '',
+          time: data.scheduledTime || '',
+          destination: data.shipTo?.cityStateZip || '',
+          carrier: data.carrierOption === 'carrier' ? (data.selectedCarrier || 'TBD') : 'Marketplace',
+          status: data.status === 'Processing' ? 'Active' : (data.status || 'Active'),
+          type: data.type || 'Full Load',
+          shipTo: data.shipTo?.name || '',
+        } as ScheduledShipment;
+      });
+      setSchedules(schedulesData);
+    };
+    fetchSchedules();
+  }, []);
 
   // Filter schedules based on status
   const filteredSchedules = filter
@@ -81,6 +71,38 @@ const ShippingSchedule: React.FC = () => {
   // Clear filter
   const handleClearFilter = () => {
     setFilter(null);
+  };
+
+  const handleEdit = (schedule: ScheduledShipment) => {
+    setEditingId(schedule.id);
+    setEditDate(schedule.date);
+    setEditTime(schedule.time);
+  };
+
+  const handleEditSave = async (id: string) => {
+    const scheduleRef = doc(db, 'purchaseOrders', id);
+    await updateDoc(scheduleRef, { date: editDate, scheduledTime: editTime });
+    setSchedules(schedules => schedules.map(s => s.id === id ? { ...s, date: editDate, time: editTime } : s));
+    setEditingId(null);
+  };
+
+  const handleEditCancel = () => {
+    setEditingId(null);
+  };
+
+  const handleCancel = (id: string) => {
+    setConfirmCancelId(id);
+  };
+
+  const confirmCancel = async (id: string) => {
+    const scheduleRef = doc(db, 'purchaseOrders', id);
+    await updateDoc(scheduleRef, { status: 'Cancelled' });
+    setSchedules(schedules => schedules.map(s => s.id === id ? { ...s, status: 'Cancelled' } : s));
+    setConfirmCancelId(null);
+  };
+
+  const cancelCancel = () => {
+    setConfirmCancelId(null);
   };
 
   return (
@@ -144,14 +166,19 @@ const ShippingSchedule: React.FC = () => {
                 <th>Carrier</th>
                 <th>Status</th>
                 <th>Type</th>
+                <th>Ship To</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredSchedules.map((schedule) => (
                 <tr key={schedule.id}>
-                  <td>{schedule.date}</td>
-                  <td>{schedule.time}</td>
+                  <td>{editingId === schedule.id ? (
+                    <input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} />
+                  ) : schedule.date}</td>
+                  <td>{editingId === schedule.id ? (
+                    <input type="time" value={editTime} onChange={e => setEditTime(e.target.value)} />
+                  ) : schedule.time}</td>
                   <td>{schedule.destination}</td>
                   <td>{schedule.carrier}</td>
                   <td>
@@ -160,9 +187,26 @@ const ShippingSchedule: React.FC = () => {
                     </span>
                   </td>
                   <td>{schedule.type}</td>
+                  <td>{schedule.shipTo}</td>
                   <td>
-                    <button className={styles.actionButton}>Edit</button>
-                    <button className={styles.actionButton}>Cancel</button>
+                    {editingId === schedule.id ? (
+                      <>
+                        <button className={styles.actionButton} onClick={() => handleEditSave(schedule.id)}>Save</button>
+                        <button className={styles.actionButton} onClick={handleEditCancel}>Cancel</button>
+                      </>
+                    ) : (
+                      <>
+                        <button className={styles.actionButton} onClick={() => handleEdit(schedule)}>Edit</button>
+                        <button className={styles.actionButton} onClick={() => handleCancel(schedule.id)}>Cancel</button>
+                      </>
+                    )}
+                    {confirmCancelId === schedule.id && (
+                      <div className={styles.confirmDialog}>
+                        <span>Are you sure you want to cancel this shipment?</span>
+                        <button className={styles.actionButton} onClick={() => confirmCancel(schedule.id)}>Yes</button>
+                        <button className={styles.actionButton} onClick={cancelCancel}>No</button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}

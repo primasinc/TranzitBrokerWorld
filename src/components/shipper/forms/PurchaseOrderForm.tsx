@@ -1,6 +1,8 @@
 import React, { useState, useRef, ChangeEvent } from 'react';
 import styles from './PurchaseOrderForm.module.css';
 import { useNavigate } from 'react-router-dom';
+import { db } from '../../../firebase'; // Adjust path if needed
+import { collection, addDoc } from 'firebase/firestore';
 
 interface CompanyInfo {
   name: string;
@@ -35,50 +37,56 @@ interface PurchaseOrderItem {
 interface PurchaseOrderFormProps {
   onSubmit: (data: any) => void;
   onCancel: () => void;
+  initialData?: any;
+  readOnly?: boolean;
 }
 
 export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
   onSubmit,
-  onCancel
+  onCancel,
+  initialData,
+  readOnly = false
 }) => {
-  const [selectedOption, setSelectedOption] = useState<'carrier' | 'marketplace' | null>(null);
-  const [carrierRate, setCarrierRate] = useState<string>('');
-  const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [poNumber, setPoNumber] = useState<string>('');
-  const [companyInfo, setCompanyInfo] = useState<CompanyInfo>({
+  const [selectedOption, setSelectedOption] = useState<'carrier' | 'marketplace' | null>(initialData?.carrierOption || null);
+  const [carrierRate, setCarrierRate] = useState<string>(initialData?.rate ? String(initialData.rate) : '');
+  const [date, setDate] = useState<string>(initialData?.date || new Date().toISOString().split('T')[0]);
+  const [poNumber, setPoNumber] = useState<string>(initialData?.poNumber || '');
+  const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(initialData?.companyInfo || {
     name: '',
     streetAddress: '',
     cityStateZip: '',
     contact: ''
   });
-  const [vendorInfo, setVendorInfo] = useState<VendorInfo>({
+  const [vendorInfo, setVendorInfo] = useState<VendorInfo>(initialData?.vendorInfo || {
     name: '',
     streetAddress: '',
     cityStateZip: '',
     contact: ''
   });
-  const [shipTo, setShipTo] = useState<ShipTo>({
+  const [shipTo, setShipTo] = useState<ShipTo>(initialData?.shipTo || {
     name: '',
     streetAddress: '',
     cityStateZip: '',
     contact: '',
     instructions: ''
   });
-  const [items, setItems] = useState<PurchaseOrderItem[]>([{
-    itemNumber: '',
-    description: '',
-    quantity: 0,
-    price: 0,
-    total: 0
-  }]);
-  const [comments, setComments] = useState<string>('');
-  const [subtotal, setSubtotal] = useState<number>(0);
-  const [discount, setDiscount] = useState<number>(0);
-  const [tax, setTax] = useState<number>(0);
-  const [total, setTotal] = useState<number>(0);
+  const [items, setItems] = useState<PurchaseOrderItem[]>(
+    Array.isArray(initialData?.items) ? initialData.items : [{
+      itemNumber: '',
+      description: '',
+      quantity: 0,
+      price: 0,
+      total: 0
+    }]
+  );
+  const [comments, setComments] = useState<string>(initialData?.comments || '');
+  const [subtotal, setSubtotal] = useState<number>(initialData?.subtotal || 0);
+  const [discount, setDiscount] = useState<number>(initialData?.discount || 0);
+  const [tax, setTax] = useState<number>(initialData?.tax || 0);
+  const [total, setTotal] = useState<number>(initialData?.total || 0);
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     // Validate that an option is selected
     if (!selectedOption) {
@@ -98,8 +106,21 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
       tax,
       total,
       carrierOption: selectedOption,
-      rate: selectedOption === 'carrier' ? parseFloat(carrierRate) : null
+      rate: selectedOption === 'carrier' ? parseFloat(carrierRate) : null,
+      status: 'Processing',
+      createdAt: new Date().toISOString(),
+      date,
+      poNumber
     };
+
+    // Save to Firestore
+    try {
+      await addDoc(collection(db, 'purchaseOrders'), formData);
+    } catch (error) {
+      console.error('Error saving PO:', error);
+      alert('Failed to save purchase order.');
+      return;
+    }
 
     // Handle form submission based on selected option
     if (selectedOption === 'carrier') {
@@ -116,9 +137,10 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
         ...formData,
         shippingScheduleStatus: 'open'
       });
-      // Navigate to marketplace view
-      navigate('/shipper/marketplace');
     }
+
+    // After saving, always go to Purchase Orders dashboard
+    navigate('/shipper/orders');
   };
 
   const calculateTotal = (quantity: number, price: number) => {
@@ -168,24 +190,28 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
             value={companyInfo.name}
             onChange={(e) => setCompanyInfo(prev => ({ ...prev, name: e.target.value }))}
             placeholder="Company Name"
+            disabled={readOnly}
           />
           <input
             type="text"
             value={companyInfo.streetAddress}
             onChange={(e) => setCompanyInfo(prev => ({ ...prev, streetAddress: e.target.value }))}
             placeholder="Address"
+            disabled={readOnly}
           />
           <input
             type="text"
             value={companyInfo.cityStateZip}
             onChange={(e) => setCompanyInfo(prev => ({ ...prev, cityStateZip: e.target.value }))}
             placeholder="City, State, Zip Code"
+            disabled={readOnly}
           />
           <input
             type="text"
             value={companyInfo.contact}
             onChange={(e) => setCompanyInfo(prev => ({ ...prev, contact: e.target.value }))}
             placeholder="Contact"
+            disabled={readOnly}
           />
         </div>
         <div className={styles.poDetails}>
@@ -195,6 +221,7 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
+              disabled={readOnly}
             />
           </div>
           <div className={styles.poNumber}>
@@ -204,6 +231,7 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
               value={poNumber}
               onChange={(e) => setPoNumber(e.target.value)}
               placeholder="Enter PO Number"
+              disabled={readOnly}
             />
           </div>
         </div>
@@ -217,24 +245,28 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
             value={vendorInfo.name}
             onChange={(e) => setVendorInfo(prev => ({ ...prev, name: e.target.value }))}
             placeholder="Vendor Name"
+            disabled={readOnly}
           />
           <input
             type="text"
             value={vendorInfo.streetAddress}
             onChange={(e) => setVendorInfo(prev => ({ ...prev, streetAddress: e.target.value }))}
             placeholder="Address"
+            disabled={readOnly}
           />
           <input
             type="text"
             value={vendorInfo.cityStateZip}
             onChange={(e) => setVendorInfo(prev => ({ ...prev, cityStateZip: e.target.value }))}
             placeholder="City, State, Zip Code"
+            disabled={readOnly}
           />
           <input
             type="text"
             value={vendorInfo.contact}
             onChange={(e) => setVendorInfo(prev => ({ ...prev, contact: e.target.value }))}
             placeholder="Contact"
+            disabled={readOnly}
           />
         </div>
 
@@ -245,30 +277,35 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
             value={shipTo.name}
             onChange={(e) => setShipTo(prev => ({ ...prev, name: e.target.value }))}
             placeholder="Recipient Name"
+            disabled={readOnly}
           />
           <input
             type="text"
             value={shipTo.streetAddress}
             onChange={(e) => setShipTo(prev => ({ ...prev, streetAddress: e.target.value }))}
             placeholder="Shipping Address"
+            disabled={readOnly}
           />
           <input
             type="text"
             value={shipTo.cityStateZip}
             onChange={(e) => setShipTo(prev => ({ ...prev, cityStateZip: e.target.value }))}
             placeholder="City, State, Zip Code"
+            disabled={readOnly}
           />
           <input
             type="text"
             value={shipTo.contact}
             onChange={(e) => setShipTo(prev => ({ ...prev, contact: e.target.value }))}
             placeholder="Phone"
+            disabled={readOnly}
           />
           <input
             type="text"
             value={shipTo.instructions}
             onChange={(e) => setShipTo(prev => ({ ...prev, instructions: e.target.value }))}
             placeholder="Special Instructions"
+            disabled={readOnly}
           />
         </div>
       </div>
@@ -291,6 +328,7 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
                   type="text"
                   value={item.description}
                   onChange={(e) => handleItemChange(index, 'description', e.target.value)}
+                  disabled={readOnly}
                 />
               </td>
               <td>
@@ -298,6 +336,7 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
                   type="number"
                   value={item.quantity}
                   onChange={(e) => handleItemChange(index, 'quantity', Number(e.target.value))}
+                  disabled={readOnly}
                 />
               </td>
               <td>
@@ -305,18 +344,19 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
                   type="number"
                   value={item.price}
                   onChange={(e) => handleItemChange(index, 'price', Number(e.target.value))}
+                  disabled={readOnly}
                 />
               </td>
               <td>${(item.quantity * item.price).toFixed(2)}</td>
               <td>
-                <button type="button" onClick={() => handleItemChange(index, 'quantity', 0)}>×</button>
+                <button type="button" onClick={() => handleItemChange(index, 'quantity', 0)} disabled={readOnly}>×</button>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      <button type="button" className={styles.addItemButton} onClick={addItem}>
+      <button type="button" className={styles.addItemButton} onClick={addItem} disabled={readOnly}>
         Add Item
       </button>
 
@@ -327,6 +367,7 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
             value={comments}
             onChange={(e) => setComments(e.target.value)}
             placeholder="Enter any additional comments or special instructions..."
+            disabled={readOnly}
           />
         </div>
         <div className={styles.totals}>
@@ -340,6 +381,7 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
               type="number"
               value={discount}
               onChange={(e) => setDiscount(Number(e.target.value))}
+              disabled={readOnly}
             />
           </div>
           <div className={styles.totalRow}>
@@ -348,6 +390,7 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
               type="number"
               value={tax}
               onChange={(e) => setTax(Number(e.target.value))}
+              disabled={readOnly}
             />
           </div>
           <div className={styles.totalRow}>
@@ -368,6 +411,7 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
             type="button"
             className={`${styles.optionButton} ${selectedOption === 'carrier' ? styles.selected : ''}`}
             onClick={() => setSelectedOption('carrier')}
+            disabled={readOnly}
           >
             <span className={styles.optionIcon}>🚛</span>
             <span className={styles.optionLabel}>Send to Partnered Carrier</span>
@@ -380,6 +424,7 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
             type="button"
             className={`${styles.optionButton} ${selectedOption === 'marketplace' ? styles.selected : ''}`}
             onClick={() => setSelectedOption('marketplace')}
+            disabled={readOnly}
           >
             <span className={styles.optionIcon}>🌐</span>
             <span className={styles.optionLabel}>Post to Marketplace</span>
@@ -403,6 +448,7 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
               required
               min="0"
               step="0.01"
+              disabled={readOnly}
             />
           </div>
         )}
@@ -419,13 +465,14 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
           type="button" 
           onClick={onCancel}
           className={styles.cancelButton}
+          disabled={readOnly}
         >
           Cancel
         </button>
         <button 
           type="submit"
           className={styles.submitButton}
-          disabled={!selectedOption || !carrierRate}
+          disabled={!selectedOption || !carrierRate || readOnly}
         >
           {selectedOption === 'carrier' ? 'Continue to Carrier Selection' : 'Post Job to Marketplace'}
         </button>

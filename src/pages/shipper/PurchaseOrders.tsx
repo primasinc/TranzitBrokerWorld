@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styles from './PurchaseOrders.module.css';
+import { db } from '../../firebase';
+import { collection, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { PurchaseOrderForm } from '../../components/shipper/forms/PurchaseOrderForm';
 
 enum PurchaseOrderStatus {
   DRAFT = 'Draft',
@@ -16,48 +19,68 @@ enum PurchaseOrderStatus {
 }
 
 interface PurchaseOrder {
+  id?: string;
   poNumber: string;
   date: string;
-  vendor: string;
-  amount: number;
-  status: PurchaseOrderStatus;
-  items: number;
-  deliveryDate: string;
+  vendorInfo?: { name?: string };
+  companyInfo?: { name?: string };
+  shipTo?: { name?: string };
+  status: string;
+  amount?: number;
+  total?: number;
+  items?: any[];
+  [key: string]: any; // fallback for any other fields
 }
 
 const PurchaseOrders: React.FC = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [orders, setOrders] = useState<PurchaseOrder[]>([]);
+  const [viewingPO, setViewingPO] = useState<PurchaseOrder | null>(null);
+  const [editingPO, setEditingPO] = useState<PurchaseOrder | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
-  const orders: PurchaseOrder[] = [
-    {
-      poNumber: "PO-12345",
-      date: "2024-02-23",
-      vendor: "ABC Supplies",
-      amount: 5000.00,
-      status: PurchaseOrderStatus.PROCESSING,
-      items: 3,
-      deliveryDate: "2024-03-01"
-    },
-    {
-      poNumber: "PO-12346",
-      date: "2024-02-22",
-      vendor: "XYZ Corp",
-      amount: 7500.00,
-      status: PurchaseOrderStatus.SHIPPED,
-      items: 5,
-      deliveryDate: "2024-02-28"
-    },
-    // Add more orders as needed
-  ];
+  useEffect(() => {
+    const fetchOrders = async () => {
+      const querySnapshot = await getDocs(collection(db, 'purchaseOrders'));
+      const ordersData = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data
+        } as PurchaseOrder;
+      });
+      setOrders(ordersData);
+    };
+    fetchOrders();
+  }, []);
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch = order.poNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.vendor.toLowerCase().includes(searchTerm.toLowerCase());
+                         order.vendorInfo?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         order.companyInfo?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         order.shipTo?.name?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesFilter = filterStatus === 'all' || order.status === filterStatus;
     return matchesSearch && matchesFilter;
   });
+
+  const handleView = (po: PurchaseOrder) => setViewingPO(po);
+  const handleEdit = (po: PurchaseOrder) => setEditingPO(po);
+  const handleEditSave = async (data: any) => {
+    if (!editingPO) return;
+    const poRef = doc(db, 'purchaseOrders', editingPO.id!);
+    await updateDoc(poRef, data);
+    setOrders(orders => orders.map(o => o.id === editingPO.id ? { ...o, ...data } : o));
+    setEditingPO(null);
+  };
+  const handleDelete = (id: string) => setConfirmDeleteId(id);
+  const confirmDelete = async (id: string) => {
+    await deleteDoc(doc(db, 'purchaseOrders', id));
+    setOrders(orders => orders.filter(o => o.id !== id));
+    setConfirmDeleteId(null);
+  };
+  const cancelDelete = () => setConfirmDeleteId(null);
 
   return (
     <div className={styles.container}>
@@ -75,7 +98,7 @@ const PurchaseOrders: React.FC = () => {
         <div className={styles.searchBar}>
           <input
             type="text"
-            placeholder="Search PO number or vendor..."
+            placeholder="Search PO number, vendor, company, or ship to..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -107,6 +130,8 @@ const PurchaseOrders: React.FC = () => {
               <th>PO Number</th>
               <th>Date</th>
               <th>Vendor</th>
+              <th>Company</th>
+              <th>Ship To</th>
               <th>Amount</th>
               <th>Status</th>
               <th>Items</th>
@@ -119,22 +144,29 @@ const PurchaseOrders: React.FC = () => {
               <tr key={order.poNumber}>
                 <td>{order.poNumber}</td>
                 <td>{order.date}</td>
-                <td>{order.vendor}</td>
-                <td>${order.amount.toFixed(2)}</td>
+                <td>{order.vendorInfo?.name}</td>
+                <td>{order.companyInfo?.name}</td>
+                <td>{order.shipTo?.name}</td>
+                <td>${(order.amount ?? 0).toFixed(2)}</td>
                 <td>
                   <span className={`${styles.status} ${styles[order.status.toLowerCase()]}`}>
                     {order.status}
                   </span>
                 </td>
-                <td>{order.items}</td>
-                <td>{order.deliveryDate}</td>
+                <td>{order.items?.length ?? 0}</td>
+                <td>{order.date}</td>
                 <td>
                   <div className={styles.actions}>
-                    <button className={styles.actionButton}>View</button>
-                    <button className={styles.actionButton}>Edit</button>
-                    <button className={`${styles.actionButton} ${styles.deleteButton}`}>
-                      Delete
-                    </button>
+                    <button className={styles.actionButton} onClick={() => handleView(order)}>View</button>
+                    <button className={styles.actionButton} onClick={() => handleEdit(order)}>Edit</button>
+                    <button className={`${styles.actionButton} ${styles.deleteButton}`} onClick={() => handleDelete(order.id!)}>Delete</button>
+                    {confirmDeleteId === order.id && (
+                      <div className={styles.confirmDialog}>
+                        <span>Are you sure you want to delete this PO?</span>
+                        <button className={styles.actionButton} onClick={() => confirmDelete(order.id!)}>Yes</button>
+                        <button className={styles.actionButton} onClick={cancelDelete}>No</button>
+                      </div>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -142,6 +174,44 @@ const PurchaseOrders: React.FC = () => {
           </tbody>
         </table>
       </div>
+
+      {viewingPO && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalContent}>
+            <h2>Purchase Order Details</h2>
+            <div>
+              <strong>PO Number:</strong> {viewingPO.poNumber}<br />
+              <strong>Date:</strong> {viewingPO.date}<br />
+              <strong>Vendor:</strong> {viewingPO.vendorInfo?.name}<br />
+              <strong>Company:</strong> {viewingPO.companyInfo?.name}<br />
+              <strong>Ship To:</strong> {viewingPO.shipTo?.name}<br />
+              <strong>Status:</strong> {viewingPO.status}<br />
+              <strong>Amount:</strong> ${(viewingPO.total ?? viewingPO.amount ?? 0)}<br />
+              <strong>Items:</strong>
+              <ul>
+                {(Array.isArray(viewingPO.items) ? viewingPO.items : []).map((item, idx) => (
+                  <li key={idx}>
+                    {item.description} (Qty: {item.quantity}, Price: ${item.price})
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <button onClick={() => setViewingPO(null)}>Close</button>
+          </div>
+        </div>
+      )}
+      {editingPO && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalContent}>
+            <h2>Edit Purchase Order</h2>
+            <PurchaseOrderForm
+              onSubmit={handleEditSave}
+              onCancel={() => setEditingPO(null)}
+              initialData={editingPO}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
