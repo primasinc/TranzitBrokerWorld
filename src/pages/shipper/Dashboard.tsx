@@ -5,6 +5,8 @@ import { subscribeToShipperMetrics } from '../../services/shipmentService';
 import { generateTestData } from '../../utils/seedTestData';
 import styles from './Dashboard.module.css';
 import MapboxMap from '../../components/common/MapboxMap';
+import { db } from '../../firebase';
+import { collection, getDocs } from 'firebase/firestore';
 
 interface Shipment {
   id: string;
@@ -26,6 +28,8 @@ interface AvailableCarrier {
   position: [number, number]; // [longitude, latitude] for Mapbox
   availableDate: string;
 }
+
+const ACTIVE_STATUSES = ['Active', 'Carrier Pending', 'In Progress', 'Delayed'];
 
 const ShipperDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -123,6 +127,17 @@ const ShipperDashboard: React.FC = () => {
   // Subscribe to metrics updates
   useEffect(() => {
     if (!user) return;
+
+    // Fetch active shipments from Firestore
+    const fetchActiveShipments = async () => {
+      const querySnapshot = await getDocs(collection(db, 'purchaseOrders'));
+      const activeCount = querySnapshot.docs.filter(doc => {
+        const status = doc.data().status;
+        return ACTIVE_STATUSES.includes(status);
+      }).length;
+      setMetrics(metrics => ({ ...metrics, activeShipments: activeCount }));
+    };
+    fetchActiveShipments();
 
     console.log('Setting up metrics subscription for user:', user.id);
     const unsubscribe = subscribeToShipperMetrics(user.id, (metricsData) => {

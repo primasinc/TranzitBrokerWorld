@@ -66,7 +66,14 @@ const PurchaseOrders: React.FC = () => {
   });
 
   const handleView = (po: PurchaseOrder) => setViewingPO(po);
-  const handleEdit = (po: PurchaseOrder) => setEditingPO(po);
+  const handleEdit = (po: PurchaseOrder) => {
+    navigate('/shipper/test-po', { 
+      state: { 
+        editingPO: po,
+        isEditing: true
+      }
+    });
+  };
   const handleEditSave = async (data: any) => {
     if (!editingPO) return;
     const poRef = doc(db, 'purchaseOrders', editingPO.id!);

@@ -72,83 +72,88 @@ const AvailableLoads: React.FC = () => {
 
   return (
     <div className={styles.container}>
-      <div className={styles.headerCard}>
-        <div className={styles.headerRow}>
-          <div className={styles.headerLeft}>
-            <h1>Available Loads</h1>
-            <div className={styles.viewToggle}>
-              <button 
-                className={`${styles.toggleButton} ${viewType === 'map' ? styles.active : ''}`}
-                onClick={() => setViewType('map')}
-              >
-                Map View
-              </button>
-              <button 
-                className={`${styles.toggleButton} ${viewType === 'list' ? styles.active : ''}`}
-                onClick={() => setViewType('list')}
-              >
-                List View
-              </button>
+      <main className={styles.mainContent}>
+        <div className={styles.headerCard}>
+          <header className={styles.headerRow}>
+            <div className={styles.headerLeft}>
+              <h1>Available Loads</h1>
             </div>
-          </div>
-          <div className={styles.headerRight}>
-            <button
-              className={styles.bellButton}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, position: 'relative' }}
-              tabIndex={0}
-              aria-label="Notifications"
+            <div className={styles.headerRight}>
+              <button
+                className={styles.bellButton}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, position: 'relative' }}
+                tabIndex={0}
+                aria-label="Notifications"
+              >
+                <span role="img" aria-label="Notifications">🔔</span>
+              </button>
+              <div className={styles.menuContainer}>
+                <button 
+                  className={styles.hamburgerButton}
+                  onClick={() => setIsMenuOpen(!isMenuOpen)}
+                  aria-label="Menu"
+                >
+                  <div className={styles.hamburgerIcon}>
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                </button>
+                {isMenuOpen && (
+                  <div className={styles.dropdownMenu}>
+                    <button onClick={handleProfile}>Account</button>
+                    <button onClick={handleSettings}>Settings</button>
+                    <button onClick={handleLogout} className={styles.logoutButton}>Logout</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </header>
+        </div>
+        {/* Toggle buttons above map, right aligned */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+          <div className={styles.viewToggle}>
+            <button 
+              className={`${styles.toggleButton} ${viewType === 'map' ? styles.active : ''}`}
+              onClick={() => setViewType('map')}
             >
-              <span role="img" aria-label="Notifications">🔔</span>
+              Map View
             </button>
-            <div className={styles.menuContainer}>
-              <button 
-                className={styles.hamburgerButton}
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                aria-label="Menu"
-              >
-                <div className={styles.hamburgerIcon}>
-                  <span></span>
-                  <span></span>
-                  <span></span>
-                </div>
-              </button>
-              {isMenuOpen && (
-                <div className={styles.dropdownMenu}>
-                  <button onClick={handleProfile}>Account</button>
-                  <button onClick={handleSettings}>Settings</button>
-                  <button onClick={handleLogout} className={styles.logoutButton}>Logout</button>
-                </div>
-              )}
-            </div>
+            <button 
+              className={`${styles.toggleButton} ${viewType === 'list' ? styles.active : ''}`}
+              onClick={() => setViewType('list')}
+            >
+              List View
+            </button>
           </div>
         </div>
-      </div>
-
-      {viewType === 'map' ? (
-        <div className={styles.mapSection}>
-          <div className={styles.mapContainer}>
-            <MapboxMap
-              center={[-98.5795, 39.8283]} // US center
-              zoom={4}
-              markers={loads.map(load => ({
-                id: load.id,
-                position: load.position,
-                type: 'shipper',
-                onClick: () => setSelectedLoad(load)
-              }))}
-            />
-          </div>
-          {selectedLoad && (
-            <div className={styles.selectedLoadDetails}>
-              {renderLoadCard(selectedLoad)}
+        {/* End header, start main content */}
+        {viewType === 'map' ? (
+          <div className={styles.mapSection}>
+            <div className={styles.mapContainer}>
+              <MapboxMap
+                center={[-98.5795, 39.8283]} // US center
+                zoom={4}
+                markers={loads.map(load => ({
+                  id: load.id,
+                  position: load.position,
+                  type: 'shipper',
+                  onClick: () => setSelectedLoad(load)
+                }))}
+              />
             </div>
-          )}
-        </div>
-      ) : (
-        <div className={styles.listView}>
-          {loads.map(renderLoadCard)}
-        </div>
-      )}
+            {selectedLoad && (
+              <div className={styles.selectedLoadDetails}>
+                {renderLoadCard(selectedLoad)}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className={styles.listView}>
+            {loads.map(renderLoadCard)}
+          </div>
+        )}
+      </main>
     </div>
   );
 };
