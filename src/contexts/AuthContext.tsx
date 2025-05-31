@@ -1,107 +1,75 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, AuthState, LoginCredentials, RegisterCredentials } from '../types/user';
-import { authService } from '../services/authService';
+import { User as FirebaseUser, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { auth } from '../config/firebase';
 
-interface AuthContextType extends AuthState {
-  register: (credentials: RegisterCredentials) => Promise<void>;
-  login: (credentials: LoginCredentials) => Promise<void>;
+interface AuthContextType {
+  user: FirebaseUser | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  error: string | null;
+  register: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [state, setState] = useState<AuthState>({
-    user: null,
-    isAuthenticated: false,
-    isLoading: true,
-    error: null,
-  });
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        const user = await authService.getCurrentUser();
-        setState(prev => ({
-          ...prev,
-          user,
-          isAuthenticated: !!user,
-          isLoading: false,
-        }));
-      } catch (error) {
-        setState(prev => ({
-          ...prev,
-          isLoading: false,
-          error: 'Failed to initialize authentication',
-        }));
-      }
-    };
-
-    initializeAuth();
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+      setIsAuthenticated(!!firebaseUser);
+      setIsLoading(false);
+    });
+    return () => unsubscribe();
   }, []);
 
-  const register = async (credentials: RegisterCredentials) => {
-    setState(prev => ({ ...prev, isLoading: true, error: null }));
+  const register = async (email: string, password: string) => {
+    setIsLoading(true);
+    setError(null);
     try {
-      const user = await authService.register(credentials);
-      setState(prev => ({
-        ...prev,
-        user,
-        isAuthenticated: true,
-        isLoading: false,
-      }));
-    } catch (error) {
-      setState(prev => ({
-        ...prev,
-        isLoading: false,
-        error: error instanceof Error ? error.message : 'Registration failed',
-      }));
-      throw error;
+      await createUserWithEmailAndPassword(auth, email, password);
+    } catch (err: any) {
+      setError(err.message || 'Registration failed');
+      throw err;
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const login = async (credentials: LoginCredentials) => {
-    setState(prev => ({ ...prev, isLoading: true, error: null }));
+  const login = async (email: string, password: string) => {
+    setIsLoading(true);
+    setError(null);
     try {
-      const user = await authService.login(credentials);
-      setState(prev => ({
-        ...prev,
-        user,
-        isAuthenticated: true,
-        isLoading: false,
-      }));
-    } catch (error) {
-      setState(prev => ({
-        ...prev,
-        isLoading: false,
-        error: error instanceof Error ? error.message : 'Login failed',
-      }));
-      throw error;
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (err: any) {
+      setError(err.message || 'Login failed');
+      throw err;
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const logout = async () => {
-    setState(prev => ({ ...prev, isLoading: true, error: null }));
+    setIsLoading(true);
+    setError(null);
     try {
-      await authService.logout();
-      setState({
-        user: null,
-        isAuthenticated: false,
-        isLoading: false,
-        error: null,
-      });
-    } catch (error) {
-      setState(prev => ({
-        ...prev,
-        isLoading: false,
-        error: error instanceof Error ? error.message : 'Logout failed',
-      }));
-      throw error;
+      await signOut(auth);
+    } catch (err: any) {
+      setError(err.message || 'Logout failed');
+      throw err;
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ ...state, register, login, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, isLoading, error, register, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

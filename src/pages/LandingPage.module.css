@@ -324,4 +324,35 @@
     flex-direction: column;
     gap: 0.7rem;
   }
+}
+
+@media (max-width: 600px) {
+  .header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    padding: 1rem 0.5rem 0.5rem 0.5rem !important;
+    gap: 1rem !important;
+  }
+  .nav {
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+    width: 100% !important;
+    align-items: stretch !important;
+  }
+  .navButton, .menuLink {
+    width: 100% !important;
+    margin-bottom: 0.5rem !important;
+    font-size: 1.1rem !important;
+    padding: 1rem 0 !important;
+    text-align: center !important;
+    box-sizing: border-box !important;
+    display: block !important;
+  }
+  .logo {
+    justify-content: center !important;
+    font-size: 1.5rem !important;
+  }
+  .heroSection {
+    padding: 2rem 0.5rem 1rem 0.5rem !important;
+  }
 } 

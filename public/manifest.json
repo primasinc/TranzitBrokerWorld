@@ -1,6 +1,6 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "Tranzit",
+  "name": "Tranzit.io Freight Platform",
   "icons": [
     {
       "src": "favicon.ico",
@@ -20,6 +20,9 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "theme_color": "#1A2238",
+  "background_color": "#ffffff",
+  "description": "Modern freight, logistics, and carrier management platform.",
+  "orientation": "portrait-primary",
+  "scope": "/"
 }
