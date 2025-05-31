@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { collection, getDocs, doc, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, deleteDoc, getDoc, query, where } from 'firebase/firestore';
 import { db, auth } from '../../config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import styles from './CarrierPartners.module.css';
+import { getCarrier } from '../../services/carrierService';
 
 interface Partner {
   id: string;
@@ -16,6 +17,8 @@ interface Partner {
   trailerTypes?: string[];
   endorsements?: string[];
   addedAt?: any;
+  carrierId?: string;
+  mcNumber?: string;
 }
 
 interface LocationState {
@@ -31,6 +34,8 @@ const CarrierPartners: React.FC = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileCarrier, setProfileCarrier] = useState<any>(null);
 
   // Check if we came from PO creation
   const locationState = location.state as LocationState;
@@ -126,6 +131,29 @@ const CarrierPartners: React.FC = () => {
     }
   };
 
+  const handleViewDetails = async (partnerId: string, mcNumber?: string) => {
+    let carrier = null;
+    // Always fetch the full user profile from the users collection
+    if (partnerId) {
+      const carrierRef = doc(db, 'users', partnerId);
+      const carrierSnap = await getDoc(carrierRef);
+      if (carrierSnap.exists()) {
+        carrier = carrierSnap.data();
+      }
+    }
+    // If not found and mcNumber is available, try to fetch by MC Number
+    if (!carrier && mcNumber) {
+      const q = query(collection(db, 'users'), where('mcNumber', '==', mcNumber), where('userType', '==', 'carrier'));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        carrier = snap.docs[0].data();
+      }
+    }
+    console.log('DEBUG Carrier Profile:', carrier);
+    setProfileCarrier(carrier); // Only set to the fetched user profile
+    setShowProfileModal(true);
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.header}>
@@ -175,7 +203,7 @@ const CarrierPartners: React.FC = () => {
               <div className={styles.actions}>
                 <button 
                   className={styles.actionButton}
-                  onClick={() => navigate(`/shipper/partners/${partner.id}`)}
+                  onClick={() => handleViewDetails(partner.carrierId || partner.id, partner.mcNumber)}
                 >
                   View Details
                 </button>
@@ -185,6 +213,78 @@ const CarrierPartners: React.FC = () => {
           ))
         )}
       </div>
+
+      {/* Carrier Profile Modal */}
+      {showProfileModal && (
+        <div className={styles.modalOverlay} onClick={() => setShowProfileModal(false)}>
+          <div className={styles.modal} onClick={e => e.stopPropagation()}>
+            {profileCarrier ? (
+              <>
+                <h2>{profileCarrier.companyName || 'Carrier Profile'}</h2>
+                <div style={{marginBottom: 12}}>
+                  <strong>MC Number:</strong> {profileCarrier.mcNumber || 'N/A'}<br/>
+                  <strong>DOT Number:</strong> {profileCarrier.dotNumber || 'N/A'}<br/>
+                  <strong>Status:</strong> {profileCarrier.status || 'N/A'}<br/>
+                  <strong>Address:</strong> {
+                    profileCarrier.address
+                      ? `${profileCarrier.address.street || ''}, ${profileCarrier.address.city || ''}, ${profileCarrier.address.state || ''} ${profileCarrier.address.zip || ''}`
+                      : `${profileCarrier.street || ''}, ${profileCarrier.city || ''}, ${profileCarrier.state || ''} ${profileCarrier.zip || ''}`
+                    || 'N/A'
+                  }<br/>
+                </div>
+                <div style={{marginBottom: 12}}>
+                  <strong>Contact Information</strong><br/>
+                  <strong>Email:</strong> {profileCarrier.email || 'N/A'}<br/>
+                  <strong>Phone:</strong> {profileCarrier.phoneNumber || profileCarrier.phone || 'N/A'}<br/>
+                </div>
+                <div style={{marginBottom: 12}}>
+                  <strong>Rating:</strong> {profileCarrier.rating ? `${profileCarrier.rating.toFixed(1)} / 5` : 'N/A'}<br/>
+                  <strong>Total Loads:</strong> {profileCarrier.totalLoads ?? 'N/A'}<br/>
+                  <strong>Completed Loads:</strong> {profileCarrier.completedLoads ?? 'N/A'}<br/>
+                  <strong>On-Time Deliveries:</strong> {profileCarrier.onTimeDeliveries ?? 'N/A'}<br/>
+                </div>
+                <div style={{marginBottom: 12}}>
+                  <strong>Compliance & Insurance</strong><br/>
+                  {profileCarrier.insurance && profileCarrier.insurance.length > 0 ? (
+                    <ul>
+                      {profileCarrier.insurance.map((ins: any, idx: number) => (
+                        <li key={idx}>{ins.type?.toUpperCase() || 'INS'}: {ins.provider || 'N/A'} (Policy: {ins.policyNumber || 'N/A'}, Coverage: ${ins.coverage?.toLocaleString() || 'N/A'}, Expires: {ins.expiresAt?.toDate ? ins.expiresAt.toDate().toLocaleDateString() : 'N/A'})</li>
+                      ))}
+                    </ul>
+                  ) : <p>No insurance info available.</p>}
+                </div>
+                <div style={{marginBottom: 12}}>
+                  <strong>Equipment</strong><br/>
+                  {profileCarrier.equipment && profileCarrier.equipment.length > 0 ? (
+                    <ul>
+                      {profileCarrier.equipment.map((eq: any, idx: number) => (
+                        <li key={idx}>{eq.type?.toUpperCase() || 'EQUIP'}: {eq.count || 1} units, Capacity: {eq.capacity ? `${eq.capacity} lbs` : 'N/A'}</li>
+                      ))}
+                    </ul>
+                  ) : <p>No equipment info available.</p>}
+                </div>
+                <div style={{marginBottom: 12}}>
+                  <strong>Service Areas</strong><br/>
+                  {profileCarrier.serviceAreas && profileCarrier.serviceAreas.length > 0 ? (
+                    <ul>
+                      {profileCarrier.serviceAreas.map((area: any, idx: number) => (
+                        <li key={idx}>{area.state}{area.preferred ? ' (Preferred)' : ''}</li>
+                      ))}
+                    </ul>
+                  ) : <p>No service area info available.</p>}
+                </div>
+                <button onClick={() => setShowProfileModal(false)}>Close</button>
+              </>
+            ) : (
+              <div>
+                <h2>Carrier Profile Not Found</h2>
+                <p>No profile data available for this carrier. Please ensure the partner record has a valid carrierId or mcNumber.</p>
+                <button onClick={() => setShowProfileModal(false)}>Close</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

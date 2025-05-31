@@ -11,6 +11,8 @@ export interface ScheduledShipment {
   status: 'Active' | 'Delayed' | 'Completed' | 'Cancelled';
   type: string;
   shipTo?: string;
+  cost: number;
+  poNumber: string;
 }
 
 interface ShipmentsContextType {
@@ -40,6 +42,8 @@ export const ShipmentsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         status,
         type: data.type || 'Full Load',
         shipTo: data.shipTo?.name || '',
+        cost: typeof data.rate === 'number' ? data.rate : (typeof data.total === 'number' ? data.total : 0),
+        poNumber: data.poNumber || '',
       } as ScheduledShipment;
     });
     setShipments(shipmentsData);

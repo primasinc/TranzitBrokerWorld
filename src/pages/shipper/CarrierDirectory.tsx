@@ -96,71 +96,77 @@ const CarrierDirectory: React.FC = () => {
       return;
     }
     try {
-      // Check if carrier document exists
-      const carrierDocRef = doc(db, 'users', carrier.id);
-      const carrierDoc = await getDoc(carrierDocRef);
-      if (!carrierDoc.exists()) {
-        throw new Error('Carrier document not found');
+      // Search users collection for existing carrier by MC Number or email
+      const q = query(collection(db, 'users'), where('userType', '==', 'carrier'), where('companyName', '==', carrier.companyName));
+      const querySnapshot = await getDocs(q);
+      if (!querySnapshot.empty) {
+        const existingCarrierDoc = querySnapshot.docs[0];
+        const existingCarrierData = existingCarrierDoc.data();
+        const existingCarrierId = existingCarrierDoc.id;
+
+        // Defensive: Ensure all required carrier fields are defined
+        const partnerData = {
+          companyName: carrier.companyName || '',
+          companyRep: carrier.companyRep || '',
+          phoneNumber: carrier.phoneNumber || '',
+          email: carrier.email || '',
+          loadTypes: Array.isArray(carrier.loadTypes) ? carrier.loadTypes : [],
+          trailerTypes: Array.isArray(carrier.trailerTypes) ? carrier.trailerTypes : [],
+          endorsements: Array.isArray(carrier.endorsements) ? carrier.endorsements : [],
+          addedAt: new Date(),
+          partnerId: existingCarrierId,
+          state: 'active', // Always set to a valid value
+        };
+        const partnerRef = doc(db, 'users', userId, 'partners', existingCarrierId);
+
+        // Defensive: Fetch and check shipper data
+        const shipperDocRef = doc(db, 'users', userId);
+        const shipperDoc = await getDoc(shipperDocRef);
+        if (!shipperDoc.exists()) {
+          throw new Error('Shipper document not found');
+        }
+        const shipperData = shipperDoc.data() || {};
+        const shipperPartnerData = {
+          companyName: shipperData.companyName || '',
+          companyRep: shipperData.companyRep || '',
+          phoneNumber: shipperData.phoneNumber || '',
+          email: shipperData.email || '',
+          addedAt: new Date(),
+          partnerId: userId,
+          state: 'active', // Always set to a valid value
+        };
+        const carrierPartnerRef = doc(db, 'users', existingCarrierId, 'partners', userId);
+
+        // Notification data
+        const notificationRef = doc(collection(db, 'notifications'));
+        const notificationData = {
+          type: 'partner_request',
+          recipientId: existingCarrierId,
+          senderId: userId,
+          senderName: auth.currentUser?.displayName || shipperData.companyName || 'A shipper',
+          message: `${auth.currentUser?.displayName || shipperData.companyName || 'A shipper'} has added you as a partner`,
+          read: false,
+          createdAt: new Date()
+        };
+
+        // Batch write
+        const batch = writeBatch(db);
+        batch.set(partnerRef, removeUndefined(partnerData));
+        batch.set(carrierPartnerRef, removeUndefined(shipperPartnerData));
+        batch.set(notificationRef, notificationData);
+        await batch.commit();
+
+        // Update local state
+        setPartnerIds(new Set([...Array.from(partnerIds), existingCarrierId]));
+        
+        // Show success message
+        alert('Partner added successfully!');
+        navigate('/shipper/partners');
+      } else {
+        // If not found, allow creation of new user (rare)
+        // This should not happen in a typical application
+        throw new Error('Carrier not found in users collection');
       }
-
-      // Defensive: Ensure all required carrier fields are defined
-      const partnerData = {
-        companyName: carrier.companyName || '',
-        companyRep: carrier.companyRep || '',
-        phoneNumber: carrier.phoneNumber || '',
-        email: carrier.email || '',
-        loadTypes: Array.isArray(carrier.loadTypes) ? carrier.loadTypes : [],
-        trailerTypes: Array.isArray(carrier.trailerTypes) ? carrier.trailerTypes : [],
-        endorsements: Array.isArray(carrier.endorsements) ? carrier.endorsements : [],
-        addedAt: new Date(),
-        partnerId: carrier.id || '',
-        state: 'active', // Always set to a valid value
-      };
-      const partnerRef = doc(db, 'users', userId, 'partners', carrier.id);
-
-      // Defensive: Fetch and check shipper data
-      const shipperDocRef = doc(db, 'users', userId);
-      const shipperDoc = await getDoc(shipperDocRef);
-      if (!shipperDoc.exists()) {
-        throw new Error('Shipper document not found');
-      }
-      const shipperData = shipperDoc.data() || {};
-      const shipperPartnerData = {
-        companyName: shipperData.companyName || '',
-        companyRep: shipperData.companyRep || '',
-        phoneNumber: shipperData.phoneNumber || '',
-        email: shipperData.email || '',
-        addedAt: new Date(),
-        partnerId: userId,
-        state: 'active', // Always set to a valid value
-      };
-      const carrierPartnerRef = doc(db, 'users', carrier.id, 'partners', userId);
-
-      // Notification data
-      const notificationRef = doc(collection(db, 'notifications'));
-      const notificationData = {
-        type: 'partner_request',
-        recipientId: carrier.id,
-        senderId: userId,
-        senderName: auth.currentUser?.displayName || shipperData.companyName || 'A shipper',
-        message: `${auth.currentUser?.displayName || shipperData.companyName || 'A shipper'} has added you as a partner`,
-        read: false,
-        createdAt: new Date()
-      };
-
-      // Batch write
-      const batch = writeBatch(db);
-      batch.set(partnerRef, removeUndefined(partnerData));
-      batch.set(carrierPartnerRef, removeUndefined(shipperPartnerData));
-      batch.set(notificationRef, notificationData);
-      await batch.commit();
-
-      // Update local state
-      setPartnerIds(new Set([...Array.from(partnerIds), carrier.id]));
-      
-      // Show success message
-      alert('Partner added successfully!');
-      navigate('/shipper/partners');
     } catch (error) {
       console.error('Error adding partner:', error);
       if (error instanceof Error) {

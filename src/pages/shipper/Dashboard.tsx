@@ -14,10 +14,13 @@ interface Shipment {
   carrier: string;
   origin: string;
   destination: string;
-  status: 'In Transit' | 'Scheduled' | 'Delivered' | 'Delayed';
+  status: 'In Transit' | 'Scheduled' | 'Delivered' | 'Delayed' | 'Cancelled';
   eta: string;
   cost: number;
   position: [number, number]; // [longitude, latitude] for Mapbox
+  date: string;
+  type: string;
+  poNumber: string;
 }
 
 interface AvailableCarrier {
@@ -59,7 +62,10 @@ const ShipperDashboard: React.FC = () => {
       status: 'In Transit',
       eta: '2024-02-25 14:00',
       cost: 2500,
-      position: [-87.6298, 41.8781] // [longitude, latitude] for Chicago
+      position: [-87.6298, 41.8781], // [longitude, latitude] for Chicago
+      date: '2024-02-23',
+      type: 'Dry Van',
+      poNumber: 'PO12345'
     },
     {
       id: 'SH002',
@@ -69,7 +75,10 @@ const ShipperDashboard: React.FC = () => {
       status: 'Scheduled',
       eta: '2024-02-26 10:00',
       cost: 1800,
-      position: [-96.7970, 32.7767] // [longitude, latitude] for Dallas
+      position: [-96.7970, 32.7767], // [longitude, latitude] for Dallas
+      date: '2024-02-24',
+      type: 'Refrigerated',
+      poNumber: 'PO12346'
     },
     {
       id: 'SH003',
@@ -79,7 +88,10 @@ const ShipperDashboard: React.FC = () => {
       status: 'In Transit',
       eta: '2024-02-24 16:30',
       cost: 3200,
-      position: [-118.2437, 34.0522] // [longitude, latitude] for LA
+      position: [-118.2437, 34.0522], // [longitude, latitude] for LA
+      date: '2024-02-23',
+      type: 'Flatbed',
+      poNumber: 'PO12347'
     }
   ];
 
@@ -210,6 +222,37 @@ const ShipperDashboard: React.FC = () => {
   };
 
   const delayedShipmentsCount = shipments.filter(s => s.status === 'Delayed').length;
+
+  // Calculate metrics based on shipments from context (shipping schedule)
+  useEffect(() => {
+    if (!shipments || shipments.length === 0) {
+      setMetrics({
+        activeShipments: 0,
+        delayedShipments: 0,
+        onTimeDelivery: 0,
+        averageCost: 0
+      });
+      return;
+    }
+
+    // Active shipments: not completed or cancelled
+    const activeShipments = shipments.filter(s => s.status === 'Active').length;
+    const delayedShipments = shipments.filter(s => s.status === 'Delayed').length;
+    // On-time delivery: completed and not delayed (customize as needed)
+    const completedShipments = shipments.filter(s => s.status === 'Completed');
+    const onTimeDeliveries = completedShipments.length; // Adjust if you have a flag for on-time
+    const onTimeDelivery = completedShipments.length > 0 ? (onTimeDeliveries / completedShipments.length) * 100 : 0;
+    // Average cost: use cost field
+    const totalCost = shipments.reduce((sum, s) => sum + (s.cost || 0), 0);
+    const averageCost = shipments.length > 0 ? totalCost / shipments.length : 0;
+
+    setMetrics({
+      activeShipments,
+      delayedShipments,
+      onTimeDelivery,
+      averageCost
+    });
+  }, [shipments]);
 
   return (
     <div className={styles.dashboard}>
@@ -354,35 +397,41 @@ const ShipperDashboard: React.FC = () => {
 
           <div className={styles.shipmentList}>
             {showActiveShipments ? (
-              // Show active shipments list
-              mockShipments.map(shipment => (
-                <div key={shipment.id} className={styles.shipmentCard}>
-                  <div className={styles.shipmentHeader}>
-                    <h3>{shipment.carrier}</h3>
-                    <span className={`${styles.status} ${styles[shipment.status.toLowerCase()]}`}>
-                      {shipment.status}
-                    </span>
+              // Show active shipments list from real data, omitting cancelled
+              shipments
+                .filter(shipment => shipment.status !== 'Cancelled')
+                .map(shipment => (
+                  <div key={shipment.id} className={styles.shipmentCard}>
+                    <div className={styles.shipmentHeader}>
+                      <h3>{shipment.carrier}</h3>
+                      <span className={`${styles.status} ${styles[shipment.status.toLowerCase()]}`}>
+                        {shipment.status}
+                      </span>
+                    </div>
+                    <div className={styles.shipmentDetails}>
+                      <div>
+                        <label>Type:</label>
+                        <span>{shipment.type}</span>
+                      </div>
+                      <div>
+                        <label>Carrier:</label>
+                        <span>{shipment.carrier}</span>
+                      </div>
+                      <div>
+                        <label>Date:</label>
+                        <span>{shipment.date}</span>
+                      </div>
+                      <div>
+                        <label>Cost:</label>
+                        <span>${shipment.cost}</span>
+                      </div>
+                      <div>
+                        <label>PO Number:</label>
+                        <span>{shipment.poNumber}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className={styles.shipmentDetails}>
-                    <div>
-                      <label>From:</label>
-                      <span>{shipment.origin}</span>
-                    </div>
-                    <div>
-                      <label>To:</label>
-                      <span>{shipment.destination}</span>
-                    </div>
-                    <div>
-                      <label>ETA:</label>
-                      <span>{shipment.eta}</span>
-                    </div>
-                    <div>
-                      <label>Cost:</label>
-                      <span>${shipment.cost}</span>
-                    </div>
-                  </div>
-                </div>
-              ))
+                ))
             ) : (
               // Show available carriers list
               filteredCarriers.map(carrier => (
