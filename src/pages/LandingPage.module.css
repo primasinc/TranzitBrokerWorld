@@ -1,0 +1,327 @@
+.landingContainer {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(135deg, #0f2027 0%, #2c5364 100%);
+  font-family: 'Inter', Arial, sans-serif;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2rem 3rem 1rem 3rem;
+  background: transparent;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: #00eaff;
+  letter-spacing: 1px;
+  text-shadow: 0 2px 8px rgba(0,234,255,0.18);
+  gap: 1rem;
+}
+
+.logoImg {
+  height: 48px;
+  width: 48px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 8px #00eaff88);
+}
+
+.nav {
+  display: flex;
+  gap: 1rem;
+}
+
+.navButton {
+  background: linear-gradient(90deg, #00eaff 60%, #2563eb 100%);
+  color: #0f2027;
+  border: none;
+  border-radius: 6px;
+  padding: 0.6rem 1.4rem;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 8px #00eaff44;
+  text-shadow: 0 1px 2px #fff8;
+}
+
+.navButton:hover {
+  background: linear-gradient(90deg, #2563eb 60%, #00eaff 100%);
+  color: #fff;
+  box-shadow: 0 4px 16px #00eaff88;
+}
+
+.heroSection {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 4rem 2rem 2rem 2rem;
+  background: linear-gradient(120deg, #232526 0%, #0f2027 100%);
+}
+
+.heroContent {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.heroSection h1 {
+  font-size: 3.2rem;
+  font-weight: 900;
+  color: #00eaff;
+  margin-bottom: 1.2rem;
+  letter-spacing: -1px;
+  text-shadow: 0 2px 16px #00eaff44;
+}
+
+.heroSection p {
+  font-size: 1.35rem;
+  color: #e0e7ef;
+  margin-bottom: 2.2rem;
+}
+
+.ctaButton {
+  background: linear-gradient(90deg, #00eaff 60%, #2563eb 100%);
+  color: #0f2027;
+  border: none;
+  border-radius: 8px;
+  padding: 1.1rem 2.7rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 24px #00eaff55;
+  transition: background 0.2s, box-shadow 0.2s, color 0.2s;
+  text-shadow: 0 1px 2px #fff8;
+}
+
+.ctaButton:hover {
+  background: linear-gradient(90deg, #2563eb 60%, #00eaff 100%);
+  color: #fff;
+  box-shadow: 0 6px 32px #00eaff99;
+}
+
+.pointsSection {
+  background: #10151a;
+  padding: 3.5rem 2rem 2.5rem 2rem;
+  border-radius: 32px 32px 0 0;
+  box-shadow: 0 -2px 24px #00eaff22;
+}
+
+.pointsHeaderRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2.5rem;
+  margin-top: 1.5rem;
+}
+
+.pointBlock {
+  background: #18222b;
+  color: #fff;
+  border-radius: 18px;
+  padding: 2.5rem 2rem 2rem 2rem;
+  min-width: 260px;
+  max-width: 340px;
+  flex: 1 1 300px;
+  box-shadow: 0 2px 16px #00eaff22;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border: 1.5px solid #00eaff33;
+}
+
+.pointBlock h3 {
+  color: #00eaff;
+  font-size: 1.3rem;
+  margin: 1.2rem 0 0.7rem 0;
+  font-weight: 700;
+  text-shadow: 0 1px 8px #00eaff44;
+}
+
+.pointBlock p {
+  color: #e0e7ef;
+  font-size: 1.05rem;
+  margin: 0;
+}
+
+.subscribeSection {
+  background: #fff;
+  padding: 3rem 2rem 2rem 2rem;
+  border-radius: 0 0 32px 32px;
+  box-shadow: 0 2px 24px #00eaff22;
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.subscribeSection h2 {
+  color: #2563eb;
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.subscribeSection p {
+  color: #334155;
+  font-size: 1.1rem;
+  margin-bottom: 1.5rem;
+}
+
+.subscribeForm {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.emailInput {
+  padding: 0.7rem 1.2rem;
+  border: 1.5px solid #00eaff;
+  border-radius: 6px;
+  font-size: 1.1rem;
+  min-width: 220px;
+  outline: none;
+  transition: border 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 8px #00eaff22;
+  background: #f8fafc;
+  color: #0f2027;
+}
+
+.emailInput:focus {
+  border: 1.5px solid #2563eb;
+  box-shadow: 0 2px 16px #00eaff44;
+}
+
+.subscribeButton {
+  background: linear-gradient(90deg, #00eaff 60%, #2563eb 100%);
+  color: #0f2027;
+  border: none;
+  border-radius: 6px;
+  padding: 0.7rem 1.6rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 8px #00eaff44;
+  text-shadow: 0 1px 2px #fff8;
+}
+
+.subscribeButton:disabled {
+  background: #94a3b8;
+  color: #fff;
+  cursor: not-allowed;
+}
+
+.subscribeButton:hover:not(:disabled) {
+  background: linear-gradient(90deg, #2563eb 60%, #00eaff 100%);
+  color: #fff;
+  box-shadow: 0 4px 16px #00eaff88;
+}
+
+.errorMsg {
+  color: #dc2626;
+  font-size: 1rem;
+  margin-top: 0.5rem;
+}
+
+.successMsg {
+  color: #059669;
+  font-size: 1rem;
+  margin-top: 0.5rem;
+}
+
+.footer {
+  text-align: center;
+  padding: 2rem 1rem 1rem 1rem;
+  color: #64748b;
+  font-size: 1rem;
+  background: transparent;
+  border-top: 1px solid #18222b;
+}
+
+.footerLinks {
+  display: flex;
+  justify-content: center;
+  gap: 2.5rem;
+  margin-bottom: 0.7rem;
+}
+
+.footerLinks a {
+  color: #00eaff;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 1rem;
+  transition: color 0.2s;
+}
+
+.footerLinks a:hover {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+.menuLink {
+  color: #00eaff;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 1rem;
+  margin-right: 0.5rem;
+  padding: 0.6rem 1.1rem;
+  border-radius: 6px;
+  transition: background 0.2s, color 0.2s;
+  letter-spacing: 0.5px;
+  display: inline-block;
+}
+
+.menuLink:hover {
+  background: #00eaff22;
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+@media (max-width: 900px) {
+  .pointsHeaderRow {
+    flex-direction: column;
+    gap: 1.5rem;
+    align-items: center;
+  }
+  .pointBlock {
+    min-width: 220px;
+    max-width: 100%;
+    padding: 2rem 1rem 1.5rem 1rem;
+  }
+}
+
+@media (max-width: 700px) {
+  .header {
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.5rem 1rem 1rem 1rem;
+  }
+  .heroSection h1 {
+    font-size: 2rem;
+  }
+  .featuresGrid {
+    flex-direction: column;
+    align-items: center;
+  }
+  .pointsSection {
+    padding: 2rem 0.5rem 1rem 0.5rem;
+    border-radius: 18px 18px 0 0;
+  }
+  .subscribeSection {
+    padding: 2rem 0.5rem 1rem 0.5rem;
+    border-radius: 0 0 18px 18px;
+  }
+  .footerLinks {
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+} 

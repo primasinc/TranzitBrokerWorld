@@ -47,6 +47,10 @@ import Notifications from './pages/carrier/Notifications';
 import ShipperPartners from './pages/carrier/ShipperPartners';
 import { AuthProvider } from './contexts/AuthContext';
 import { ShipmentsProvider } from './context/ShipmentsContext';
+import LandingPage from './pages/LandingPage';
+import HomePage from './pages/HomePage';
+import TechnologyPage from './pages/TechnologyPage';
+import AboutPage from './pages/AboutPage';
 
 const ViewProfileWrapper = () => {
   const { id } = useParams();
@@ -60,7 +64,10 @@ function App() {
         <ShipmentsProvider>
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<Navigate to="/login" replace />} />
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/home" element={<HomePage />} />
+              <Route path="/technology" element={<TechnologyPage />} />
+              <Route path="/about" element={<AboutPage />} />
               
               {/* Test Routes */}
               <Route path="/test-konexial" element={<TestKonexial />} />
