@@ -33,6 +33,8 @@ export interface MetricsData {
   // Calculated fields
   onTimeDeliveryPercentage: number;
   averageCostPerLoad: number;
+  activeShipments: number;
+  delayedShipments: number;
 }
 
 // Helper function to calculate if a shipment is on time
@@ -54,6 +56,10 @@ export const calculateMetrics = (shipments: ShipmentData[]): Omit<MetricsData, '
   const completedShipments = shipments.filter(s => s.status === 'delivered');
   const onTimeDeliveries = completedShipments.filter(s => s.isOnTime).length;
   const totalCost = shipments.reduce((sum, s) => sum + s.cost, 0);
+  const activeShipments = shipments.filter(s => 
+    ['scheduled', 'in_transit', 'delayed'].includes(s.status)
+  ).length;
+  const delayedShipments = shipments.filter(s => s.status === 'delayed').length;
 
   return {
     totalShipments: shipments.length,
@@ -65,6 +71,8 @@ export const calculateMetrics = (shipments: ShipmentData[]): Omit<MetricsData, '
       : 0,
     averageCostPerLoad: shipments.length > 0 
       ? totalCost / shipments.length 
-      : 0
+      : 0,
+    activeShipments,
+    delayedShipments
   };
 }; 

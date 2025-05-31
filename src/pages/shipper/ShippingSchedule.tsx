@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import styles from './ShippingSchedule.module.css';
 import { db } from '../../firebase';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { useShipments } from '../../context/ShipmentsContext';
 
 interface LocationState {
   filter?: 'active' | 'delayed';
@@ -23,10 +24,10 @@ interface ScheduledShipment {
 const ShippingSchedule: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { shipments, refreshShipments } = useShipments();
   const [viewType, setViewType] = useState<'calendar' | 'list'>('list');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [filter, setFilter] = useState<'active' | 'delayed' | null>(null);
-  const [schedules, setSchedules] = useState<ScheduledShipment[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDate, setEditDate] = useState('');
   const [editTime, setEditTime] = useState('');
@@ -42,31 +43,10 @@ const ShippingSchedule: React.FC = () => {
     }
   }, [location, navigate]);
 
-  useEffect(() => {
-    const fetchSchedules = async () => {
-      const querySnapshot = await getDocs(collection(db, 'purchaseOrders'));
-      const schedulesData = querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          date: data.date || '',
-          time: data.scheduledTime || '',
-          destination: data.shipTo?.cityStateZip || '',
-          carrier: data.carrierOption === 'carrier' ? (data.selectedCarrier || 'TBD') : 'Marketplace',
-          status: data.status === 'Processing' ? 'Active' : (data.status || 'Active'),
-          type: data.type || 'Full Load',
-          shipTo: data.shipTo?.name || '',
-        } as ScheduledShipment;
-      });
-      setSchedules(schedulesData);
-    };
-    fetchSchedules();
-  }, []);
-
   // Filter schedules based on status
   const filteredSchedules = filter
-    ? schedules.filter(schedule => schedule.status.toLowerCase() === filter)
-    : schedules;
+    ? shipments.filter(schedule => schedule.status.toLowerCase() === filter)
+    : shipments;
 
   // Clear filter
   const handleClearFilter = () => {
@@ -82,7 +62,7 @@ const ShippingSchedule: React.FC = () => {
   const handleEditSave = async (id: string) => {
     const scheduleRef = doc(db, 'purchaseOrders', id);
     await updateDoc(scheduleRef, { date: editDate, scheduledTime: editTime });
-    setSchedules(schedules => schedules.map(s => s.id === id ? { ...s, date: editDate, time: editTime } : s));
+    refreshShipments();
     setEditingId(null);
   };
 
@@ -97,7 +77,7 @@ const ShippingSchedule: React.FC = () => {
   const confirmCancel = async (id: string) => {
     const scheduleRef = doc(db, 'purchaseOrders', id);
     await updateDoc(scheduleRef, { status: 'Cancelled' });
-    setSchedules(schedules => schedules.map(s => s.id === id ? { ...s, status: 'Cancelled' } : s));
+    refreshShipments();
     setConfirmCancelId(null);
   };
 

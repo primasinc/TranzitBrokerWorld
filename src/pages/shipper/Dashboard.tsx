@@ -7,6 +7,7 @@ import styles from './Dashboard.module.css';
 import MapboxMap from '../../components/common/MapboxMap';
 import { db } from '../../firebase';
 import { collection, getDocs } from 'firebase/firestore';
+import { useShipments } from '../../context/ShipmentsContext';
 
 interface Shipment {
   id: string;
@@ -46,9 +47,10 @@ const ShipperDashboard: React.FC = () => {
   });
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { shipments } = useShipments();
 
   // Mock shipments data
-  const shipments: Shipment[] = [
+  const mockShipments: Shipment[] = [
     {
       id: 'SH001',
       carrier: 'ABC Trucking',
@@ -124,43 +126,6 @@ const ShipperDashboard: React.FC = () => {
   // Filter carriers based on radius
   const filteredCarriers = availableCarriers.filter(carrier => carrier.distance <= radiusInMiles);
 
-  // Subscribe to metrics updates
-  useEffect(() => {
-    if (!user) return;
-
-    // Fetch active shipments from Firestore
-    const fetchActiveShipments = async () => {
-      const querySnapshot = await getDocs(collection(db, 'purchaseOrders'));
-      const activeCount = querySnapshot.docs.filter(doc => {
-        const status = doc.data().status;
-        return ACTIVE_STATUSES.includes(status);
-      }).length;
-      setMetrics(metrics => ({ ...metrics, activeShipments: activeCount }));
-    };
-    fetchActiveShipments();
-
-    console.log('Setting up metrics subscription for user:', user.id);
-    const unsubscribe = subscribeToShipperMetrics(user.id, (metricsData) => {
-      console.log('Raw metrics data received:', metricsData);
-      
-      // Calculate metrics from the raw data
-      const newMetrics = {
-        activeShipments: metricsData.totalShipments - metricsData.completedShipments || 0,
-        delayedShipments: metricsData.completedShipments - metricsData.onTimeDeliveries || 0,
-        onTimeDelivery: Number(metricsData.onTimeDeliveryPercentage?.toFixed(1)) || 0,
-        averageCost: Math.round(metricsData.averageCostPerLoad || 0)
-      };
-      
-      console.log('Setting dashboard metrics:', newMetrics);
-      setMetrics(newMetrics);
-    });
-
-    return () => {
-      console.log('Cleaning up metrics subscription');
-      unsubscribe();
-    };
-  }, [user]);
-
   // Handle radius change
   const handleRadiusChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setRadiusInMiles(parseInt(e.target.value));
@@ -211,7 +176,7 @@ const ShipperDashboard: React.FC = () => {
   // Convert shipments and carriers to Mapbox markers
   const getMapMarkers = () => {
     if (showActiveShipments) {
-      return shipments.map(shipment => ({
+      return mockShipments.map(shipment => ({
         id: shipment.id,
         position: shipment.position,
         type: 'carrier' as const,
@@ -244,6 +209,8 @@ const ShipperDashboard: React.FC = () => {
     }
   };
 
+  const delayedShipmentsCount = shipments.filter(s => s.status === 'Delayed').length;
+
   return (
     <div className={styles.dashboard}>
       {process.env.NODE_ENV === 'development' && (
@@ -266,7 +233,7 @@ const ShipperDashboard: React.FC = () => {
           tabIndex={0}
         >
           <h3>Active Shipments</h3>
-          <div className={styles.metricValue}>{metrics.activeShipments}</div>
+          <div className={styles.metricValue}>{shipments.length}</div>
         </div>
         <div 
           className={`${styles.metricCard} ${styles.clickable}`}
@@ -275,7 +242,7 @@ const ShipperDashboard: React.FC = () => {
           tabIndex={0}
         >
           <h3>Delayed Shipments</h3>
-          <div className={styles.metricValue}>{metrics.delayedShipments}</div>
+          <div className={styles.metricValue}>{delayedShipmentsCount}</div>
         </div>
         <div className={styles.metricCard}>
           <h3>On-Time Delivery</h3>
@@ -388,7 +355,7 @@ const ShipperDashboard: React.FC = () => {
           <div className={styles.shipmentList}>
             {showActiveShipments ? (
               // Show active shipments list
-              shipments.map(shipment => (
+              mockShipments.map(shipment => (
                 <div key={shipment.id} className={styles.shipmentCard}>
                   <div className={styles.shipmentHeader}>
                     <h3>{shipment.carrier}</h3>

@@ -57,7 +57,9 @@ export const subscribeToShipperMetrics = (
           totalCost: 0,
           onTimeDeliveryPercentage: 0,
           averageCostPerLoad: 0,
-          lastUpdated: Timestamp.now()
+          lastUpdated: Timestamp.now(),
+          activeShipments: 0,
+          delayedShipments: 0
         };
         setDoc(metricsRef, defaultMetrics);
       }
