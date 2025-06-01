@@ -20,7 +20,7 @@ export const LoginForm: React.FC = () => {
     setFormError(null);
 
     try {
-      await login(formData);
+      await login(formData.email, formData.password);
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Login failed');
     }

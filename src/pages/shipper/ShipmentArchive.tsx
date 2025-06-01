@@ -41,7 +41,8 @@ const ShipmentArchive: React.FC = () => {
         limit: ITEMS_PER_PAGE
       };
 
-      const result = await getShipperShipments(user.id, filters, pagination);
+      const userId = (user as any)?.uid || (user as any)?.email || '';
+      const result = await getShipperShipments(userId, filters, pagination);
       
       setShipments(result.shipments);
       setTotalCount(result.totalCount);

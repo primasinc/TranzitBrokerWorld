@@ -4,6 +4,7 @@ import { collection, getDocs, query, where, doc, setDoc, getDoc, writeBatch } fr
 import { db, auth } from '../../config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import styles from './CarrierDirectory.module.css';
+import CarrierProfileCard from '../../components/carrier/CarrierProfileCard';
 
 interface CarrierUser {
   id: string;
@@ -15,6 +16,8 @@ interface CarrierUser {
   loadTypes?: string[];
   trailerTypes?: string[];
   endorsements?: string[];
+  mcNumber?: string;
+  dotNumber?: string;
 }
 
 const STATES = [
@@ -34,6 +37,10 @@ const CarrierDirectory: React.FC = () => {
   const [endorsementFilter, setEndorsementFilter] = useState('');
   const [userId, setUserId] = useState<string | null>(null);
   const [partnerIds, setPartnerIds] = useState<Set<string>>(new Set());
+  const [showSaferModal, setShowSaferModal] = useState(false);
+  const [saferCarrier, setSaferCarrier] = useState<CarrierUser | null>(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileCarrier, setProfileCarrier] = useState<any>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -68,6 +75,8 @@ const CarrierDirectory: React.FC = () => {
           loadTypes: data.loadTypes,
           trailerTypes: data.trailerTypes,
           endorsements: data.endorsements,
+          mcNumber: data.mcNumber,
+          dotNumber: data.dotNumber,
         });
       });
       setCarriers(carrierList);
@@ -177,6 +186,30 @@ const CarrierDirectory: React.FC = () => {
     }
   };
 
+  const handleViewProfile = async (carrier: CarrierUser) => {
+    let fullProfile = null;
+    // Always fetch the full user profile from the users collection
+    if (carrier.id) {
+      const carrierRef = doc(db, 'users', carrier.id);
+      const carrierSnap = await getDoc(carrierRef);
+      if (carrierSnap.exists()) {
+        fullProfile = carrierSnap.data();
+      }
+    }
+    setProfileCarrier(fullProfile);
+    setShowProfileModal(true);
+  };
+
+  const handleSaferCheck = (carrier: CarrierUser) => {
+    setSaferCarrier(carrier);
+    setShowSaferModal(true);
+  };
+
+  const closeSaferModal = () => {
+    setShowSaferModal(false);
+    setSaferCarrier(null);
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.header}>
@@ -213,23 +246,7 @@ const CarrierDirectory: React.FC = () => {
             <div>No carriers found.</div>
           ) : (
             filteredCarriers.map(carrier => (
-              <div key={carrier.id} className={styles.carrierCard}>
-                <h2>{carrier.companyName}</h2>
-                {carrier.companyRep && <p>Rep: {carrier.companyRep}</p>}
-                {carrier.phoneNumber && <p>Phone: {carrier.phoneNumber}</p>}
-                {carrier.email && <p>Email: {carrier.email}</p>}
-                {carrier.state && <p>State: {carrier.state}</p>}
-                {carrier.loadTypes && <p>Load Types: {carrier.loadTypes.join(', ')}</p>}
-                {carrier.trailerTypes && <p>Trailer Types: {carrier.trailerTypes.join(', ')}</p>}
-                {carrier.endorsements && <p>Endorsements: {carrier.endorsements.join(', ')}</p>}
-                <button
-                  className={styles.addButton}
-                  onClick={() => handleAddToPartners(carrier)}
-                  disabled={partnerIds.has(carrier.id)}
-                >
-                  {partnerIds.has(carrier.id) ? 'Added' : 'Add to Partners'}
-                </button>
-              </div>
+              <CarrierProfileCard key={carrier.id} carrier={carrier} />
             ))
           )}
         </div>

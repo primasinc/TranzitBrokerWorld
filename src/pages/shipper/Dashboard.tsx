@@ -172,8 +172,9 @@ const ShipperDashboard: React.FC = () => {
     setIsGenerating(true);
     setError(null);
     
-    console.log('Starting test data generation for user:', user.id);
-    const success = await generateTestData(user.id);
+    const userId = (user as any)?.uid || (user as any)?.email || '';
+    console.log('Starting test data generation for user:', userId);
+    const success = await generateTestData(userId);
     
     if (success) {
       console.log('Test data generation completed successfully');

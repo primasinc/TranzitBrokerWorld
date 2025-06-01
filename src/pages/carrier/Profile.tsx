@@ -4,6 +4,7 @@ import { db, auth } from '../../config/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Insurance, Equipment, ServiceArea, CarrierProfile } from '../../types/carrier';
+import CarrierProfileCard from '../../components/carrier/CarrierProfileCard';
 
 const ProfilePage: React.FC = () => {
   const [profile, setProfile] = useState<Partial<CarrierProfile>>({});
@@ -20,6 +21,7 @@ const ProfilePage: React.FC = () => {
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   const [serviceAreas, setServiceAreas] = useState<ServiceArea[]>([]);
   const [address, setAddress] = useState({ street: '', city: '', state: '', zip: '' });
+  const [showProfileCardModal, setShowProfileCardModal] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -97,12 +99,16 @@ const ProfilePage: React.FC = () => {
 
   if (loading) return <div>Loading...</div>;
 
+  // Debug log for CarrierProfileCard props
+  console.log('Rendering CarrierProfileCard with:', profile);
+
   return (
     <div className={styles.container}>
       <div className={styles.header}>
         <h1>Company Profile</h1>
       </div>
-      <div className={styles.section}>
+      
+      <div className={styles.section} style={{ flex: 1 }}>
         <form onSubmit={handleProfileUpdate}>
           <div className={styles.formGrid}>
             <div className={styles.formGroup}>
@@ -184,8 +190,27 @@ const ProfilePage: React.FC = () => {
           <button type="button" className={styles.saveButton} style={{marginLeft: 16}} onClick={() => setShowPasswordModal(true)}>
             Change Password
           </button>
+          <button type="button" className={styles.saveButton} style={{marginLeft: 16, background: '#28a745', color: '#fff'}} onClick={() => setShowProfileCardModal(true)}>
+            View Profile Card
+          </button>
         </form>
       </div>
+      
+      {showProfileCardModal && (
+        <div className={styles.modalOverlay} onClick={() => setShowProfileCardModal(false)}>
+          <div className={styles.modal} onClick={e => e.stopPropagation()}>
+            <CarrierProfileCard carrier={{
+              companyName: profile.companyName,
+              companyRep: (profile as any).companyRep || '',
+              phoneNumber: profile.phone,
+              email: profile.email,
+              mcNumber: (profile as any).mcNumber || '',
+              dotNumber: (profile as any).dotNumber || '',
+            }} />
+            <button className={styles.closeButton} onClick={() => setShowProfileCardModal(false)} style={{marginTop: 16}}>Close</button>
+          </div>
+        </div>
+      )}
       {showPasswordModal && (
         <div className={styles.modalOverlay}>
           <div className={styles.modal}>
