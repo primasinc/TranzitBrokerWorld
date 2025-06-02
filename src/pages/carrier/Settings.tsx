@@ -50,6 +50,7 @@ const Settings: React.FC = () => {
       accountNumber: "••••••••4567"
     }
   });
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const handleProfileUpdate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,10 +68,48 @@ const Settings: React.FC = () => {
     }));
   };
 
+  const handleProfile = () => {};
+  const handleSettings = () => {};
+  const handleLogout = () => {};
+
   return (
     <div className={styles.container}>
-      <div className={styles.header}>
-        <h1>Settings</h1>
+      <div className={styles.headerCard}>
+        <header className={styles.headerRow}>
+          <div className={styles.headerLeft}>
+            <h1>Settings</h1>
+          </div>
+          <div className={styles.headerRight}>
+            <button
+              className={styles.bellButton}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, position: 'relative' }}
+              tabIndex={0}
+              aria-label="Notifications"
+            >
+              <span role="img" aria-label="Notifications">🔔</span>
+            </button>
+            <div className={styles.menuContainer}>
+              <button 
+                className={styles.hamburgerButton}
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                aria-label="Menu"
+              >
+                <div className={styles.hamburgerIcon}>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+              </button>
+              {isMenuOpen && (
+                <div className={styles.dropdownMenu}>
+                  <button onClick={handleProfile}>Account</button>
+                  <button onClick={handleSettings}>Settings</button>
+                  <button onClick={handleLogout} className={styles.logoutButton}>Logout</button>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
       </div>
 
       <div className={styles.content}>

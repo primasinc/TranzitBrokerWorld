@@ -47,21 +47,29 @@
 
 .tabs {
   display: flex;
-  gap: 10px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  padding: 8px 16px;
+  margin-bottom: 18px;
+  gap: 8px;
 }
 
 .tab {
-  padding: 8px 16px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  background: white;
+  background: none;
+  border: none;
+  padding: 8px 20px;
+  font-size: 1rem;
+  color: #888;
+  border-radius: 8px;
   cursor: pointer;
+  transition: background 0.15s, color 0.15s;
 }
 
 .tab.active {
-  background-color: #007bff;
-  color: white;
-  border-color: #007bff;
+  background: #007bff;
+  color: #fff;
+  font-weight: 600;
 }
 
 .filters {
@@ -70,23 +78,69 @@
   align-items: center;
 }
 
-.searchInput {
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  width: 250px;
+.filtersRow {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+  margin-left: 0;
+  flex-wrap: wrap;
 }
 
-.dateFilters {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.searchInput {
+  padding: 8px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 1rem;
+  min-width: 200px;
+}
+
+.filterSelect {
+  padding: 8px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 1rem;
+  background: #fff;
 }
 
 .dateInput {
   padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 1rem;
+  background: #fff;
+}
+
+.clearFiltersButton {
+  background: #f5f5f5;
+  color: #333;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  margin-left: 4px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.clearFiltersButton:hover {
+  background: #e0e0e0;
+}
+
+.advancedSearchButton {
+  background: #fff;
+  color: #007bff;
+  border: 1px solid #007bff;
+  border-radius: 8px;
+  padding: 8px 16px;
+  margin-left: 4px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.advancedSearchButton:hover {
+  background: #007bff;
+  color: #fff;
 }
 
 .table {
@@ -236,34 +290,6 @@
   gap: 10px;
   flex: 1;
   min-width: 250px;
-}
-
-.searchInput {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #ced4da;
-  border-radius: 4px;
-}
-
-.filterGroup {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.filterSelect, .dateInput {
-  padding: 8px;
-  border: 1px solid #ced4da;
-  border-radius: 4px;
-}
-
-.clearFiltersButton {
-  padding: 8px 12px;
-  background-color: #6c757d;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
 }
 
 .resultsInfo {
@@ -449,16 +475,6 @@
   content: '⚙️';
 }
 
-.advancedSearchButton {
-  padding: 8px 12px;
-  background-color: #0d6efd;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
 .activeSearchBanner {
   display: flex;
   align-items: center;
@@ -478,4 +494,88 @@
   text-decoration: underline;
   cursor: pointer;
   padding: 0;
+}
+
+/* Header Card Styles (copied from AvailableLoads.module.css) */
+.headerCard {
+  background: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 30px;
+}
+
+.headerRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.headerLeft {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.menuContainer {
+  position: relative;
+}
+
+.hamburgerButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hamburgerIcon {
+  width: 24px;
+  height: 18px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.hamburgerIcon span {
+  display: block;
+  height: 2px;
+  width: 100%;
+  background-color: #333;
+  transition: all 0.3s ease;
+}
+
+.dropdownMenu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background-color: white;
+  border-radius: 4px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  min-width: 150px;
+  z-index: 1000;
+}
+
+.dropdownMenu button {
+  display: block;
+  width: 100%;
+  padding: 12px 20px;
+  text-align: left;
+  border: none;
+  background: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.dropdownMenu button:hover {
+  background-color: #f5f5f5;
 } 

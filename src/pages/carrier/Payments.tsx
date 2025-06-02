@@ -191,6 +191,7 @@ const Payments: React.FC = () => {
     }
   ]);
   const [advancedSearchCriteria, setAdvancedSearchCriteria] = useState<SearchCriteria | null>(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   useEffect(() => {
     let result = [...payments];
@@ -616,10 +617,48 @@ const Payments: React.FC = () => {
     setAdvancedSearchCriteria(null);
   };
 
+  const handleProfile = () => {};
+  const handleSettings = () => {};
+  const handleLogout = () => {};
+
   return (
     <div className={styles.container}>
-      <div className={styles.header}>
-        <h1>Payments & Invoices</h1>
+      <div className={styles.headerCard}>
+        <header className={styles.headerRow}>
+          <div className={styles.headerLeft}>
+            <h1>Payments & Invoices</h1>
+          </div>
+          <div className={styles.headerRight}>
+            <button
+              className={styles.bellButton}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, position: 'relative' }}
+              tabIndex={0}
+              aria-label="Notifications"
+            >
+              <span role="img" aria-label="Notifications">🔔</span>
+            </button>
+            <div className={styles.menuContainer}>
+              <button 
+                className={styles.hamburgerButton}
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                aria-label="Menu"
+              >
+                <div className={styles.hamburgerIcon}>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+              </button>
+              {isMenuOpen && (
+                <div className={styles.dropdownMenu}>
+                  <button onClick={handleProfile}>Account</button>
+                  <button onClick={handleSettings}>Settings</button>
+                  <button onClick={handleLogout} className={styles.logoutButton}>Logout</button>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
       </div>
 
       <div className={styles.summaryCards}>
@@ -635,101 +674,71 @@ const Payments: React.FC = () => {
         </div>
       </div>
 
-      <div className={styles.controls}>
-        <div className={styles.tabs}>
-          <button 
-            className={`${styles.tab} ${activeTab === 'payments' ? styles.active : ''}`}
-            onClick={() => setActiveTab('payments')}
-          >
-            Payments
-          </button>
-          <button 
-            className={`${styles.tab} ${activeTab === 'invoices' ? styles.active : ''}`}
-            onClick={() => setActiveTab('invoices')}
-          >
-            Invoices
-          </button>
-        </div>
+      <div className={styles.tabs} style={{ marginBottom: 16 }}>
+        <button 
+          className={`${styles.tab} ${activeTab === 'payments' ? styles.active : ''}`}
+          onClick={() => setActiveTab('payments')}
+        >
+          Payments
+        </button>
+        <button 
+          className={`${styles.tab} ${activeTab === 'invoices' ? styles.active : ''}`}
+          onClick={() => setActiveTab('invoices')}
+        >
+          Invoices
+        </button>
+      </div>
 
-        <div className={styles.filters}>
-          <div className={styles.filtersContainer}>
-            <div className={styles.searchContainer}>
-              <input
-                type="text"
-                placeholder="Search by Load ID or Customer"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className={styles.searchInput}
-                disabled={!!advancedSearchCriteria}
-              />
-              <button 
-                className={styles.advancedSearchButton}
-                onClick={() => setIsAdvancedSearchModalOpen(true)}
-              >
-                Advanced Search
-              </button>
-            </div>
-            
-            {advancedSearchCriteria && (
-              <div className={styles.activeSearchBanner}>
-                <span>Advanced search criteria applied</span>
-                <button 
-                  className={styles.clearAdvancedSearchButton}
-                  onClick={clearAdvancedSearch}
-                >
-                  Clear Advanced Search
-                </button>
-              </div>
-            )}
-            
-            <div className={styles.filterGroup}>
-              <label>Status:</label>
-              <select 
-                value={statusFilter} 
-                onChange={(e) => setStatusFilter(e.target.value as PaymentStatus | 'All')}
-                className={styles.filterSelect}
-              >
-                <option value="All">All Statuses</option>
-                <option value="Pending">Pending</option>
-                <option value="Requested">Requested</option>
-                <option value="Paid">Paid</option>
-                <option value="Canceled">Canceled</option>
-                <option value="Processing">Processing</option>
-              </select>
-            </div>
-            
-            <div className={styles.filterGroup}>
-              <label>From:</label>
-              <input
-                type="date"
-                value={dateFilter.start}
-                onChange={(e) => setDateFilter(prev => ({ ...prev, start: e.target.value }))}
-                className={styles.dateInput}
-              />
-            </div>
-            
-            <div className={styles.filterGroup}>
-              <label>To:</label>
-              <input
-                type="date"
-                value={dateFilter.end}
-                onChange={(e) => setDateFilter(prev => ({ ...prev, end: e.target.value }))}
-                className={styles.dateInput}
-              />
-            </div>
-            
-            <button 
-              onClick={clearFilters}
-              className={styles.clearFiltersButton}
-            >
-              Clear Filters
-            </button>
-          </div>
-
-          <div className={styles.resultsInfo}>
-            Showing {filteredPayments.length} of {payments.length} payments
-          </div>
-        </div>
+      <div className={styles.filtersRow}>
+        <input
+          type="text"
+          placeholder="Search by Load ID or Customer"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className={styles.searchInput}
+          disabled={!!advancedSearchCriteria}
+          style={{ minWidth: 220, marginRight: 10 }}
+        />
+        <select 
+          value={statusFilter} 
+          onChange={(e) => setStatusFilter(e.target.value as PaymentStatus | 'All')}
+          className={styles.filterSelect}
+          style={{ marginRight: 10 }}
+        >
+          <option value="All">All Statuses</option>
+          <option value="Pending">Pending</option>
+          <option value="Requested">Requested</option>
+          <option value="Paid">Paid</option>
+          <option value="Canceled">Canceled</option>
+          <option value="Processing">Processing</option>
+        </select>
+        <input
+          type="date"
+          value={dateFilter.start}
+          onChange={(e) => setDateFilter(prev => ({ ...prev, start: e.target.value }))}
+          className={styles.dateInput}
+          style={{ marginRight: 10 }}
+        />
+        <input
+          type="date"
+          value={dateFilter.end}
+          onChange={(e) => setDateFilter(prev => ({ ...prev, end: e.target.value }))}
+          className={styles.dateInput}
+          style={{ marginRight: 10 }}
+        />
+        <button 
+          onClick={clearFilters}
+          className={styles.clearFiltersButton}
+        >
+          Clear Filters
+        </button>
+        <button 
+          className={styles.advancedSearchButton}
+          onClick={() => setIsAdvancedSearchModalOpen(true)}
+          style={{ marginLeft: 10 }}
+        >
+          Advanced Search
+        </button>
       </div>
 
       {selectedPaymentIds.length > 0 && (
@@ -779,30 +788,6 @@ const Payments: React.FC = () => {
           </div>
         </div>
       )}
-
-      <div className={styles.pageHeader}>
-        <h1>Payments</h1>
-        <div className={styles.headerButtons}>
-          <button 
-            className={styles.settingsButton}
-            onClick={() => setIsSettingsModalOpen(true)}
-          >
-            Settings
-          </button>
-          <button 
-            className={styles.analyticsButton}
-            onClick={() => setIsAnalyticsModalOpen(true)}
-          >
-            Analytics
-          </button>
-          <button 
-            className={styles.reportsButton}
-            onClick={() => setIsReportsModalOpen(true)}
-          >
-            Generate Reports
-          </button>
-        </div>
-      </div>
 
       {activeTab === 'payments' ? (
         <div className={styles.table}>

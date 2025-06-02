@@ -15,6 +15,15 @@ interface Load {
   dimensions: string;
 }
 
+const VIEW_TYPES: Record<'MAP' | 'LIST', 'map' | 'list'> = {
+  MAP: 'map',
+  LIST: 'list',
+};
+
+function isViewType(val: any): val is 'map' | 'list' {
+  return val === 'map' || val === 'list';
+}
+
 const AvailableLoads: React.FC = () => {
   const [viewType, setViewType] = useState<'map' | 'list'>('map');
   const [selectedLoad, setSelectedLoad] = useState<Load | null>(null);
@@ -110,37 +119,38 @@ const AvailableLoads: React.FC = () => {
             </div>
           </header>
         </div>
-        {/* Toggle buttons above map, right aligned */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
-          <div className={styles.viewToggle}>
-            <button 
-              className={`${styles.toggleButton} ${viewType === 'map' ? styles.active : ''}`}
-              onClick={() => setViewType('map')}
-            >
-              Map View
-            </button>
-            <button 
-              className={`${styles.toggleButton} ${viewType === 'list' ? styles.active : ''}`}
-              onClick={() => setViewType('list')}
-            >
-              List View
-            </button>
-          </div>
-        </div>
         {/* End header, start main content */}
         {viewType === 'map' ? (
           <div className={styles.mapSection}>
-            <div className={styles.mapContainer}>
-              <MapboxMap
-                center={[-98.5795, 39.8283]} // US center
-                zoom={4}
-                markers={loads.map(load => ({
-                  id: load.id,
-                  position: load.position,
-                  type: 'shipper',
-                  onClick: () => setSelectedLoad(load)
-                }))}
-              />
+            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div style={{ width: '100%', display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+                <div className={styles.viewToggle} style={{ margin: 0 }}>
+                  <button
+                    className={`${styles.toggleButton} ${viewType === 'map' ? styles.active : ''}`}
+                    onClick={() => setViewType('map')}
+                  >
+                    Map View
+                  </button>
+                  <button
+                    className={`${styles.toggleButton} ${(viewType as any) === 'list' ? styles.active : ''}`}
+                    onClick={() => setViewType('list')}
+                  >
+                    List View
+                  </button>
+                </div>
+              </div>
+              <div className={styles.mapContainer} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                <MapboxMap
+                  center={[-98.5795, 39.8283]} // US center
+                  zoom={4}
+                  markers={loads.map(load => ({
+                    id: load.id,
+                    position: load.position,
+                    type: 'shipper',
+                    onClick: () => setSelectedLoad(load)
+                  }))}
+                />
+              </div>
             </div>
             {selectedLoad && (
               <div className={styles.selectedLoadDetails}>

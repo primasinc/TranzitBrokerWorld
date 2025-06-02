@@ -24,6 +24,8 @@ const ShipperPartners: React.FC = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [stateFilter, setStateFilter] = useState('');
+  const [pendingSearch, setPendingSearch] = useState('');
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -53,10 +55,13 @@ const ShipperPartners: React.FC = () => {
   }, []);
 
   const filteredPartners = partners.filter(partner => {
-    const matchesSearch = partner.companyName.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesState = !stateFilter || partner.state === stateFilter;
-    return matchesSearch && matchesState;
+    const matchesSearch = searchTerm.trim() === '' || partner.companyName.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesSearch;
   });
+
+  const handleSearch = () => {
+    setSearchTerm(pendingSearch);
+  };
 
   const handleRemovePartner = async (partner: Partner) => {
     if (!userId) return;
@@ -70,26 +75,58 @@ const ShipperPartners: React.FC = () => {
     setPartners(prev => prev.filter(p => p.id !== partner.id));
   };
 
+  const handleProfile = () => {};
+  const handleSettings = () => {};
+  const handleLogout = () => {};
+
   return (
     <div className={styles.container}>
-      <div className={styles.header}>
-        <h1>Shipper Partners</h1>
-        <div className={styles.filterRow}>
-          <input
-            type="text"
-            placeholder="Search shippers by company name..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            className={styles.searchInput}
-          />
-          <select
-            value={stateFilter}
-            onChange={e => setStateFilter(e.target.value)}
-            className={styles.filterSelect}
-          >
-            {STATES.map(state => <option key={state} value={state}>{state || 'All States'}</option>)}
-          </select>
-        </div>
+      <div className={styles.headerCard}>
+        <header className={styles.headerRow}>
+          <div className={styles.headerLeft}>
+            <h1>Shipper Partners</h1>
+          </div>
+          <div className={styles.headerRight}>
+            <button
+              className={styles.bellButton}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, position: 'relative' }}
+              tabIndex={0}
+              aria-label="Notifications"
+            >
+              <span role="img" aria-label="Notifications">🔔</span>
+            </button>
+            <div className={styles.menuContainer}>
+              <button 
+                className={styles.hamburgerButton}
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                aria-label="Menu"
+              >
+                <div className={styles.hamburgerIcon}>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+              </button>
+              {isMenuOpen && (
+                <div className={styles.dropdownMenu}>
+                  <button onClick={handleProfile}>Account</button>
+                  <button onClick={handleSettings}>Settings</button>
+                  <button onClick={handleLogout} className={styles.logoutButton}>Logout</button>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
+      </div>
+      <div className={styles.searchRow}>
+        <input
+          type="text"
+          placeholder="Search shipping company..."
+          value={pendingSearch}
+          onChange={e => setPendingSearch(e.target.value)}
+          className={styles.searchInput}
+        />
+        <button className={styles.searchButton} onClick={handleSearch}>Search</button>
       </div>
       <div className={styles.carrierGrid}>
         {loading ? (

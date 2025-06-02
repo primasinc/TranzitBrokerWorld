@@ -15,6 +15,7 @@ interface Document {
 const Documents: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'all' | 'compliance' | 'loads'>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const documents: Document[] = [
     {
@@ -56,16 +57,50 @@ const Documents: React.FC = () => {
     return matchesSearch && matchesTab;
   });
 
+  const handleProfile = () => {};
+  const handleSettings = () => {};
+  const handleLogout = () => {};
+
   return (
     <div className={styles.container}>
-      <div className={styles.header}>
-        <h1>Documents</h1>
-        <button className={styles.uploadButton}>
-          Upload New Document
-        </button>
+      <div className={styles.headerCard}>
+        <header className={styles.headerRow}>
+          <div className={styles.headerLeft}>
+            <h1>Documents</h1>
+          </div>
+          <div className={styles.headerRight}>
+            <button
+              className={styles.bellButton}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, position: 'relative' }}
+              tabIndex={0}
+              aria-label="Notifications"
+            >
+              <span role="img" aria-label="Notifications">🔔</span>
+            </button>
+            <div className={styles.menuContainer}>
+              <button 
+                className={styles.hamburgerButton}
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                aria-label="Menu"
+              >
+                <div className={styles.hamburgerIcon}>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+              </button>
+              {isMenuOpen && (
+                <div className={styles.dropdownMenu}>
+                  <button onClick={handleProfile}>Account</button>
+                  <button onClick={handleSettings}>Settings</button>
+                  <button onClick={handleLogout} className={styles.logoutButton}>Logout</button>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
       </div>
-
-      <div className={styles.subHeader}>
+      <div className={styles.subHeader} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 30 }}>
         <div className={styles.tabs}>
           <button 
             className={`${styles.tab} ${activeTab === 'all' ? styles.active : ''}`}
@@ -86,13 +121,9 @@ const Documents: React.FC = () => {
             Load Documents
           </button>
         </div>
-        <input
-          type="text"
-          placeholder="Search documents..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className={styles.searchInput}
-        />
+        <button className={styles.uploadButton}>
+          Upload New Document
+        </button>
       </div>
 
       <div className={styles.documentGrid}>

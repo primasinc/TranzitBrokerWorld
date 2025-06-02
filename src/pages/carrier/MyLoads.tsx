@@ -25,6 +25,7 @@ interface Load {
 const MyLoads: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'active' | 'in_progress' | 'completed'>('active');
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // Sample data - would come from API
   const loads: Load[] = [
@@ -63,10 +64,57 @@ const MyLoads: React.FC = () => {
     }
   };
 
+  const handleProfile = () => {
+    // Implement profile handling logic
+  };
+
+  const handleSettings = () => {
+    // Implement settings handling logic
+  };
+
+  const handleLogout = () => {
+    // Implement logout handling logic
+  };
   return (
     <div className={styles.container}>
-      <header className={styles.header}>
-        <h1>My Loads</h1>
+      <main className={styles.mainContent}>
+        <div className={styles.headerCard}>
+          <header className={styles.headerRow}>
+            <div className={styles.headerLeft}>
+              <h1>My Loads</h1>
+            </div>
+            <div className={styles.headerRight}>
+              <button
+                className={styles.bellButton}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, position: 'relative' }}
+                tabIndex={0}
+                aria-label="Notifications"
+              >
+                <span role="img" aria-label="Notifications">🔔</span>
+              </button>
+              <div className={styles.menuContainer}>
+                <button 
+                  className={styles.hamburgerButton}
+                  onClick={() => setIsMenuOpen(!isMenuOpen)}
+                  aria-label="Menu"
+                >
+                  <div className={styles.hamburgerIcon}>
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                </button>
+                {isMenuOpen && (
+                  <div className={styles.dropdownMenu}>
+                    <button onClick={handleProfile}>Account</button>
+                    <button onClick={handleSettings}>Settings</button>
+                    <button onClick={handleLogout} className={styles.logoutButton}>Logout</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </header>
+        </div>
         <div className={styles.tabs}>
           <button 
             className={`${styles.tab} ${activeTab === 'active' ? styles.activeTab : ''}`}
@@ -87,75 +135,74 @@ const MyLoads: React.FC = () => {
             Completed
           </button>
         </div>
-      </header>
-
-      <div className={styles.loadsList}>
-        {filteredLoads.map(load => (
-          <div key={load.id} className={styles.loadCard}>
-            <div className={styles.loadHeader}>
-              <h3>{load.title}</h3>
-              <span className={getStatusColor(load.status)}>{load.status}</span>
-            </div>
-            
-            <div className={styles.loadDetails}>
-              <div className={styles.detail}>
-                <label>Shipper:</label>
-                <span>{load.shipper}</span>
+        <div className={styles.loadsList}>
+          {filteredLoads.map(load => (
+            <div key={load.id} className={styles.loadCard}>
+              <div className={styles.loadHeader}>
+                <h3>{load.title}</h3>
+                <span className={getStatusColor(load.status)}>{load.status}</span>
               </div>
               
-              <div className={styles.locationInfo}>
-                <div className={styles.location}>
-                  <label>Pickup:</label>
-                  <span>{load.pickup.location}</span>
-                  <span>{load.pickup.time}</span>
-                  <span className={getStatusColor(load.pickup.status)}>
-                    {load.pickup.status}
-                  </span>
+              <div className={styles.loadDetails}>
+                <div className={styles.detail}>
+                  <label>Shipper:</label>
+                  <span>{load.shipper}</span>
                 </div>
                 
-                <div className={styles.location}>
-                  <label>Delivery:</label>
-                  <span>{load.delivery.location}</span>
-                  <span>{load.delivery.time}</span>
-                  <span className={getStatusColor(load.delivery.status)}>
-                    {load.delivery.status}
-                  </span>
+                <div className={styles.locationInfo}>
+                  <div className={styles.location}>
+                    <label>Pickup:</label>
+                    <span>{load.pickup.location}</span>
+                    <span>{load.pickup.time}</span>
+                    <span className={getStatusColor(load.pickup.status)}>
+                      {load.pickup.status}
+                    </span>
+                  </div>
+                  
+                  <div className={styles.location}>
+                    <label>Delivery:</label>
+                    <span>{load.delivery.location}</span>
+                    <span>{load.delivery.time}</span>
+                    <span className={getStatusColor(load.delivery.status)}>
+                      {load.delivery.status}
+                    </span>
+                  </div>
                 </div>
-              </div>
 
-              <div className={styles.loadSpecs}>
-                <div className={styles.detail}>
-                  <label>Payment:</label>
-                  <span>${load.payment}</span>
+                <div className={styles.loadSpecs}>
+                  <div className={styles.detail}>
+                    <label>Payment:</label>
+                    <span>${load.payment}</span>
+                  </div>
+                  <div className={styles.detail}>
+                    <label>Weight:</label>
+                    <span>{load.weight}</span>
+                  </div>
+                  <div className={styles.detail}>
+                    <label>Dimensions:</label>
+                    <span>{load.dimensions}</span>
+                  </div>
                 </div>
-                <div className={styles.detail}>
-                  <label>Weight:</label>
-                  <span>{load.weight}</span>
-                </div>
-                <div className={styles.detail}>
-                  <label>Dimensions:</label>
-                  <span>{load.dimensions}</span>
-                </div>
-              </div>
 
-              <div className={styles.actions}>
-                <button 
-                  className={styles.viewButton}
-                  onClick={() => navigate(`/carrier/loads/${load.id}`)}
-                >
-                  View Details
-                </button>
-                {load.status === 'active' && (
-                  <button className={styles.startButton}>Start Load</button>
-                )}
-                {load.status === 'in_progress' && (
-                  <button className={styles.completeButton}>Mark as Completed</button>
-                )}
+                <div className={styles.actions}>
+                  <button 
+                    className={styles.viewButton}
+                    onClick={() => navigate(`/carrier/loads/${load.id}`)}
+                  >
+                    View Details
+                  </button>
+                  {load.status === 'active' && (
+                    <button className={styles.startButton}>Start Load</button>
+                  )}
+                  {load.status === 'in_progress' && (
+                    <button className={styles.completeButton}>Mark as Completed</button>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      </main>
     </div>
   );
 };
