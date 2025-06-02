@@ -20,4 +20,4 @@ root.render(
 reportWebVitals();
 
 // Register the service worker for PWA support
-serviceWorkerRegistration.register();
+serviceWorkerRegistration.unregister();
