@@ -34,6 +34,26 @@
   text-transform: capitalize;
 }
 
+.pending {
+  background-color: #fff3e0;
+  color: #f57c00;
+}
+
+.accepted {
+  background-color: #e8f5e9;
+  color: #388e3c;
+}
+
+.rejected {
+  background-color: #ffebee;
+  color: #d32f2f;
+}
+
+.counter_offer {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
 .content {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -125,10 +145,11 @@
 }
 
 .statusMessage {
-  text-align: center;
   padding: 10px;
   margin-top: 15px;
-  border-radius: 4px;
+  text-align: center;
   font-weight: 500;
   color: #666;
+  background: #f8f9fa;
+  border-radius: 4px;
 } 

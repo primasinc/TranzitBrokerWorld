@@ -1,5 +1,5 @@
 import { db } from '../firebase';
-import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, updateDoc, getDoc } from 'firebase/firestore';
 
 export interface LoadRequestNotification {
   id?: string;
@@ -41,38 +41,44 @@ export const sendLoadRequestToCarrier = async (
   shipperId: string,
   shippingScheduleId: string,
   loadDetails: LoadRequestNotification['loadDetails']
-): Promise<string> => {
-  try {
-    const notification: Omit<LoadRequestNotification, 'id'> = {
-      carrierId,
-      shipperId,
-      shippingScheduleId,
-      status: 'pending',
-      loadDetails,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    };
+) => {
+  const notificationRef = collection(db, 'notifications');
+  const notificationData: Omit<LoadRequestNotification, 'id'> = {
+    carrierId,
+    shipperId,
+    shippingScheduleId,
+    status: 'pending',
+    loadDetails,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp()
+  };
 
-    const docRef = await addDoc(collection(db, 'notifications'), notification);
-    return docRef.id;
-  } catch (error) {
-    console.error('Error sending load request notification:', error);
-    throw error;
-  }
+  const docRef = await addDoc(notificationRef, notificationData);
+  return docRef.id;
 };
 
 export const updateLoadRequestStatus = async (
   notificationId: string,
-  status: LoadRequestNotification['status']
-): Promise<void> => {
-  try {
-    const notificationRef = doc(db, 'notifications', notificationId);
-    await updateDoc(notificationRef, {
-      status,
-      updatedAt: serverTimestamp()
-    });
-  } catch (error) {
-    console.error('Error updating load request status:', error);
-    throw error;
+  status: LoadRequestNotification['status'],
+  counterOffer?: number
+) => {
+  const notificationRef = doc(db, 'notifications', notificationId);
+  const updateData: Partial<LoadRequestNotification> = {
+    status,
+    updatedAt: serverTimestamp()
+  };
+
+  if (counterOffer !== undefined) {
+    // Get the current notification data
+    const notificationDoc = await getDoc(notificationRef);
+    const currentData = notificationDoc.data() as LoadRequestNotification;
+    
+    // Update only the rate while preserving other load details
+    updateData.loadDetails = {
+      ...currentData.loadDetails,
+      rate: counterOffer
+    };
   }
+
+  await updateDoc(notificationRef, updateData);
 }; 
