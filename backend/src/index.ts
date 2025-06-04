@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth';
-import oauthRoutes from './routes/oauth';
+import vehiclesRoutes from './routes/vehicles';
 
 // Load environment variables
 dotenv.config();
@@ -16,7 +16,11 @@ app.use(express.json());
 
 // Routes
 app.use('/api/auth', authRoutes);
-app.use('/', oauthRoutes);
+app.use('/api/vehicles', vehiclesRoutes);
+
+app.get('/api/vehicles', (req, res) => {
+  res.json({ message: 'Vehicles endpoint is working!' });
+});
 
 // Connect to MongoDB
 mongoose

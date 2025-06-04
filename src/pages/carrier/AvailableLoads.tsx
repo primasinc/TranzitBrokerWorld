@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import MapboxMap from '../../components/common/MapboxMap';
 import styles from './AvailableLoads.module.css';
 import { useNavigate } from 'react-router-dom';
+import { doc, getDoc } from 'firebase/firestore';
+import { db, auth } from '../../config/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 interface Load {
   id: string;
@@ -25,10 +28,15 @@ function isViewType(val: any): val is 'map' | 'list' {
 }
 
 const AvailableLoads: React.FC = () => {
+  console.log('AvailableLoads component loaded');
   const [viewType, setViewType] = useState<'map' | 'list'>('map');
   const [selectedLoad, setSelectedLoad] = useState<Load | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const [carrierLocation, setCarrierLocation] = useState<[number, number] | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [eldApiKey, setEldApiKey] = useState<string | null>(null);
+  const [eldApiId, setEldApiId] = useState<string | null>(null);
 
   const loads: Load[] = [
     {
@@ -55,6 +63,23 @@ const AvailableLoads: React.FC = () => {
     },
     // Add more sample loads as needed
   ];
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      console.log('Auth state changed:', user);
+      if (user) {
+        setUserId(user.uid);
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          console.log('User doc data:', JSON.stringify(data, null, 2));
+          if (data.eldApiKey) setEldApiKey(data.eldApiKey);
+          if (data.eldApiId) setEldApiId(data.eldApiId);
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   const handleLogout = () => navigate('/login');
   const handleProfile = () => navigate('/carrier/profile');
@@ -141,14 +166,19 @@ const AvailableLoads: React.FC = () => {
               </div>
               <div className={styles.mapContainer} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                 <MapboxMap
-                  center={[-98.5795, 39.8283]} // US center
-                  zoom={4}
-                  markers={loads.map(load => ({
-                    id: load.id,
-                    position: load.position,
-                    type: 'shipper',
-                    onClick: () => setSelectedLoad(load)
-                  }))}
+                  center={carrierLocation || [-98.5795, 39.8283]}
+                  zoom={carrierLocation ? 10 : 4}
+                  eldApiKey={eldApiKey || undefined}
+                  showKonexialVehicles={true}
+                  enableRealtime={true}
+                  markers={[
+                    ...loads.map(load => ({
+                      id: load.id,
+                      position: load.position,
+                      type: 'shipper' as const,
+                      onClick: () => setSelectedLoad(load)
+                    })),
+                  ]}
                 />
               </div>
             </div>
@@ -168,4 +198,4 @@ const AvailableLoads: React.FC = () => {
   );
 };
 
-export default AvailableLoads; 
+export default AvailableLoads;

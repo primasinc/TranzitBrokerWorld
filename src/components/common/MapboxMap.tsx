@@ -91,14 +91,21 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
   const createMarkerElement = (marker: MapMarker) => {
     const el = document.createElement('div');
     el.className = styles.marker;
-    
+
+    // Add truck icon if specified
+    if (marker.icon === 'truck') {
+      el.textContent = '🚚'; // Show truck emoji for truck markers
+      el.style.fontSize = '28px';
+      el.style.lineHeight = '1';
+    }
+
     // Add status dot if status is provided
     if (marker.status) {
       const statusDot = document.createElement('div');
       statusDot.className = `${styles['status-dot']} ${styles[marker.status]}`;
       el.appendChild(statusDot);
     }
-    
+
     return el;
   };
 

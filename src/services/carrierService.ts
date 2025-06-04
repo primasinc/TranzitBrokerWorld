@@ -43,7 +43,7 @@ export const createCarrier = async (
       rating: 0
     };
 
-    await setDoc(carrierRef, carrier);
+    await setDoc(carrierRef, carrier, { merge: true });
 
     // Initialize carrier metrics
     const metricsRef = doc(db, CARRIER_METRICS_COLLECTION, carrier.id);

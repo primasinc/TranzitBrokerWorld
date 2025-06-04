@@ -3,6 +3,7 @@ import { User as FirebaseUser, onAuthStateChanged, signInWithEmailAndPassword, c
 import { auth } from '../config/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import { getDatabase, ref, onDisconnect, set, serverTimestamp } from 'firebase/database';
 
 interface AuthContextType {
   user: FirebaseUser | null;
@@ -28,11 +29,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsAuthenticated(!!firebaseUser);
       setIsLoading(false);
       if (firebaseUser) {
+        // Firestore status (optional, can be removed if only using Realtime DB)
         try {
           await setDoc(doc(db, 'users', firebaseUser.uid), { status: 'online' }, { merge: true });
         } catch (err) {
           console.error('Failed to set user online status:', err);
         }
+        // Realtime Database presence
+        const dbRtdb = getDatabase();
+        const userStatusDatabaseRef = ref(dbRtdb, '/status/' + firebaseUser.uid);
+        set(userStatusDatabaseRef, {
+          state: 'online',
+          last_changed: serverTimestamp(),
+        });
+        onDisconnect(userStatusDatabaseRef).set({
+          state: 'offline',
+          last_changed: serverTimestamp(),
+        });
       }
     });
     return () => unsubscribe();

@@ -62,7 +62,7 @@ const Register: React.FC = () => {
         email: formData.email,
         userType: formData.userType,
         createdAt: new Date()
-      });
+      }, { merge: true });
 
       console.log('Registered user:', userCredential.user);
 

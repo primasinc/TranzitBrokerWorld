@@ -29,53 +29,13 @@ interface ErrorResponse {
   };
 }
 
-interface LocationResponse {
-  vehicle_id: string;
-  latitude: number;
-  longitude: number;
-  timestamp: string;
-  speed?: number;
-  heading?: number;
-}
-
 export const konexialService = {
   async getVehicles(): Promise<KonexialVehicle[]> {
     try {
       console.log('Making request to proxy for vehicles...');
-      
-      // Get both vehicles and locations in parallel
-      const [vehiclesResponse, locationsResponse] = await Promise.all([
-        axios.get<KonexialVehicle[]>(`${PROXY_BASE}/vehicles`),
-        axios.get<{locations: LocationResponse[]}>(`${PROXY_BASE}/vehicles/locations`)
-      ]);
-      
-      console.log('Proxy Response:', vehiclesResponse.status, vehiclesResponse.statusText);
-      console.log('Locations Response:', locationsResponse.status, locationsResponse.statusText);
-      
-      // Create a map of vehicle locations by vehicle ID
-      const locationMap = new Map(
-        (locationsResponse.data.locations || []).map((loc: LocationResponse) => [loc.vehicle_id, {
-          latitude: loc.latitude,
-          longitude: loc.longitude,
-          timestamp: loc.timestamp,
-          speed: loc.speed,
-          heading: loc.heading
-        }])
-      );
-      
-      // Merge locations with vehicle data
-      const vehicles = vehiclesResponse.data.map(vehicle => ({
-        ...vehicle,
-        last_position: locationMap.get(vehicle.id) || undefined
-      }));
-      
-      // Debug output to see structure
-      console.log('First vehicle data:');
-      console.table(vehicles[0]);
-      
-      console.log('Processed vehicles with locations:', vehicles);
-      return vehicles;
-      
+      const response = await axios.get<KonexialVehicle[]>(`${PROXY_BASE}/vehicles`);
+      console.log('Received vehicles:', response.data);
+      return response.data;
     } catch (error: unknown) {
       console.error('Error fetching vehicles:', error);
       const err = error as ErrorResponse;
@@ -93,7 +53,6 @@ export const konexialService = {
       console.log(`Fetching position for vehicle ${vehicleId}...`);
       const response = await axios.get<any>(`${PROXY_BASE}/vehicles/${vehicleId}/locations?limit=1`);
       console.log('Vehicle position response:', response.status, response.statusText);
-      
       if (response.data.locations?.[0]) {
         return {
           id: vehicleId,
@@ -117,5 +76,27 @@ export const konexialService = {
       }
       return null;
     }
+  },
+
+  // New: Get vehicles for a specific user using their ELD API ID and Key
+  async getUserVehicles(eldApiId: string, eldApiKey: string): Promise<KonexialVehicle[]> {
+    try {
+      const vehicles = await KonexialApi.getVehicles(eldApiId, eldApiKey);
+      // Map fields to match KonexialVehicle interface if needed
+      return vehicles.map((v: any) => ({
+        id: v.id,
+        truck_number: v.truck_number || v.truckNumber || '',
+        carrier_name: v.carrier_name || v.carrierName || '',
+        truck_make: v.truck_make || v.truckMake || '',
+        truck_model: v.truck_model || v.truckModel || '',
+        license_plate_number: v.license_plate_number || v.licensePlateNumber || '',
+        license_state_name: v.license_state_name || v.licenseStateName || '',
+        vin: v.vin || '',
+        last_position: v.last_position || v.position || undefined
+      }));
+    } catch (error) {
+      console.error('Error fetching user vehicles from Konexial:', error);
+      return [];
+    }
   }
-}; 
+};

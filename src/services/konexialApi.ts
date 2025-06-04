@@ -2,12 +2,6 @@ import axios from 'axios';
 
 // Constants
 const BASE_URL = 'https://user-service.konexial.com/public_api/v1';
-const CARRIER_ID = process.env.REACT_APP_KONEXIAL_API_ID;
-const API_TOKEN = process.env.REACT_APP_KONEXIAL_API_KEY;
-
-if (!CARRIER_ID || !API_TOKEN) {
-  throw new Error('Konexial API credentials not found in environment variables');
-}
 
 // Types
 interface KonexialUser {
@@ -31,20 +25,21 @@ interface KonexialVehiclePosition {
   };
 }
 
-// API client configuration
-const konexialClient = axios.create({
+// Helper to create a Konexial API client with per-user credentials
+const createKonexialClient = (carrierId: string, apiToken: string) => axios.create({
   baseURL: BASE_URL,
   headers: {
-    'CarrierID': CARRIER_ID,
-    'Authorization': `Bearer ${API_TOKEN}`,
+    'CarrierID': carrierId,
+    'Authorization': `Bearer ${apiToken}`,
   },
 });
 
 export const KonexialApi = {
   // Get all users (including drivers, admins, managers)
-  async getUsers(): Promise<KonexialUser[]> {
+  async getUsers(carrierId: string, apiToken: string): Promise<KonexialUser[]> {
     try {
-      const response = await konexialClient.get('/users');
+      const client = createKonexialClient(carrierId, apiToken);
+      const response = await client.get('/users');
       return response.data;
     } catch (error) {
       console.error('Error fetching Konexial users:', error);
@@ -53,15 +48,16 @@ export const KonexialApi = {
   },
 
   // Get only drivers
-  async getDrivers(): Promise<KonexialUser[]> {
-    const users = await this.getUsers();
+  async getDrivers(carrierId: string, apiToken: string): Promise<KonexialUser[]> {
+    const users = await this.getUsers(carrierId, apiToken);
     return users.filter(user => user.role === 'driver');
   },
 
   // Get all vehicles with pagination
-  async getVehicles(pageCount: number = 100): Promise<KonexialVehicle[]> {
+  async getVehicles(carrierId: string, apiToken: string, pageCount: number = 100): Promise<KonexialVehicle[]> {
     try {
-      const response = await konexialClient.get(`/vehicles?page_count=${pageCount}`);
+      const client = createKonexialClient(carrierId, apiToken);
+      const response = await client.get(`/vehicles?page_count=${pageCount}`);
       return response.data;
     } catch (error) {
       console.error('Error fetching Konexial vehicles:', error);
@@ -70,9 +66,10 @@ export const KonexialApi = {
   },
 
   // Get vehicle position by ID (using My20 internal ID from vehicles endpoint)
-  async getVehiclePosition(vehicleId: string): Promise<KonexialVehiclePosition> {
+  async getVehiclePosition(carrierId: string, apiToken: string, vehicleId: string): Promise<KonexialVehiclePosition> {
     try {
-      const response = await konexialClient.get(`/vehicles/${vehicleId}/locations?limit=1`);
+      const client = createKonexialClient(carrierId, apiToken);
+      const response = await client.get(`/vehicles/${vehicleId}/locations?limit=1`);
       return response.data?.locations?.[0] ?? null;
     } catch (error) {
       console.error('Error fetching Konexial vehicle position:', error);
@@ -81,9 +78,10 @@ export const KonexialApi = {
   },
 
   // Get locations for all vehicles in one call
-  async getFleetLocations(): Promise<any[]> {
+  async getFleetLocations(carrierId: string, apiToken: string): Promise<any[]> {
     try {
-      const response = await konexialClient.get('/vehicles/locations');
+      const client = createKonexialClient(carrierId, apiToken);
+      const response = await client.get('/vehicles/locations');
       return response.data.locations || [];
     } catch (error) {
       console.error('Error fetching fleet locations:', error);
