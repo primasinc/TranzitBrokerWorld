@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User as FirebaseUser, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { auth } from '../config/firebase';
+import { doc, setDoc } from 'firebase/firestore';
+import { db } from '../config/firebase';
 
 interface AuthContextType {
   user: FirebaseUser | null;
@@ -21,10 +23,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
       setIsAuthenticated(!!firebaseUser);
       setIsLoading(false);
+      if (firebaseUser) {
+        try {
+          await setDoc(doc(db, 'users', firebaseUser.uid), { status: 'online' }, { merge: true });
+        } catch (err) {
+          console.error('Failed to set user online status:', err);
+        }
+      }
     });
     return () => unsubscribe();
   }, []);

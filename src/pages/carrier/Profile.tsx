@@ -7,6 +7,7 @@ import { Insurance, Equipment, ServiceArea, CarrierProfile } from '../../types/c
 import CarrierProfileCard from '../../components/carrier/CarrierProfileCard';
 import CarrierProfileForm from '../../components/carrier/CarrierProfileForm';
 import MapboxMap from '../../components/common/MapboxMap';
+import { locationService } from '../../services/locationService';
 
 const ProfilePage: React.FC = () => {
   const [profile, setProfile] = useState<Partial<CarrierProfile>>({});
@@ -49,6 +50,15 @@ const ProfilePage: React.FC = () => {
     return () => unsubscribe();
     // eslint-disable-next-line
   }, []);
+
+  useEffect(() => {
+    if (userId) {
+      const stopTracking = locationService.startTracking(userId);
+      return () => {
+        if (stopTracking) stopTracking();
+      };
+    }
+  }, [userId]);
 
   const handleProfileUpdate = async (data: CarrierProfile) => {
     if (!userId) return;

@@ -3,6 +3,7 @@ import styles from '../carrier/Settings.module.css';
 import { db, auth } from '../../config/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
+import { locationService } from '../../services/locationService';
 
 interface Profile {
   companyName: string;
@@ -53,6 +54,15 @@ const ShipperProfilePage: React.FC = () => {
     return () => unsubscribe();
     // eslint-disable-next-line
   }, []);
+
+  useEffect(() => {
+    if (userId) {
+      const stopTracking = locationService.startTracking(userId);
+      return () => {
+        if (stopTracking) stopTracking();
+      };
+    }
+  }, [userId]);
 
   const handleProfileUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
