@@ -1,0 +1,48 @@
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.container h1 {
+  margin-bottom: 30px;
+  color: #333;
+  font-size: 2rem;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+  font-size: 1.1rem;
+}
+
+.noRequests {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+  font-size: 1.1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.requestsList {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 15px;
+  }
+
+  .container h1 {
+    font-size: 1.5rem;
+    margin-bottom: 20px;
+  }
+
+  .requestsList {
+    grid-template-columns: 1fr;
+  }
+} 

@@ -132,15 +132,13 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
         } 
       });
     } else {
-      // Submit to marketplace and create shipping schedule
+      // Submit to marketplace and create shipping schedule, then go to dashboard
       onSubmit({
         ...formData,
         shippingScheduleStatus: 'open'
       });
+      navigate('/shipper/orders');
     }
-
-    // After saving, always go to Purchase Orders dashboard
-    navigate('/shipper/orders');
   };
 
   const calculateTotal = (quantity: number, price: number) => {

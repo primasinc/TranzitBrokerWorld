@@ -1,7 +1,9 @@
 import React from 'react';
 import { useForm, Controller, useFieldArray, FieldError } from 'react-hook-form';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import styles from './ShippingScheduleForm.module.css';
+import { sendLoadRequestToCarrier } from '../../services/notificationService';
+import { useAuth } from '../../context/AuthContext';
 
 interface ShippingScheduleFormData {
   pickupLocation: {
@@ -36,7 +38,13 @@ interface ShippingScheduleFormData {
     specialRequirements: string;
   }[];
   additionalRequirements: string;
-  status: 'open' | 'pending' | 'assigned' | 'active' | 'delayed' | 'completed';
+  status: 'open' | 'pending' | 'Carrier Pending' | 'assigned' | 'active' | 'delayed' | 'completed';
+  carrier?: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
+  };
 }
 
 const EQUIPMENT_TYPES = [
@@ -61,9 +69,50 @@ const CARGO_TYPES = [
 
 const ShippingScheduleForm: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
+  const locationState = location.state as { poData?: any; selectedCarrier?: any };
+
+  // Prefill form with PO and carrier data if present
+  const defaultValues = React.useMemo(() => {
+    if (!locationState?.poData) return undefined;
+    const po = locationState.poData;
+    return {
+      pickupLocation: {
+        address: po.vendorInfo?.streetAddress || '',
+        city: po.vendorInfo?.cityStateZip?.split(',')[0]?.trim() || '',
+        state: po.vendorInfo?.cityStateZip?.split(',')[1]?.trim().split(' ')[0] || '',
+        zipCode: po.vendorInfo?.cityStateZip?.split(' ').slice(-1)[0] || '',
+        date: po.date || '',
+        time: ''
+      },
+      deliveryLocation: {
+        address: po.shipTo?.streetAddress || '',
+        city: po.shipTo?.cityStateZip?.split(',')[0]?.trim() || '',
+        state: po.shipTo?.cityStateZip?.split(',')[1]?.trim().split(' ')[0] || '',
+        zipCode: po.shipTo?.cityStateZip?.split(' ').slice(-1)[0] || '',
+        date: po.date || '',
+        time: ''
+      },
+      cargoDetails: {
+        type: '',
+        weight: po.items?.reduce((sum: number, item: any) => sum + (item.weight || 0), 0) || 0,
+        dimensions: {
+          length: 0,
+          width: 0,
+          height: 0
+        },
+        specialRequirements: po.comments || ''
+      },
+      equipmentRequirements: [],
+      additionalRequirements: '',
+      status: 'pending' as 'pending'
+    };
+  }, [locationState]);
+
   const [selectedOption, setSelectedOption] = React.useState<'carrier' | 'marketplace' | null>(null);
   const { control, handleSubmit, formState: { errors } } = useForm<ShippingScheduleFormData>({
-    defaultValues: {
+    defaultValues: defaultValues || {
       pickupLocation: {
         address: '',
         city: '',
@@ -104,7 +153,18 @@ const ShippingScheduleForm: React.FC = () => {
     const onSubmit = async (data: ShippingScheduleFormData) => {
     try {
       // Set initial status based on the selected option
-      data.status = selectedOption === 'marketplace' ? 'open' : 'pending';
+      if (selectedOption === 'marketplace') {
+        data.status = 'open';
+      } else if (selectedOption === 'carrier' && locationState?.selectedCarrier) {
+        data.status = 'Carrier Pending';
+        // Add carrier information to the shipping schedule
+        data.carrier = {
+          id: locationState.selectedCarrier.id,
+          name: locationState.selectedCarrier.companyName,
+          email: locationState.selectedCarrier.email,
+          phone: locationState.selectedCarrier.phoneNumber
+        };
+      }
       
       // Save the shipping schedule data
       const response = await fetch('/api/shipping-schedules', {
@@ -112,7 +172,12 @@ const ShippingScheduleForm: React.FC = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          poData: locationState?.poData,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }),
       });
 
       if (!response.ok) {
@@ -122,30 +187,32 @@ const ShippingScheduleForm: React.FC = () => {
       // Get the created shipping schedule ID from the response
       const { id } = await response.json();
 
-      // Set up status update endpoint for when carrier accepts the load
-      if (selectedOption === 'marketplace') {
-        // Listen for carrier acceptance (this would typically be handled by your backend)
-        // When a carrier accepts, update status to 'assigned' then 'active'
-        const updateStatus = async (newStatus: ShippingScheduleFormData['status']) => {
-          await fetch(`/api/shipping-schedules/${id}/status`, {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ status: newStatus }),
-          });
-        };
-
-        // This would typically be handled by your backend when a carrier accepts
-        // Here we're just showing the flow
-        // updateStatus('assigned').then(() => updateStatus('active'));
+      // If a carrier was selected, send them a notification
+      if (selectedOption === 'carrier' && locationState?.selectedCarrier && user) {
+        await sendLoadRequestToCarrier(
+          locationState.selectedCarrier.id,
+          user.uid,
+          id,
+          {
+            pickupLocation: data.pickupLocation,
+            deliveryLocation: data.deliveryLocation,
+            dimensions: data.cargoDetails.dimensions,
+            weight: data.cargoDetails.weight,
+            rate: locationState.poData?.rate || 0
+          }
+        );
       }
 
       // Navigate based on the selected option
       if (selectedOption === 'marketplace') {
         navigate('/shipper/loads');
       } else {
-        navigate('/shipper/carrier-directory');
+        // After creating shipping schedule, navigate to the schedule view
+        navigate('/shipper/schedule', { 
+          state: { 
+            message: 'Shipping schedule created and sent to carrier for approval'
+          }
+        });
       }
     } catch (error) {
       console.error('Error creating shipping schedule:', error);

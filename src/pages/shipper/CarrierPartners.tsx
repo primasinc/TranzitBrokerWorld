@@ -154,6 +154,16 @@ const CarrierPartners: React.FC = () => {
     setShowProfileModal(true);
   };
 
+  const handleSelectCarrier = (carrier: Partner) => {
+    // Navigate to shipping schedule form with PO data and selected carrier
+    navigate('/shipper/shipping-schedule', {
+      state: {
+        poData: locationState.poData,
+        selectedCarrier: carrier
+      }
+    });
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.header}>
@@ -208,6 +218,14 @@ const CarrierPartners: React.FC = () => {
                   View Details
                 </button>
                 <button className={styles.actionButton} onClick={() => handleRemovePartner(partner)} style={{backgroundColor:'#dc3545'}}>Remove Partnership</button>
+                {isFromPO && (
+                  <button
+                    className={styles.selectButton}
+                    onClick={() => handleSelectCarrier(partner)}
+                  >
+                    Select Carrier
+                  </button>
+                )}
               </div>
             </div>
           ))
