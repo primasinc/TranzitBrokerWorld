@@ -51,6 +51,7 @@ import LandingPage from './pages/LandingPage';
 import HomePage from './pages/HomePage';
 import TechnologyPage from './pages/TechnologyPage';
 import AboutPage from './pages/AboutPage';
+import OAuthCallback from './pages/OAuthCallback';
 
 const ViewProfileWrapper = () => {
   const { id } = useParams();
@@ -115,6 +116,8 @@ function App() {
 
               {/* Shared Routes */}
               <Route path="/profile/:id" element={<ViewProfileWrapper />} />
+              {/* OAuth Callback Route */}
+              <Route path="/oauth/callback" element={<OAuthCallback />} />
             </Routes>
           </BrowserRouter>
         </ShipmentsProvider>

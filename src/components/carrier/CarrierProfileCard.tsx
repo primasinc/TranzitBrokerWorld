@@ -3,9 +3,10 @@ import styles from './CarrierProfileCard.module.css';
 
 interface CarrierProfileCardProps {
   carrier: any;
+  onPartnerRequest?: (carrier: any) => void;
 }
 
-const CarrierProfileCard: React.FC<CarrierProfileCardProps> = ({ carrier }) => {
+const CarrierProfileCard: React.FC<CarrierProfileCardProps> = ({ carrier, onPartnerRequest }) => {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showSaferModal, setShowSaferModal] = useState(false);
 
@@ -25,6 +26,18 @@ const CarrierProfileCard: React.FC<CarrierProfileCardProps> = ({ carrier }) => {
         </button>
         <button className={styles.saferButton} onClick={() => setShowSaferModal(true)}>
           SAFER Check
+        </button>
+        <button
+          className={styles.partnerButton}
+          onClick={() => {
+            if (typeof onPartnerRequest === 'function') {
+              onPartnerRequest(carrier);
+            } else {
+              alert('Partner request sent (placeholder).');
+            }
+          }}
+        >
+          Partner Request
         </button>
       </div>
       {/* Profile Modal */}

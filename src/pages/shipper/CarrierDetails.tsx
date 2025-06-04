@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import styles from './CarrierDetails.module.css';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../firebase';
+import MapboxMap from '../../components/common/MapboxMap';
 
 interface CarrierDetail {
   id: string;
@@ -50,6 +53,7 @@ const CarrierDetails: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'documents' | 'rates' | 'performance'>('overview');
   const [isLoading, setIsLoading] = useState(true);
   const [carrier, setCarrier] = useState<CarrierDetail | null>(null);
+  const [eldApiKey, setEldApiKey] = useState<string | null>(null);
 
   useEffect(() => {
     // Simulate API call to fetch carrier details
@@ -58,10 +62,11 @@ const CarrierDetails: React.FC = () => {
       try {
         // In a real app, this would be an API call
         // For now, we'll use mock data
-        setTimeout(() => {
+        setTimeout(async () => {
+          let carrierData;
           if (partnerId === "C003") {
             // SMR CONSULTING LLC data
-            setCarrier({
+            carrierData = {
               id: partnerId,
               name: "SMR CONSULTING LLC",
               rating: 4.2,
@@ -97,10 +102,10 @@ const CarrierDetails: React.FC = () => {
               rateAgreements: [
                 { id: "RA001", name: "Standard Rate Agreement", effectiveDate: "2023-01-01", expirationDate: "2023-12-31", status: "Active" as 'Active' }
               ]
-            });
+            };
           } else {
             // Default carrier data (ABC Trucking Co)
-            setCarrier({
+            carrierData = {
               id: partnerId || "C001",
               name: "ABC Trucking Co",
               rating: 4.8,
@@ -139,7 +144,15 @@ const CarrierDetails: React.FC = () => {
                 { id: "RA002", name: "Refrigerated Loads Agreement", effectiveDate: "2023-02-15", expirationDate: "2023-12-31", status: "Active" as 'Active' },
                 { id: "RA003", name: "Hazmat Surcharge Agreement", effectiveDate: "2023-03-01", expirationDate: "2023-12-31", status: "Active" as 'Active' }
               ]
-            });
+            };
+          }
+          setCarrier(carrierData);
+          // Fetch eldApiKey from Firestore
+          if (partnerId) {
+            const userDoc = await getDoc(doc(db, 'users', partnerId));
+            if (userDoc.exists()) {
+              setEldApiKey(userDoc.data().eldApiKey || null);
+            }
           }
           setIsLoading(false);
         }, 800);
@@ -480,6 +493,16 @@ const CarrierDetails: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Show the carrier's map using their ELD API key */}
+      {eldApiKey && (
+        <div style={{ marginTop: 32 }}>
+          <h2>Carrier Map (using ELD API Key)</h2>
+          <div style={{ width: '100%', height: 400 }}>
+            <MapboxMap eldApiKey={eldApiKey} />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

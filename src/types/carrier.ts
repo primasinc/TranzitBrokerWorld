@@ -80,6 +80,11 @@ export interface CarrierProfile {
     };
   };
   
+  // ELD Integration
+  eldCompany?: string;
+  eldApiKey?: string;
+  eldApiId?: string;
+  
   // Timestamps
   createdAt: Timestamp;
   updatedAt: Timestamp;

@@ -1,14 +1,25 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Control, Controller, FieldErrors } from 'react-hook-form';
 import { CarrierProfile } from '../../../types/carrier';
 import styles from '../CarrierProfileForm.module.css';
+import eldCompaniesList from '../../../assets/eld_companies.json';
 
 interface BasicInfoSectionProps {
   control: Control<CarrierProfile>;
   errors: FieldErrors<CarrierProfile>;
 }
 
+const OAUTH_ELD_COMPANIES = [
+  'KeepTruckin', // Motive
+  'Samsara',
+  'Geotab',
+  'Verizon Connect'
+];
+
 export const BasicInfoSection: React.FC<BasicInfoSectionProps> = ({ control, errors }) => {
+  const [showOtherEld, setShowOtherEld] = useState(false);
+  const [selectedEld, setSelectedEld] = useState('');
+
   return (
     <div className={styles.section}>
       <h2>Basic Information</h2>
@@ -208,6 +219,75 @@ export const BasicInfoSection: React.FC<BasicInfoSectionProps> = ({ control, err
             <span className={styles.error}>{errors.address.zip.message}</span>
           )}
         </div>
+      </div>
+
+      {/* ELD Company Dropdown */}
+      <div className={styles.fieldGroup}>
+        <label className={styles.label}>ELD Company</label>
+        <Controller
+          name="eldCompany"
+          control={control}
+          render={({ field }) => (
+            <select
+              {...field}
+              className={styles.input}
+              onChange={e => field.onChange(e)}
+              value={field.value || ''}
+            >
+              <option value="">Select ELD Company</option>
+              {eldCompaniesList.map((name: string) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+              <option value="Other">Other</option>
+            </select>
+          )}
+        />
+        {errors.eldCompany && (
+          <span className={styles.error}>{errors.eldCompany.message}</span>
+        )}
+      </div>
+
+      {/* ELD API Key Input */}
+      <div className={styles.fieldGroup}>
+        <label className={styles.label}>ELD API Key</label>
+        <Controller
+          name="eldApiKey"
+          control={control}
+          render={({ field }) => (
+            <input
+              {...field}
+              type="text"
+              className={styles.input}
+              placeholder="Enter ELD API Key"
+            />
+          )}
+        />
+        {errors.eldApiKey && (
+          <span className={styles.error}>{errors.eldApiKey.message}</span>
+        )}
+      </div>
+
+      {/* ELD API ID Input */}
+      <div className={styles.fieldGroup} style={{ position: 'relative' }}>
+        <label className={styles.label}>ELD API ID</label>
+        <span style={{ position: 'absolute', right: 0, top: 0, fontStyle: 'italic', fontSize: 12, color: '#888' }}>
+          If your ELD provider does not require an API ID, type None.
+        </span>
+        <Controller
+          name="eldApiId"
+          control={control}
+          render={({ field }) => (
+            <input
+              {...field}
+              type="text"
+              className={styles.input}
+              placeholder="Enter ELD API ID or 'None'"
+            />
+          )}
+        />
+        {errors.eldApiId && (
+          <span className={styles.error}>{errors.eldApiId.message}</span>
+        )}
       </div>
     </div>
   );

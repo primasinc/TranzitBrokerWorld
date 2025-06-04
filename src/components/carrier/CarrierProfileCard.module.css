@@ -29,6 +29,18 @@
   padding: 8px 16px;
   cursor: pointer;
 }
+.partnerButton {
+  background: #28a745;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.partnerButton:hover {
+  background: #218838;
+}
 .modalOverlay {
   position: fixed;
   top: 0;

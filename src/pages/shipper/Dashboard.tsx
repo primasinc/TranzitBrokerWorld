@@ -51,6 +51,8 @@ const ShipperDashboard: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { shipments } = useShipments();
+  const [availableCarriers, setAvailableCarriers] = useState<any[]>([]);
+  const [showAvailableCarriers, setShowAvailableCarriers] = useState(false);
 
   // Mock shipments data
   const mockShipments: Shipment[] = [
@@ -96,7 +98,7 @@ const ShipperDashboard: React.FC = () => {
   ];
 
   // Mock available carriers data
-  const availableCarriers: AvailableCarrier[] = [
+  const availableCarriersData: AvailableCarrier[] = [
     {
       id: 'C001',
       name: 'Reliable Transport',
@@ -136,7 +138,7 @@ const ShipperDashboard: React.FC = () => {
   ];
 
   // Filter carriers based on radius
-  const filteredCarriers = availableCarriers.filter(carrier => carrier.distance <= radiusInMiles);
+  const filteredCarriers = availableCarriersData.filter(carrier => carrier.distance <= radiusInMiles);
 
   // Handle radius change
   const handleRadiusChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -255,6 +257,32 @@ const ShipperDashboard: React.FC = () => {
     });
   }, [shipments]);
 
+  useEffect(() => {
+    if (!showAvailableCarriers) return;
+    const fetchCarriers = async () => {
+      const snapshot = await getDocs(collection(db, 'users'));
+      const carriers: any[] = [];
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        if (
+          data.eldApiKey &&
+          data.status === 'online' &&
+          data.location &&
+          data.role === 'carrier' // Optional: if you have a role field
+        ) {
+          carriers.push({
+            id: doc.id,
+            position: data.location,
+            eldApiKey: data.eldApiKey,
+            name: data.companyName,
+          });
+        }
+      });
+      setAvailableCarriers(carriers);
+    };
+    fetchCarriers();
+  }, [showAvailableCarriers]);
+
   return (
     <div className={styles.dashboard}>
       {process.env.NODE_ENV === 'development' && (
@@ -338,7 +366,11 @@ const ShipperDashboard: React.FC = () => {
             <MapboxMap
               center={userLocation}
               zoom={showActiveShipments ? 4 : 9}
-              markers={getMapMarkers()}
+              markers={showAvailableCarriers ? availableCarriers.map(carrier => ({
+                id: carrier.id,
+                position: carrier.position,
+                type: 'carrier',
+              })) : getMapMarkers()}
               onMapLoad={(map) => {
                 // If showing available carriers, add a circle for the radius
                 if (!showActiveShipments) {
@@ -435,7 +467,7 @@ const ShipperDashboard: React.FC = () => {
                 ))
             ) : (
               // Show available carriers list
-              filteredCarriers.map(carrier => (
+              availableCarriers.map(carrier => (
                 <div key={carrier.id} className={styles.carrierCard}>
                   <div className={styles.carrierHeader}>
                     <h3>{carrier.name}</h3>

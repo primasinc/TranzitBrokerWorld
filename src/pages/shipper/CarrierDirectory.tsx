@@ -246,7 +246,7 @@ const CarrierDirectory: React.FC = () => {
             <div>No carriers found.</div>
           ) : (
             filteredCarriers.map(carrier => (
-              <CarrierProfileCard key={carrier.id} carrier={carrier} />
+              <CarrierProfileCard key={carrier.id} carrier={carrier} onPartnerRequest={handleAddToPartners} />
             ))
           )}
         </div>

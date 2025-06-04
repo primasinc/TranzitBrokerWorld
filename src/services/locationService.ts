@@ -46,6 +46,10 @@ export const locationService = {
 
           const locationRef = doc(db, LOCATIONS_COLLECTION, userId);
           await setDoc(locationRef, locationUpdate, { merge: true });
+
+          // Also update the user's online status in the users collection
+          const userRef = doc(db, 'users', userId);
+          await setDoc(userRef, { status: 'online', location: [position.coords.longitude, position.coords.latitude] }, { merge: true });
         } catch (error) {
           console.error('Error updating location:', error);
         }
@@ -67,6 +71,9 @@ export const locationService = {
         await updateDoc(locationRef, {
           lastHeartbeat: Timestamp.now()
         });
+        // Also update the user's online status
+        const userRef = doc(db, 'users', userId);
+        await setDoc(userRef, { status: 'online' }, { merge: true });
       } catch (error) {
         console.error('Error updating heartbeat:', error);
       }

@@ -1,5 +1,4 @@
 // @ts-ignore
-import jwt from 'jsonwebtoken';
 import { Router, Request, Response } from 'express';
 import { body } from 'express-validator';
 import jwt from 'jsonwebtoken';
@@ -30,13 +29,7 @@ router.post(
       const user = new User({ email, username, password });
       await user.save();
 
-      // Generate token
-      const token = jwt.sign(
-  { userId: user._id },
-  process.env.JWT_SECRET || 'your-super-secret-jwt-key',
-  { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-);
-
+      // Return user object and message (no JWT)
       res.status(201).json({
         user: {
           id: user._id,
@@ -44,7 +37,7 @@ router.post(
           username: user.username,
           createdAt: user.createdAt,
         },
-        token,
+        message: 'User registered successfully'
       });
     } catch (error) {
       res.status(500).json({ message: 'Server error' });
@@ -70,17 +63,11 @@ router.post(
       }
 
       // Check password
-      const isMatch = await user.comparePassword(password);
-      if (!isMatch) {
+      if (user.password !== password) {
         return res.status(401).json({ message: 'Invalid credentials' });
       }
 
-      // Generate token
-const token = jwt.sign(
-  { userId: user._id },
-  process.env.JWT_SECRET || 'your-super-secret-jwt-key',
-  { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-);
+      // Return user object and message (no JWT)
       res.json({
         user: {
           id: user._id,
@@ -88,10 +75,12 @@ const token = jwt.sign(
           username: user.username,
           createdAt: user.createdAt,
         },
-        token,
+        message: 'Login successful'
       });
     } catch (error) {
       res.status(500).json({ message: 'Server error' });
     }
   }
 );
+
+export default router;

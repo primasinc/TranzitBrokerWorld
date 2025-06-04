@@ -5,9 +5,6 @@ import styles from './MapboxMap.module.css';
 import { konexialService } from '../../services/konexialService';
 import type { KonexialVehicle } from '../../services/konexialService';
 
-// Set the Mapbox token
-mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_TOKEN || '';
-
 interface MapMarker {
   id: string;
   position: [number, number];
@@ -26,6 +23,7 @@ interface MapboxMapProps {
   deliveryLocation?: [number, number];
   enableRealtime?: boolean;
   showKonexialVehicles?: boolean;
+  eldApiKey?: string;
 }
 
 const MapboxMap: React.FC<MapboxMapProps> = ({
@@ -36,7 +34,8 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
   pickupLocation,
   deliveryLocation,
   enableRealtime = false,
-  showKonexialVehicles = false
+  showKonexialVehicles = false,
+  eldApiKey
 }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
@@ -46,6 +45,13 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
 
   useEffect(() => {
     if (!mapContainer.current) return;
+
+    // Set the Mapbox access token dynamically if eldApiKey is provided
+    if (eldApiKey) {
+      mapboxgl.accessToken = eldApiKey;
+    } else {
+      mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_TOKEN || '';
+    }
 
     // Initialize map with center from props or default to US center
     const initialCenter = center || pickupLocation || [-98.5795, 39.8283];
@@ -79,7 +85,7 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
         map.current.remove();
       }
     };
-  }, [center, zoom, onMapLoad]);
+  }, [center, zoom, onMapLoad, eldApiKey]);
 
   // Create marker element with status dot
   const createMarkerElement = (marker: MapMarker) => {
