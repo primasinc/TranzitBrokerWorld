@@ -125,6 +125,30 @@ export const updateLoadRequestStatus = async (
         updatedAt: serverTimestamp()
       });
     }
+    // --- Add load to 'loads' collection for carrier's My Loads ---
+    const loadsRef = collection(db, 'loads');
+    await addDoc(loadsRef, {
+      carrierId: notifData.carrierId,
+      shipperId: notifData.shipperId,
+      title: notifData.loadDetails?.shipperCompany || 'Load',
+      shipper: notifData.loadDetails?.shipperCompany || '',
+      pickup: {
+        location: notifData.loadDetails?.pickupLocation?.address || '',
+        time: notifData.loadDetails?.pickupLocation?.date || '',
+        status: 'pending'
+      },
+      delivery: {
+        location: notifData.loadDetails?.deliveryLocation?.address || '',
+        time: notifData.loadDetails?.deliveryLocation?.date || '',
+        status: 'pending'
+      },
+      status: 'active',
+      payment: notifData.loadDetails?.rate || 0,
+      weight: notifData.loadDetails?.weight?.toString() || '',
+      dimensions: `${notifData.loadDetails?.dimensions?.length || ''}x${notifData.loadDetails?.dimensions?.width || ''}x${notifData.loadDetails?.dimensions?.height || ''}`,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
   } else if (status === 'rejected') {
     // Update the shipping schedule status to 'Rejected'
     if (notifData?.shippingScheduleId) {

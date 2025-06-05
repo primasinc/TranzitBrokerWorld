@@ -10,6 +10,24 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  transition: left 0.3s, box-shadow 0.3s;
+  position: relative;
+  z-index: 100;
+}
+
+.sidebarOpen {
+  left: 0;
+  box-shadow: 2px 0 8px rgba(0,0,0,0.15);
+}
+
+.sidebarOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0,0,0,0.3);
+  z-index: 99;
 }
 
 .logo {
@@ -44,4 +62,79 @@
   background-color: #f5f5f5;
   overflow: hidden;
   padding: 20px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  background-color: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.menuContainer {
+  position: relative;
+}
+
+.hamburgerButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hamburgerIcon {
+  width: 24px;
+  height: 18px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.hamburgerIcon span {
+  display: block;
+  height: 2px;
+  width: 100%;
+  background-color: #333;
+  transition: all 0.3s ease;
+}
+
+.pageContent {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+@media (max-width: 900px) {
+  .sidebar {
+    position: fixed;
+    left: -260px;
+    top: 0;
+    height: 100vh;
+    z-index: 100;
+    box-shadow: 2px 0 8px rgba(0,0,0,0.15);
+    transition: left 0.3s;
+  }
+  .sidebarOpen {
+    left: 0;
+  }
+  .main {
+    padding: 0;
+  }
+  .header {
+    padding: 16px;
+  }
+  .pageContent {
+    padding: 12px;
+  }
 } 

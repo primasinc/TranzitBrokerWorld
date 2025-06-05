@@ -6,6 +6,8 @@ import styles from './HomeFeed.module.css';
 import LoadRequestCard from '../../components/carrier/LoadRequestCard';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
 import { db } from '../../firebase';
+import NotificationsTray, { useUnreadNotifications } from '../carrier/NotificationsTray';
+import { useAvailableLoads } from '../../hooks/useAvailableLoads';
 
 interface AvailableLoad {
   id: string;
@@ -32,27 +34,15 @@ const HomeFeed: React.FC = () => {
   const [viewType, setViewType] = useState<'map' | 'list'>('map');
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [availableLoads, setAvailableLoads] = useState<AvailableLoad[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [userLocation, setUserLocation] = useState<[number, number]>([-87.6298, 41.8781]); // Default to Chicago
+  const [radiusMiles] = useState<number>(100); // You can make this configurable if needed
   const [activeTab, setActiveTab] = useState<TabType>('MARKETPLACE');
   const [partnerRequests, setPartnerRequests] = useState<any[]>([]);
   const [partnerLoading, setPartnerLoading] = useState(true);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const unreadCount = useUnreadNotifications();
 
-  // Get user's current location
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserLocation([position.coords.longitude, position.coords.latitude]);
-        },
-        (error) => {
-          console.error('Error getting location:', error);
-        }
-      );
-    }
-  }, []);
+  const { loads: availableLoads, loading: loadsLoading, error: loadsError } = useAvailableLoads(userLocation, radiusMiles);
 
   useEffect(() => {
     if (!user) return;
@@ -93,35 +83,6 @@ const HomeFeed: React.FC = () => {
     notes: 'Handle with care. Liftgate required.',
   };
 
-  // Sample loads data
-  const loads: AvailableLoad[] = [
-    {
-      id: '1',
-      pickupLocation: {
-        address: '123 Main St, Chicago, IL',
-        position: [-87.6298, 41.8781]
-      },
-      deliveryLocation: {
-        address: '456 Oak St, New York, NY',
-        position: [-74.0060, 40.7128]
-      },
-      title: 'Chicago to New York'
-    },
-    {
-      id: '2',
-      pickupLocation: {
-        address: '123 Main St, Los Angeles, CA',
-        position: [-118.2437, 34.0522]
-      },
-      deliveryLocation: {
-        address: '123 Main St, San Francisco, CA',
-        position: [-122.4194, 37.7749]
-      },
-      title: 'LA to San Francisco'
-    },
-    // Add more sample loads as needed
-  ];
-
   const handleLogout = () => {
     navigate('/login');
   };
@@ -131,7 +92,33 @@ const HomeFeed: React.FC = () => {
       <main className={styles.mainContent}>
         <header className={styles.header}>
           <h1>Carrier Dashboard</h1>
-          <div className={styles.menuContainer}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', position: 'relative' }}>
+            <button
+              className={styles.bellButton}
+              onClick={() => setShowNotifications(v => !v)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, position: 'relative' }}
+            >
+              <span role="img" aria-label="Notifications">🔔</span>
+              {unreadCount > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: 0,
+                  right: 0,
+                  background: 'red',
+                  color: 'white',
+                  borderRadius: '50%',
+                  width: 18,
+                  height: 18,
+                  fontSize: 12,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 700,
+                  zIndex: 10
+                }}>{unreadCount}</span>
+              )}
+            </button>
+            {showNotifications && <NotificationsTray onClose={() => setShowNotifications(false)} />}
             <button 
               className={styles.hamburgerButton}
               onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -142,7 +129,6 @@ const HomeFeed: React.FC = () => {
                 <span></span>
               </div>
             </button>
-            
             {isMenuOpen && (
               <div className={styles.dropdownMenu}>
                 <button onClick={() => navigate('/carrier/profile')}>Account</button>
@@ -157,7 +143,6 @@ const HomeFeed: React.FC = () => {
             )}
           </div>
         </header>
-
         <div className={styles.content}>
           {/* Current Load Information */}
           <section className={styles.currentLoad}>
@@ -213,16 +198,24 @@ const HomeFeed: React.FC = () => {
             </div>
             {activeTab === 'MARKETPLACE' ? (
               <div className={styles.listView}>
-                {loads.map((load) => (
-                  <div key={load.id} className={styles.loadCard}>
-                    <h3>{load.title}</h3>
-                    <p>Pickup: {load.pickupLocation.address}</p>
-                    <p>Delivery: {load.deliveryLocation.address}</p>
-                    <button onClick={() => console.log('View details:', load)}>
-                      View Details
-                    </button>
-                  </div>
-                ))}
+                {loadsLoading ? (
+                  <div>Loading available loads...</div>
+                ) : loadsError ? (
+                  <div>Error loading loads: {loadsError}</div>
+                ) : availableLoads.length === 0 ? (
+                  <div>No available loads in your area.</div>
+                ) : (
+                  availableLoads.map((load) => (
+                    <div key={load.id} className={styles.loadCard}>
+                      <h3>{load.title}</h3>
+                      <p>Pickup: {load.pickupLocation.address}</p>
+                      <p>Delivery: {load.deliveryLocation.address}</p>
+                      <button onClick={() => console.log('View details:', load)}>
+                        View Details
+                      </button>
+                    </div>
+                  ))
+                )}
               </div>
             ) : (
               <div className={styles.listView}>

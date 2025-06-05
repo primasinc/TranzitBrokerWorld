@@ -1,11 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { collection, query, where, onSnapshot, orderBy, doc, updateDoc } from 'firebase/firestore';
+import { db, auth } from '../../firebase';
 import styles from './MyLoads.module.css';
+import { onAuthStateChanged } from 'firebase/auth';
 
 interface Load {
   id: string;
   title: string;
   shipper: string;
+  shipperId: string;
+  carrierId: string;
   pickup: {
     location: string;
     time: string;
@@ -20,36 +25,61 @@ interface Load {
   payment: number;
   weight: string;
   dimensions: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 const MyLoads: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'active' | 'in_progress' | 'completed'>('active');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [loads, setLoads] = useState<Load[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
 
-  // Sample data - would come from API
-  const loads: Load[] = [
-    {
-      id: '1',
-      title: 'Electronics Shipment',
-      shipper: 'ABC Electronics',
-      pickup: {
-        location: 'Chicago, IL',
-        time: '2024-02-25 09:00',
-        status: 'pending'
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      setError('User not authenticated');
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const loadsQuery = query(
+      collection(db, 'loads'),
+      where('carrierId', '==', user.uid),
+      orderBy('createdAt', 'desc')
+    );
+    const unsubscribe = onSnapshot(
+      loadsQuery,
+      (snapshot) => {
+        const loadsData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          createdAt: doc.data().createdAt?.toDate(),
+          updatedAt: doc.data().updatedAt?.toDate(),
+        })) as Load[];
+        setLoads(loadsData);
+        setLoading(false);
       },
-      delivery: {
-        location: 'New York, NY',
-        time: '2024-02-26 15:00',
-        status: 'pending'
-      },
-      status: 'active',
-      payment: 2500,
-      weight: '15,000 lbs',
-      dimensions: '53\' Trailer'
-    },
-    // Add more sample loads...
-  ];
+      (error) => {
+        console.error('Error fetching loads:', error);
+        setError('Failed to fetch loads. Please try again later.');
+        setLoading(false);
+      }
+    );
+    return () => unsubscribe();
+  }, [authLoading, user]);
 
   const filteredLoads = loads.filter(load => load.status === activeTab);
 
@@ -75,6 +105,37 @@ const MyLoads: React.FC = () => {
   const handleLogout = () => {
     // Implement logout handling logic
   };
+
+  const handleStartLoad = async (id: string) => {
+    try {
+      const loadRef = doc(db, 'loads', id);
+      await updateDoc(loadRef, {
+        status: 'in_progress',
+        'pickup.status': 'picked_up',
+        'delivery.status': 'in_progress',
+        updatedAt: new Date()
+      });
+    } catch (error) {
+      console.error('Error updating load status:', error);
+      setError('Failed to update load status. Please try again.');
+    }
+  };
+
+  const handleCompleteLoad = async (id: string) => {
+    try {
+      const loadRef = doc(db, 'loads', id);
+      await updateDoc(loadRef, {
+        status: 'completed',
+        'pickup.status': 'completed',
+        'delivery.status': 'delivered',
+        updatedAt: new Date()
+      });
+    } catch (error) {
+      console.error('Error completing load:', error);
+      setError('Failed to complete load. Please try again.');
+    }
+  };
+
   return (
     <div className={styles.container}>
       <main className={styles.mainContent}>
@@ -136,71 +197,87 @@ const MyLoads: React.FC = () => {
           </button>
         </div>
         <div className={styles.loadsList}>
-          {filteredLoads.map(load => (
-            <div key={load.id} className={styles.loadCard}>
-              <div className={styles.loadHeader}>
-                <h3>{load.title}</h3>
-                <span className={getStatusColor(load.status)}>{load.status}</span>
-              </div>
-              
-              <div className={styles.loadDetails}>
-                <div className={styles.detail}>
-                  <label>Shipper:</label>
-                  <span>{load.shipper}</span>
-                </div>
-                
-                <div className={styles.locationInfo}>
-                  <div className={styles.location}>
-                    <label>Pickup:</label>
-                    <span>{load.pickup.location}</span>
-                    <span>{load.pickup.time}</span>
-                    <span className={getStatusColor(load.pickup.status)}>
-                      {load.pickup.status}
-                    </span>
-                  </div>
-                  
-                  <div className={styles.location}>
-                    <label>Delivery:</label>
-                    <span>{load.delivery.location}</span>
-                    <span>{load.delivery.time}</span>
-                    <span className={getStatusColor(load.delivery.status)}>
-                      {load.delivery.status}
-                    </span>
-                  </div>
-                </div>
-
-                <div className={styles.loadSpecs}>
-                  <div className={styles.detail}>
-                    <label>Payment:</label>
-                    <span>${load.payment}</span>
-                  </div>
-                  <div className={styles.detail}>
-                    <label>Weight:</label>
-                    <span>{load.weight}</span>
-                  </div>
-                  <div className={styles.detail}>
-                    <label>Dimensions:</label>
-                    <span>{load.dimensions}</span>
-                  </div>
-                </div>
-
-                <div className={styles.actions}>
-                  <button 
-                    className={styles.viewButton}
-                    onClick={() => navigate(`/carrier/loads/${load.id}`)}
-                  >
-                    View Details
-                  </button>
-                  {load.status === 'active' && (
-                    <button className={styles.startButton}>Start Load</button>
-                  )}
-                  {load.status === 'in_progress' && (
-                    <button className={styles.completeButton}>Mark as Completed</button>
-                  )}
-                </div>
-              </div>
+          {authLoading ? (
+            <div className={styles.loadingState}>
+              <div className={styles.spinner}></div>
+              <p>Checking authentication...</p>
             </div>
-          ))}
+          ) : loading ? (
+            <div className={styles.loadingState}>
+              <div className={styles.spinner}></div>
+              <p>Loading your loads...</p>
+            </div>
+          ) : error ? (
+            <div className={styles.errorState}>
+              <p>{error}</p>
+              <button onClick={() => window.location.reload()}>Retry</button>
+            </div>
+          ) : filteredLoads.length === 0 ? (
+            <div className={styles.errorState}>
+              <p>No loads found for this tab.</p>
+            </div>
+          ) : (
+            filteredLoads.map(load => (
+              <div key={load.id} className={styles.loadCard}>
+                <div className={styles.loadHeader}>
+                  <h3>{load.title}</h3>
+                  <span className={getStatusColor(load.status)}>{load.status}</span>
+                </div>
+                <div className={styles.loadDetails}>
+                  <div className={styles.detail}>
+                    <label>Shipper:</label>
+                    <span>{load.shipper}</span>
+                  </div>
+                  <div className={styles.locationInfo}>
+                    <div className={styles.location}>
+                      <label>Pickup:</label>
+                      <span>{load.pickup.location}</span>
+                      <span>{load.pickup.time}</span>
+                      <span className={getStatusColor(load.pickup.status)}>
+                        {load.pickup.status}
+                      </span>
+                    </div>
+                    <div className={styles.location}>
+                      <label>Delivery:</label>
+                      <span>{load.delivery.location}</span>
+                      <span>{load.delivery.time}</span>
+                      <span className={getStatusColor(load.delivery.status)}>
+                        {load.delivery.status}
+                      </span>
+                    </div>
+                  </div>
+                  <div className={styles.loadSpecs}>
+                    <div className={styles.detail}>
+                      <label>Payment:</label>
+                      <span>${load.payment}</span>
+                    </div>
+                    <div className={styles.detail}>
+                      <label>Weight:</label>
+                      <span>{load.weight}</span>
+                    </div>
+                    <div className={styles.detail}>
+                      <label>Dimensions:</label>
+                      <span>{load.dimensions}</span>
+                    </div>
+                  </div>
+                  <div className={styles.actions}>
+                    <button 
+                      className={styles.viewButton}
+                      onClick={() => navigate(`/carrier/loads/${load.id}`)}
+                    >
+                      View Details
+                    </button>
+                    {load.status === 'active' && (
+                      <button className={styles.startButton} onClick={() => handleStartLoad(load.id)}>Start Load</button>
+                    )}
+                    {load.status === 'in_progress' && (
+                      <button className={styles.completeButton} onClick={() => handleCompleteLoad(load.id)}>Mark as Completed</button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </main>
     </div>

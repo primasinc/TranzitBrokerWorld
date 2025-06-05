@@ -235,6 +235,14 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
     };
   }, [showKonexialVehicles]);
 
+  // Ensure map resizes after mount (fixes blank map on navigation)
+  useEffect(() => {
+    if (!map.current) return;
+    setTimeout(() => {
+      map.current?.resize();
+    }, 150);
+  }, []);
+
   return <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />;
 };
 

@@ -8,6 +8,8 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { useAuth } from '../../contexts/AuthContext';
 import LoadRequestCard from '../../components/carrier/LoadRequestCard';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { useAvailableLoads } from '../../hooks/useAvailableLoads';
+import mapboxgl from 'mapbox-gl';
 
 interface Load {
   id: string;
@@ -36,6 +38,51 @@ const TABS = {
 } as const;
 type TabType = keyof typeof TABS;
 
+const DEBUG_COORDS: [number, number] = [-85.7014272, 38.0567552]; // Louisville, KY area
+
+function mapAvailableLoadToLoad(load: import('../../hooks/useAvailableLoads').AvailableLoad): Load | null {
+  // Defensive: Only map if pickupLocation and position are valid
+  if (!load.pickupLocation || !Array.isArray(load.pickupLocation.position)) return null;
+  return {
+    id: load.id,
+    position: load.pickupLocation.position,
+    title: load.title,
+    pickup: load.pickupLocation.address,
+    delivery: load.deliveryLocation?.address || '',
+    rate: load.rate ?? 0,
+    distance: '', // Add logic if you want to calculate
+    weight: '',   // Add to AvailableLoad if available
+    dimensions: '' // Add to AvailableLoad if available
+  };
+}
+
+// Helper to create a GeoJSON circle polygon in miles
+function createGeoJSONCircle(center: [number, number], radiusInMiles: number, points = 64) {
+  const coords = {
+    latitude: center[1],
+    longitude: center[0]
+  };
+  const km = radiusInMiles * 1.60934;
+  const ret = [];
+  const distanceX = km / (111.320 * Math.cos(coords.latitude * Math.PI / 180));
+  const distanceY = km / 110.574;
+  for (let i = 0; i < points; i++) {
+    const theta = (i / points) * (2 * Math.PI);
+    const x = distanceX * Math.cos(theta);
+    const y = distanceY * Math.sin(theta);
+    ret.push([coords.longitude + x, coords.latitude + y]);
+  }
+  ret.push(ret[0]);
+  return {
+    type: 'Feature' as 'Feature',
+    geometry: {
+      type: 'Polygon' as 'Polygon',
+      coordinates: [ret]
+    },
+    properties: {}
+  };
+}
+
 const AvailableLoads: React.FC = () => {
   console.log('AvailableLoads component loaded');
   const [viewType, setViewType] = useState<'map' | 'list'>('map');
@@ -43,6 +90,7 @@ const AvailableLoads: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navigate = useNavigate();
   const [carrierLocation, setCarrierLocation] = useState<[number, number] | null>(null);
+  const [radiusMiles, setRadiusMiles] = useState<number>(100);
   const [userId, setUserId] = useState<string | null>(null);
   const [eldApiKey, setEldApiKey] = useState<string | null>(null);
   const [eldApiId, setEldApiId] = useState<string | null>(null);
@@ -51,31 +99,7 @@ const AvailableLoads: React.FC = () => {
   const [partnerRequests, setPartnerRequests] = useState<any[]>([]);
   const [partnerLoading, setPartnerLoading] = useState(true);
 
-  const loads: Load[] = [
-    {
-      id: '1',
-      position: [-87.6298, 41.8781], // [longitude, latitude] for Mapbox
-      title: 'Chicago to New York',
-      pickup: 'Chicago, IL',
-      delivery: 'New York, NY',
-      rate: 3500,
-      distance: '787 miles',
-      weight: '15,000 lbs',
-      dimensions: '53\' Trailer'
-    },
-    {
-      id: '2',
-      position: [-118.2437, 34.0522], // [longitude, latitude] for Mapbox
-      title: 'LA to San Francisco',
-      pickup: 'Los Angeles, CA',
-      delivery: 'San Francisco, CA',
-      rate: 1800,
-      distance: '383 miles',
-      weight: '10,000 lbs',
-      dimensions: '48\' Trailer'
-    },
-    // Add more sample loads as needed
-  ];
+  const { loads: availableLoads, loading: loadsLoading, error: loadsError } = useAvailableLoads(carrierLocation, radiusMiles);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -113,6 +137,35 @@ const AvailableLoads: React.FC = () => {
     });
     return () => unsubscribe();
   }, [user]);
+
+  // Get carrier's current location and update in real time
+  useEffect(() => {
+    let watchId: number | null = null;
+    if (navigator.geolocation) {
+      watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          setCarrierLocation([position.coords.longitude, position.coords.latitude]);
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+        },
+        { enableHighAccuracy: true }
+      );
+    }
+    return () => {
+      if (watchId !== null && navigator.geolocation.clearWatch) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
+  }, []);
+
+  // Debug logging for geolocation and loads
+  useEffect(() => {
+    console.log('carrierLocation:', carrierLocation);
+  }, [carrierLocation]);
+  useEffect(() => {
+    console.log('availableLoads:', availableLoads);
+  }, [availableLoads]);
 
   const handleLogout = () => navigate('/login');
   const handleProfile = () => navigate('/carrier/profile');
@@ -194,54 +247,89 @@ const AvailableLoads: React.FC = () => {
         </div>
         {/* Tab Content */}
         {activeTab === 'MARKETPLACE' ? (
-          viewType === 'map' ? (
-            <div className={styles.mapSection}>
-              <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <div style={{ width: '100%', display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-                  <div className={styles.viewToggle} style={{ margin: 0 }}>
-                    <button
-                      className={`${styles.toggleButton} ${viewType === 'map' ? styles.active : ''}`}
-                      onClick={() => setViewType('map')}
-                    >
-                      Map View
-                    </button>
-                    <button
-                      className={`${styles.toggleButton} ${(viewType as any) === 'list' ? styles.active : ''}`}
-                      onClick={() => setViewType('list')}
-                    >
-                      List View
-                    </button>
-                  </div>
-                </div>
-                <div className={styles.mapContainer} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                  <MapboxMap
-                    center={carrierLocation || [-98.5795, 39.8283]}
-                    zoom={carrierLocation ? 10 : 4}
-                    eldApiKey={eldApiKey || undefined}
-                    showKonexialVehicles={true}
-                    enableRealtime={true}
-                    markers={[
-                      ...loads.map(load => ({
-                        id: load.id,
-                        position: load.position,
-                        type: 'shipper' as const,
-                        onClick: () => setSelectedLoad(load)
-                      })),
-                    ]}
-                  />
-                </div>
+          <div className={styles.mapSection}>
+            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              {/* Radius slider */}
+              <div style={{ width: '100%', maxWidth: 400, margin: '0 auto 16px auto', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <label htmlFor="radius-slider" style={{ fontWeight: 500 }}>Radius:</label>
+                <input
+                  id="radius-slider"
+                  type="range"
+                  min={0}
+                  max={400}
+                  step={10}
+                  value={radiusMiles}
+                  onChange={e => setRadiusMiles(Number(e.target.value))}
+                  style={{ flex: 1 }}
+                />
+                <span style={{ minWidth: 48 }}>{radiusMiles} mi</span>
               </div>
-              {selectedLoad && (
-                <div className={styles.selectedLoadDetails}>
-                  {renderLoadCard(selectedLoad)}
-                </div>
-              )}
+              <div className={styles.mapContainer} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                <MapboxMap
+                  center={carrierLocation ? carrierLocation : [-98.5795, 39.8283]}
+                  zoom={carrierLocation ? 10 : 4}
+                  eldApiKey={eldApiKey || undefined}
+                  showKonexialVehicles={true}
+                  enableRealtime={true}
+                  markers={[
+                    ...availableLoads
+                      .map(l => mapAvailableLoadToLoad(l))
+                      .filter((l): l is Load => !!l && Array.isArray(l.position))
+                      .map(l => ({
+                        id: l.id,
+                        position: l.position,
+                        type: 'shipper' as const,
+                        onClick: () => setSelectedLoad(l)
+                      }))
+                  ]}
+                  onMapLoad={map => {
+                    if (map.getLayer('radius')) map.removeLayer('radius');
+                    if (map.getSource('radius')) map.removeSource('radius');
+                    if (carrierLocation && radiusMiles > 0) {
+                      // Create a true geographic circle polygon
+                      const circleGeoJSON = createGeoJSONCircle(carrierLocation, radiusMiles);
+                      map.addSource('radius', {
+                        type: 'geojson',
+                        data: circleGeoJSON
+                      });
+                      map.addLayer({
+                        id: 'radius',
+                        type: 'fill',
+                        source: 'radius',
+                        paint: {
+                          'fill-color': '#4285F4',
+                          'fill-opacity': 0.12
+                        }
+                      });
+                      map.addLayer({
+                        id: 'radius-outline',
+                        type: 'line',
+                        source: 'radius',
+                        paint: {
+                          'line-color': '#4285F4',
+                          'line-width': 2
+                        }
+                      });
+                      // Fit map to the bounds of the circle
+                      const coordinates = circleGeoJSON.geometry.coordinates[0];
+                      // Use first and opposite point for bounds, convert to LngLat
+                      const bounds = new mapboxgl.LngLatBounds(
+                        new mapboxgl.LngLat(coordinates[0][0], coordinates[0][1]),
+                        new mapboxgl.LngLat(coordinates[Math.floor(coordinates.length / 2)][0], coordinates[Math.floor(coordinates.length / 2)][1])
+                      );
+                      coordinates.forEach(coord => bounds.extend(new mapboxgl.LngLat(coord[0], coord[1])));
+                      map.fitBounds(bounds, { padding: 40, maxZoom: 12 });
+                    }
+                  }}
+                />
+              </div>
             </div>
-          ) : (
-            <div className={styles.listView}>
-              {loads.map(renderLoadCard)}
-            </div>
-          )
+            {selectedLoad && (
+              <div className={styles.selectedLoadDetails}>
+                {renderLoadCard(selectedLoad)}
+              </div>
+            )}
+          </div>
         ) : (
           <div className={styles.listView}>
             {partnerLoading ? (
