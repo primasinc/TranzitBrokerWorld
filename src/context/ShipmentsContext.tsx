@@ -38,7 +38,11 @@ export const ShipmentsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         date: data.date || '',
         time: data.scheduledTime || '',
         destination: data.shipTo?.cityStateZip || '',
-        carrier: data.carrierOption === 'carrier' ? (data.selectedCarrier || 'TBD') : 'Marketplace',
+        carrier: data.carrierOption === 'carrier'
+          ? (typeof data.selectedCarrier === 'object'
+              ? (data.selectedCarrier.companyName || data.selectedCarrier.id || 'TBD')
+              : (data.selectedCarrier || 'TBD'))
+          : 'Marketplace',
         status,
         type: data.type || 'Full Load',
         shipTo: data.shipTo?.name || '',

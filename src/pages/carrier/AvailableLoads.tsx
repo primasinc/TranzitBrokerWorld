@@ -5,6 +5,9 @@ import { useNavigate } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../../config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import { useAuth } from '../../contexts/AuthContext';
+import LoadRequestCard from '../../components/carrier/LoadRequestCard';
+import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
 
 interface Load {
   id: string;
@@ -27,6 +30,12 @@ function isViewType(val: any): val is 'map' | 'list' {
   return val === 'map' || val === 'list';
 }
 
+const TABS = {
+  MARKETPLACE: 'Marketplace Loads',
+  PARTNER: 'Partner Requests',
+} as const;
+type TabType = keyof typeof TABS;
+
 const AvailableLoads: React.FC = () => {
   console.log('AvailableLoads component loaded');
   const [viewType, setViewType] = useState<'map' | 'list'>('map');
@@ -37,6 +46,10 @@ const AvailableLoads: React.FC = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [eldApiKey, setEldApiKey] = useState<string | null>(null);
   const [eldApiId, setEldApiId] = useState<string | null>(null);
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState<TabType>('MARKETPLACE');
+  const [partnerRequests, setPartnerRequests] = useState<any[]>([]);
+  const [partnerLoading, setPartnerLoading] = useState(true);
 
   const loads: Load[] = [
     {
@@ -80,6 +93,26 @@ const AvailableLoads: React.FC = () => {
     });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    // Fetch partner requests (notifications)
+    setPartnerLoading(true);
+    const q = query(
+      collection(db, 'notifications'),
+      where('carrierId', '==', user.uid),
+      orderBy('createdAt', 'desc')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const requests: any[] = [];
+      snapshot.forEach((doc) => {
+        requests.push({ id: doc.id, ...doc.data() });
+      });
+      setPartnerRequests(requests);
+      setPartnerLoading(false);
+    });
+    return () => unsubscribe();
+  }, [user]);
 
   const handleLogout = () => navigate('/login');
   const handleProfile = () => navigate('/carrier/profile');
@@ -144,53 +177,86 @@ const AvailableLoads: React.FC = () => {
             </div>
           </header>
         </div>
-        {/* End header, start main content */}
-        {viewType === 'map' ? (
-          <div className={styles.mapSection}>
-            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div style={{ width: '100%', display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-                <div className={styles.viewToggle} style={{ margin: 0 }}>
-                  <button
-                    className={`${styles.toggleButton} ${viewType === 'map' ? styles.active : ''}`}
-                    onClick={() => setViewType('map')}
-                  >
-                    Map View
-                  </button>
-                  <button
-                    className={`${styles.toggleButton} ${(viewType as any) === 'list' ? styles.active : ''}`}
-                    onClick={() => setViewType('list')}
-                  >
-                    List View
-                  </button>
+        {/* Tabs for Partner Requests and Marketplace Loads */}
+        <div className={styles.viewToggle} style={{ marginBottom: 16 }}>
+          <button
+            className={`${styles.toggleButton} ${activeTab === 'MARKETPLACE' ? styles.active : ''}`}
+            onClick={() => setActiveTab('MARKETPLACE')}
+          >
+            Marketplace Loads
+          </button>
+          <button
+            className={`${styles.toggleButton} ${activeTab === 'PARTNER' ? styles.active : ''}`}
+            onClick={() => setActiveTab('PARTNER')}
+          >
+            Partner Requests
+          </button>
+        </div>
+        {/* Tab Content */}
+        {activeTab === 'MARKETPLACE' ? (
+          viewType === 'map' ? (
+            <div className={styles.mapSection}>
+              <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <div style={{ width: '100%', display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+                  <div className={styles.viewToggle} style={{ margin: 0 }}>
+                    <button
+                      className={`${styles.toggleButton} ${viewType === 'map' ? styles.active : ''}`}
+                      onClick={() => setViewType('map')}
+                    >
+                      Map View
+                    </button>
+                    <button
+                      className={`${styles.toggleButton} ${(viewType as any) === 'list' ? styles.active : ''}`}
+                      onClick={() => setViewType('list')}
+                    >
+                      List View
+                    </button>
+                  </div>
+                </div>
+                <div className={styles.mapContainer} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  <MapboxMap
+                    center={carrierLocation || [-98.5795, 39.8283]}
+                    zoom={carrierLocation ? 10 : 4}
+                    eldApiKey={eldApiKey || undefined}
+                    showKonexialVehicles={true}
+                    enableRealtime={true}
+                    markers={[
+                      ...loads.map(load => ({
+                        id: load.id,
+                        position: load.position,
+                        type: 'shipper' as const,
+                        onClick: () => setSelectedLoad(load)
+                      })),
+                    ]}
+                  />
                 </div>
               </div>
-              <div className={styles.mapContainer} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                <MapboxMap
-                  center={carrierLocation || [-98.5795, 39.8283]}
-                  zoom={carrierLocation ? 10 : 4}
-                  eldApiKey={eldApiKey || undefined}
-                  showKonexialVehicles={true}
-                  enableRealtime={true}
-                  markers={[
-                    ...loads.map(load => ({
-                      id: load.id,
-                      position: load.position,
-                      type: 'shipper' as const,
-                      onClick: () => setSelectedLoad(load)
-                    })),
-                  ]}
-                />
-              </div>
+              {selectedLoad && (
+                <div className={styles.selectedLoadDetails}>
+                  {renderLoadCard(selectedLoad)}
+                </div>
+              )}
             </div>
-            {selectedLoad && (
-              <div className={styles.selectedLoadDetails}>
-                {renderLoadCard(selectedLoad)}
-              </div>
-            )}
-          </div>
+          ) : (
+            <div className={styles.listView}>
+              {loads.map(renderLoadCard)}
+            </div>
+          )
         ) : (
           <div className={styles.listView}>
-            {loads.map(renderLoadCard)}
+            {partnerLoading ? (
+              <div>Loading partner requests...</div>
+            ) : partnerRequests.filter(r => r.status === 'pending').length === 0 ? (
+              <div>No partner requests at this time.</div>
+            ) : (
+              partnerRequests.filter(r => r.status === 'pending').map((request) => (
+                <LoadRequestCard
+                  key={request.id}
+                  notification={request}
+                  onStatusUpdate={() => {}}
+                />
+              ))
+            )}
           </div>
         )}
       </main>

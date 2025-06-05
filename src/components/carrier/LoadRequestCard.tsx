@@ -32,6 +32,7 @@ interface LoadRequestNotification {
     };
     weight: number;
     rate: number;
+    shipperCompany?: string;
   };
   createdAt: any;
   updatedAt: any;
@@ -76,6 +77,11 @@ const LoadRequestCard: React.FC<LoadRequestCardProps> = ({ notification, onStatu
     <div className={styles.card}>
       <div className={styles.header}>
         <h3>Load Request</h3>
+        {notification.loadDetails.shipperCompany && (
+          <div className={styles.shipperCompany}>
+            <strong>From:</strong> {notification.loadDetails.shipperCompany}
+          </div>
+        )}
         <span className={`${styles.status} ${styles[notification.status]}`}>
           {notification.status}
         </span>

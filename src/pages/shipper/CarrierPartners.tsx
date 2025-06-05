@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { collection, getDocs, doc, deleteDoc, getDoc, query, where } from 'firebase/firestore';
+import { collection, getDocs, doc, deleteDoc, getDoc, query, where, updateDoc } from 'firebase/firestore';
 import { db, auth } from '../../config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import styles from './CarrierPartners.module.css';
 import { getCarrier } from '../../services/carrierService';
+import { sendLoadRequestToCarrier } from '../../services/notificationService';
 
 interface Partner {
   id: string;
@@ -154,14 +155,69 @@ const CarrierPartners: React.FC = () => {
     setShowProfileModal(true);
   };
 
-  const handleSelectCarrier = (carrier: Partner) => {
-    // Navigate to shipping schedule form with PO data and selected carrier
-    navigate('/shipper/shipping-schedule', {
-      state: {
-        poData: locationState.poData,
-        selectedCarrier: carrier
+  const handleSelectCarrier = async (carrier: Partner) => {
+    if (locationState?.poData?.poNumber) {
+      // Find the order by poNumber
+      const q = query(
+        collection(db, 'purchaseOrders'),
+        where('poNumber', '==', locationState.poData.poNumber)
+      );
+      const querySnapshot = await getDocs(q);
+      if (!querySnapshot.empty) {
+        const orderDoc = querySnapshot.docs[0];
+        await updateDoc(doc(db, 'purchaseOrders', orderDoc.id), {
+          status: 'Carrier Pending',
+          selectedCarrier: carrier,
+        });
+        
+        // Fetch order details to send notification
+        const orderData = orderDoc.data();
+        if (orderData && userId) {
+          // Safe access for cargo details
+          const po = locationState?.poData || {};
+          // Map vendorInfo and shipTo to pickup/delivery
+          const pickupLocation = orderData.pickupLocation || po.vendorInfo || {};
+          const deliveryLocation = orderData.deliveryLocation || po.shipTo || {};
+          // Map company name
+          const shipperCompany = orderData.shipperCompany || po.companyInfo?.name || orderData.shipperName || '';
+          // Map date
+          const pickupDate = orderData.date || po.date || '';
+          // Map dimensions and weight
+          const cargoDetails = orderData.cargoDetails || po.cargoDetails || {};
+          const dimensions = cargoDetails.dimensions || po.dimensions || { length: 0, width: 0, height: 0 };
+          const weight = cargoDetails.weight || po.items?.reduce((sum: number, item: any) => sum + (item.weight || 0), 0) || 0;
+          const rate = orderData.carrierRate || po.rate || 0;
+          await sendLoadRequestToCarrier(
+            carrier.id,
+            userId,
+            orderDoc.id,
+            {
+              pickupLocation: {
+                address: pickupLocation.streetAddress || '',
+                city: pickupLocation.cityStateZip?.split(',')[0]?.trim() || '',
+                state: pickupLocation.cityStateZip?.split(',')[1]?.trim().split(' ')[0] || '',
+                zipCode: pickupLocation.cityStateZip?.split(' ').slice(-1)[0] || '',
+                date: pickupDate,
+                time: ''
+              },
+              deliveryLocation: {
+                address: deliveryLocation.streetAddress || '',
+                city: deliveryLocation.cityStateZip?.split(',')[0]?.trim() || '',
+                state: deliveryLocation.cityStateZip?.split(',')[1]?.trim().split(' ')[0] || '',
+                zipCode: deliveryLocation.cityStateZip?.split(' ').slice(-1)[0] || '',
+                date: pickupDate,
+                time: ''
+              },
+              dimensions,
+              weight,
+              rate,
+              shipperCompany
+            }
+          );
+        }
       }
-    });
+    }
+    navigate('/shipper/schedule');
   };
 
   return (

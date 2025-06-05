@@ -2,8 +2,8 @@ import React from 'react';
 import { useForm, Controller, useFieldArray, FieldError } from 'react-hook-form';
 import { useNavigate, useLocation } from 'react-router-dom';
 import styles from './ShippingScheduleForm.module.css';
-import { sendLoadRequestToCarrier } from '../../services/notificationService';
-import { useAuth } from '../../context/AuthContext';
+import { sendLoadRequestToCarrier } from '../../../services/notificationService';
+import { useAuth } from '../../../contexts/AuthContext';
 
 interface ShippingScheduleFormData {
   pickupLocation: {

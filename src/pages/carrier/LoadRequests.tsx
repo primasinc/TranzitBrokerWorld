@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { LoadRequestNotification } from '../../services/notificationService';
 import LoadRequestCard from '../../components/carrier/LoadRequestCard';
 import styles from './LoadRequests.module.css';

@@ -160,7 +160,11 @@ const ShippingSchedule: React.FC = () => {
                     <input type="time" value={editTime} onChange={e => setEditTime(e.target.value)} />
                   ) : schedule.time}</td>
                   <td>{schedule.destination}</td>
-                  <td>{schedule.carrier}</td>
+                  <td>{
+                    typeof schedule.carrier === 'object'
+                      ? (schedule.carrier as any).companyName || (schedule.carrier as any).id || 'TBD'
+                      : schedule.carrier
+                  }</td>
                   <td>
                     <span className={`${styles.status} ${styles[schedule.status.toLowerCase()]}`}>
                       {schedule.status}

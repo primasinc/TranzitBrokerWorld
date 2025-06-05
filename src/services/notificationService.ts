@@ -31,6 +31,7 @@ export interface LoadRequestNotification {
     };
     weight: number;
     rate: number;
+    shipperCompany?: string;
   };
   createdAt: any;
   updatedAt: any;
@@ -81,4 +82,108 @@ export const updateLoadRequestStatus = async (
   }
 
   await updateDoc(notificationRef, updateData);
+
+  // Get the notification data for further processing
+  const notificationDoc = await getDoc(notificationRef);
+  const notifData = notificationDoc.data() as LoadRequestNotification;
+
+  if (status === 'accepted') {
+    if (notifData?.shippingScheduleId) {
+      // Update the shipping schedule status to 'Active'
+      const scheduleRef = doc(db, 'purchaseOrders', notifData.shippingScheduleId);
+      await updateDoc(scheduleRef, { status: 'Active' });
+    }
+    // Notify the shipper
+    if (notifData?.shipperId) {
+      const shipperNotificationRef = collection(db, 'notifications');
+      await addDoc(shipperNotificationRef, {
+        shipperId: notifData.shipperId,
+        recipientId: notifData.shipperId,
+        carrierId: notifData.carrierId,
+        shippingScheduleId: notifData.shippingScheduleId,
+        status: 'accepted',
+        type: 'carrier_accept',
+        message: 'Carrier has accepted your load request.',
+        loadDetails: notifData.loadDetails,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+    }
+    // Notify the carrier if this is a response to a counter offer
+    if (notifData?.carrierId) {
+      const carrierNotificationRef = collection(db, 'notifications');
+      await addDoc(carrierNotificationRef, {
+        carrierId: notifData.carrierId,
+        recipientId: notifData.carrierId,
+        shipperId: notifData.shipperId,
+        shippingScheduleId: notifData.shippingScheduleId,
+        status: 'accepted',
+        type: 'shipper_accept_counter',
+        message: 'Shipper accepted your counter offer.',
+        loadDetails: notifData.loadDetails,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+    }
+  } else if (status === 'rejected') {
+    // Update the shipping schedule status to 'Rejected'
+    if (notifData?.shippingScheduleId) {
+      const scheduleRef = doc(db, 'purchaseOrders', notifData.shippingScheduleId);
+      await updateDoc(scheduleRef, { status: 'Rejected' });
+    }
+    // Notify the shipper of rejection
+    if (notifData?.shipperId) {
+      const shipperNotificationRef = collection(db, 'notifications');
+      await addDoc(shipperNotificationRef, {
+        shipperId: notifData.shipperId,
+        recipientId: notifData.shipperId,
+        carrierId: notifData.carrierId,
+        shippingScheduleId: notifData.shippingScheduleId,
+        status: 'rejected',
+        type: 'carrier_reject',
+        message: 'Carrier has rejected your load request.',
+        loadDetails: notifData.loadDetails,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        requiresAction: true
+      });
+    }
+    // Notify the carrier if this is a response to a counter offer
+    if (notifData?.carrierId) {
+      const carrierNotificationRef = collection(db, 'notifications');
+      await addDoc(carrierNotificationRef, {
+        carrierId: notifData.carrierId,
+        recipientId: notifData.carrierId,
+        shipperId: notifData.shipperId,
+        shippingScheduleId: notifData.shippingScheduleId,
+        status: 'rejected',
+        type: 'shipper_reject_counter',
+        message: 'Shipper rejected your counter offer.',
+        loadDetails: notifData.loadDetails,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+    }
+  } else if (status === 'counter_offer' && counterOffer !== undefined) {
+    // Notify the shipper of the counter offer
+    if (notifData?.shipperId) {
+      const shipperNotificationRef = collection(db, 'notifications');
+      await addDoc(shipperNotificationRef, {
+        shipperId: notifData.shipperId,
+        recipientId: notifData.shipperId,
+        carrierId: notifData.carrierId,
+        shippingScheduleId: notifData.shippingScheduleId,
+        status: 'counter_offer',
+        type: 'carrier_counter_offer',
+        message: `Carrier has made a counter offer of $${counterOffer.toFixed(2)}.`,
+        loadDetails: {
+          ...notifData.loadDetails,
+          rate: counterOffer
+        },
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        requiresAction: true
+      });
+    }
+  }
 }; 

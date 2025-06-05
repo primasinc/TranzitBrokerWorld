@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import MapboxMap from '../../components/common/MapboxMap';
 import styles from './HomeFeed.module.css';
+import LoadRequestCard from '../../components/carrier/LoadRequestCard';
+import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { db } from '../../firebase';
 
 interface AvailableLoad {
   id: string;
@@ -18,6 +21,12 @@ interface AvailableLoad {
   // ... other existing properties ...
 }
 
+const TABS = {
+  MARKETPLACE: 'Marketplace Loads',
+  PARTNER: 'Partner Loads',
+} as const;
+type TabType = keyof typeof TABS;
+
 const HomeFeed: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [viewType, setViewType] = useState<'map' | 'list'>('map');
@@ -27,6 +36,9 @@ const HomeFeed: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userLocation, setUserLocation] = useState<[number, number]>([-87.6298, 41.8781]); // Default to Chicago
+  const [activeTab, setActiveTab] = useState<TabType>('MARKETPLACE');
+  const [partnerRequests, setPartnerRequests] = useState<any[]>([]);
+  const [partnerLoading, setPartnerLoading] = useState(true);
 
   // Get user's current location
   useEffect(() => {
@@ -41,6 +53,25 @@ const HomeFeed: React.FC = () => {
       );
     }
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    setPartnerLoading(true);
+    const q = query(
+      collection(db, 'notifications'),
+      where('carrierId', '==', user.uid),
+      orderBy('createdAt', 'desc')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const requests: any[] = [];
+      snapshot.forEach((doc) => {
+        requests.push({ id: doc.id, ...doc.data() });
+      });
+      setPartnerRequests(requests);
+      setPartnerLoading(false);
+    });
+    return () => unsubscribe();
+  }, [user]);
 
   const currentLoad = {
     poNumber: 'PO-12345',
@@ -167,47 +198,20 @@ const HomeFeed: React.FC = () => {
           <section className={styles.availableLoads}>
             <h2>Available Loads</h2>
             <div className={styles.viewToggle}>
-              <button 
-                className={`${styles.toggleButton} ${viewType === 'map' ? styles.active : ''}`}
-                onClick={() => setViewType('map')}
+              <button
+                className={`${styles.toggleButton} ${activeTab === 'MARKETPLACE' ? styles.active : ''}`}
+                onClick={() => setActiveTab('MARKETPLACE')}
               >
-                Map View
+                Marketplace Loads
               </button>
-              <button 
-                className={`${styles.toggleButton} ${viewType === 'list' ? styles.active : ''}`}
-                onClick={() => setViewType('list')}
+              <button
+                className={`${styles.toggleButton} ${activeTab === 'PARTNER' ? styles.active : ''}`}
+                onClick={() => setActiveTab('PARTNER')}
               >
-                List View
+                Partner Loads
               </button>
             </div>
-
-            {viewType === 'map' ? (
-              <div className={styles.mapContainer}>
-                <MapboxMap
-                  center={userLocation}
-                  zoom={10}
-                  markers={[
-                    {
-                      id: 'user',
-                      position: userLocation,
-                      type: 'carrier',
-                      onClick: () => {
-                        console.log('User location clicked');
-                      }
-                    },
-                    ...loads.map(load => ({
-                      id: load.id,
-                      position: load.pickupLocation.position,
-                      type: 'shipper' as const,
-                      onClick: () => {
-                        console.log('Load clicked:', load);
-                        navigate(`/carrier/loads/${load.id}`);
-                      }
-                    }))
-                  ]}
-                />
-              </div>
-            ) : (
+            {activeTab === 'MARKETPLACE' ? (
               <div className={styles.listView}>
                 {loads.map((load) => (
                   <div key={load.id} className={styles.loadCard}>
@@ -219,6 +223,22 @@ const HomeFeed: React.FC = () => {
                     </button>
                   </div>
                 ))}
+              </div>
+            ) : (
+              <div className={styles.listView}>
+                {partnerLoading ? (
+                  <div>Loading partner loads...</div>
+                ) : partnerRequests.filter(r => r.status === 'pending').length === 0 ? (
+                  <div>No partner loads at this time.</div>
+                ) : (
+                  partnerRequests.filter(r => r.status === 'pending').map((request) => (
+                    <LoadRequestCard
+                      key={request.id}
+                      notification={request}
+                      onStatusUpdate={() => {}}
+                    />
+                  ))
+                )}
               </div>
             )}
           </section>
