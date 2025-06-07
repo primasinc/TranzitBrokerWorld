@@ -101,7 +101,7 @@ const Documents: React.FC = () => {
         </header>
       </div>
       <div className={styles.subHeader} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 30 }}>
-        <div className={styles.tabs}>
+        <div className={styles.menuBar}>
           <button 
             className={`${styles.tab} ${activeTab === 'all' ? styles.active : ''}`}
             onClick={() => setActiveTab('all')}
@@ -120,10 +120,18 @@ const Documents: React.FC = () => {
           >
             Load Documents
           </button>
+          <button className={styles.uploadButton}>
+            Upload New Document
+          </button>
         </div>
-        <button className={styles.uploadButton}>
-          Upload New Document
-        </button>
+      </div>
+
+      <div className={styles.complianceAlert}>
+        <div className={styles.alertHeader}>
+          <h3>📋 Compliance Status</h3>
+          <span className={styles.compliantBadge}>Compliant</span>
+        </div>
+        <p>All required documents are up to date. Next document expiration: Insurance (Dec 31, 2024)</p>
       </div>
 
       <div className={styles.documentGrid}>
@@ -173,14 +181,6 @@ const Documents: React.FC = () => {
             </div>
           </div>
         ))}
-      </div>
-
-      <div className={styles.complianceAlert}>
-        <div className={styles.alertHeader}>
-          <h3>📋 Compliance Status</h3>
-          <span className={styles.compliantBadge}>Compliant</span>
-        </div>
-        <p>All required documents are up to date. Next document expiration: Insurance (Dec 31, 2024)</p>
       </div>
     </div>
   );
