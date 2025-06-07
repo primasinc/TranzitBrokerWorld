@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
 
 export interface ScheduledShipment {
   id: string;
@@ -54,7 +55,15 @@ export const ShipmentsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   useEffect(() => {
-    refreshShipments();
+    // Listen for auth state changes
+    const unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
+      if (user) {
+        refreshShipments(); // Only fetch after login
+      } else {
+        setShipments([]); // Clear if logged out
+      }
+    });
+    return () => unsubscribe();
   }, []);
 
   return (

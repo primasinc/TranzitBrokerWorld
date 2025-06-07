@@ -51,6 +51,13 @@ const Settings: React.FC = () => {
     }
   });
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showInviteForm, setShowInviteForm] = useState(false);
+  const [inviteName, setInviteName] = useState('');
+  const [invitePhone, setInvitePhone] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteError, setInviteError] = useState('');
+  const [inviteSuccess, setInviteSuccess] = useState('');
+  const isCompanyAdmin = true; // Set to false for dependent/driver users
 
   const handleProfileUpdate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,6 +78,22 @@ const Settings: React.FC = () => {
   const handleProfile = () => {};
   const handleSettings = () => {};
   const handleLogout = () => {};
+
+  const handleSendInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setInviteError('');
+    setInviteSuccess('');
+    if (!inviteName || !invitePhone || !inviteEmail) {
+      setInviteError('All fields are required.');
+      return;
+    }
+    // TODO: Implement backend invite logic here
+    setInviteSuccess('Invitation sent to ' + inviteEmail);
+    setShowInviteForm(false);
+    setInviteName('');
+    setInvitePhone('');
+    setInviteEmail('');
+  };
 
   return (
     <div className={styles.container}>
@@ -217,6 +240,37 @@ const Settings: React.FC = () => {
             <div className={styles.section}>
               <h2>Security</h2>
               {/* Security settings go here */}
+              {isCompanyAdmin && (
+                <div className={styles.additionalDriversSection}>
+                  <h3>Additional Drivers</h3>
+                  <button className={styles.addButton} onClick={() => setShowInviteForm(true)}>Add Driver</button>
+                  {showInviteForm && (
+                    <form className={styles.inviteForm} onSubmit={handleSendInvite} style={{ marginTop: 16 }}>
+                      <div className={styles.formGroup}>
+                        <label>Name</label>
+                        <input type="text" value={inviteName} onChange={e => setInviteName(e.target.value)} required />
+                      </div>
+                      <div className={styles.formGroup}>
+                        <label>Phone Number</label>
+                        <input type="text" value={invitePhone} onChange={e => setInvitePhone(e.target.value)} required />
+                      </div>
+                      <div className={styles.formGroup}>
+                        <label>Email</label>
+                        <input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} required />
+                      </div>
+                      {inviteError && <div className={styles.error}>{inviteError}</div>}
+                      <button type="submit" className={styles.submitButton}>Send Invitation</button>
+                      <button type="button" className={styles.cancelButton} onClick={() => setShowInviteForm(false)}>Cancel</button>
+                    </form>
+                  )}
+                  {inviteSuccess && <div className={styles.success}>{inviteSuccess}</div>}
+                </div>
+              )}
+              {!isCompanyAdmin && (
+                <div className={styles.dependentNotice}>
+                  <p>You are currently a driver for a carrier company. To add drivers, you must leave your current company and create your own account.</p>
+                </div>
+              )}
             </div>
           )}
         </div>

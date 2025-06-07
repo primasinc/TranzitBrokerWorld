@@ -1,3 +1,12 @@
+import * as admin from 'firebase-admin';
+const serviceAccount = require('../serviceAccountKey.json');
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount as admin.ServiceAccount)
+});
+
+export const db = admin.firestore();
+
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';

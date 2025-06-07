@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../config/firebase';
 import { setUserRole } from '../../services/authService';
@@ -11,6 +11,7 @@ type UserType = 'shipper' | 'carrier';
 
 const Register: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [formData, setFormData] = useState({
     userType: 'shipper' as UserType,
     companyName: '',
@@ -22,6 +23,32 @@ const Register: React.FC = () => {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // Check for invite token in URL
+    const params = new URLSearchParams(location.search);
+    const inviteToken = params.get('invite');
+    if (inviteToken) {
+      // TODO: Fetch invite data from backend using the token
+      // Simulate fetched data for now
+      const inviteData = {
+        userType: 'carrier',
+        companyName: 'Inviting Company',
+        companyRep: 'Company Rep',
+        phoneNumber: '555-555-5555',
+        email: 'invited@carrier.com',
+        name: 'Invited Carrier'
+      };
+      setFormData(prev => ({
+        ...prev,
+        userType: inviteData.userType as UserType,
+        companyName: inviteData.companyName,
+        companyRep: inviteData.companyRep,
+        phoneNumber: inviteData.phoneNumber,
+        email: inviteData.email
+      }));
+    }
+  }, [location.search]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,6 +118,7 @@ const Register: React.FC = () => {
               value={formData.userType}
               onChange={(e) => setFormData({ ...formData, userType: e.target.value as UserType })}
               className={styles.select}
+              disabled={!!new URLSearchParams(location.search).get('invite')}
             >
               <option value="shipper">Shipper</option>
               <option value="carrier">Carrier</option>
@@ -107,6 +135,7 @@ const Register: React.FC = () => {
               className={styles.input}
               placeholder="Enter your company name"
               required
+              disabled={!!new URLSearchParams(location.search).get('invite')}
             />
           </div>
 
@@ -119,6 +148,7 @@ const Register: React.FC = () => {
               onChange={(e) => setFormData({ ...formData, companyRep: e.target.value })}
               className={styles.input}
               placeholder="Enter company representative (optional)"
+              disabled={!!new URLSearchParams(location.search).get('invite')}
             />
           </div>
 
@@ -132,6 +162,7 @@ const Register: React.FC = () => {
               className={styles.input}
               placeholder="Enter your phone number"
               required
+              disabled={!!new URLSearchParams(location.search).get('invite')}
             />
           </div>
 
@@ -145,6 +176,7 @@ const Register: React.FC = () => {
               className={styles.input}
               placeholder="Enter your email"
               required
+              disabled={!!new URLSearchParams(location.search).get('invite')}
             />
           </div>
 

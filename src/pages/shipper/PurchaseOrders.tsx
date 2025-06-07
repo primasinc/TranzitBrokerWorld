@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styles from './PurchaseOrders.module.css';
 import { db } from '../../firebase';
-import { collection, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
 import { PurchaseOrderForm } from '../../components/shipper/forms/PurchaseOrderForm';
 
 enum PurchaseOrderStatus {
@@ -83,8 +83,22 @@ const PurchaseOrders: React.FC = () => {
   };
   const handleDelete = (id: string) => setConfirmDeleteId(id);
   const confirmDelete = async (id: string) => {
+    // Find the PO to get its poNumber
+    const poToDelete = orders.find(o => o.id === id);
+    if (!poToDelete) return;
+    const poNumber = poToDelete.poNumber;
+    // Delete from purchaseOrders
     await deleteDoc(doc(db, 'purchaseOrders', id));
-    setOrders(orders => orders.filter(o => o.id !== id));
+    // Delete from shipping schedule (purchaseOrders collection, matching poNumber)
+    const schedulesSnapshot = await getDocs(query(collection(db, 'purchaseOrders'), where('poNumber', '==', poNumber)));
+    const batchDeletes: Promise<any>[] = [];
+    schedulesSnapshot.forEach(docSnap => {
+      if (docSnap.id !== id) { // Don't double-delete the same doc
+        batchDeletes.push(deleteDoc(doc(db, 'purchaseOrders', docSnap.id)));
+      }
+    });
+    await Promise.all(batchDeletes);
+    setOrders(orders => orders.filter(o => o.id !== id && o.poNumber !== poNumber));
     setConfirmDeleteId(null);
   };
   const cancelDelete = () => setConfirmDeleteId(null);

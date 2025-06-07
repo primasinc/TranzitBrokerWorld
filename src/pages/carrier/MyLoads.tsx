@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, where, onSnapshot, orderBy, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
 import styles from './MyLoads.module.css';
 import { onAuthStateChanged } from 'firebase/auth';
+import { konexialService } from '../../services/konexialService';
 
 interface Load {
   id: string;
@@ -115,9 +116,23 @@ const MyLoads: React.FC = () => {
         'delivery.status': 'in_progress',
         updatedAt: new Date()
       });
+
+      if (!user) return;
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (!userDoc.exists()) return;
+      const eldApiId = userDoc.data().eldApiId;
+      const eldApiKey = userDoc.data().eldApiKey;
+      if (!eldApiId || !eldApiKey) return;
+
+      const vehicles = await konexialService.getUserVehicles(eldApiId, eldApiKey);
+      if (vehicles.length === 0) return;
+      const selectedVehicle = vehicles[0];
+      await updateDoc(loadRef, {
+        eldVehicleId: selectedVehicle.id
+      });
     } catch (error) {
-      console.error('Error updating load status:', error);
-      setError('Failed to update load status. Please try again.');
+      console.error('Error updating load status or starting ELD tracking:', error);
+      setError('Failed to update load status or start ELD tracking. Please try again.');
     }
   };
 

@@ -8,6 +8,7 @@ import MapboxMap from '../../components/common/MapboxMap';
 import { db } from '../../firebase';
 import { collection, getDocs } from 'firebase/firestore';
 import { useShipments } from '../../context/ShipmentsContext';
+import mapboxgl from 'mapbox-gl';
 
 interface Shipment {
   id: string;
@@ -35,6 +36,33 @@ interface AvailableCarrier {
 
 const ACTIVE_STATUSES = ['Active', 'Carrier Pending', 'In Progress', 'Delayed'];
 
+// Helper to create a GeoJSON circle polygon in miles (copied from carrier AvailableLoads)
+function createGeoJSONCircle(center: [number, number], radiusInMiles: number, points = 64) {
+  const coords = {
+    latitude: center[1],
+    longitude: center[0]
+  };
+  const km = radiusInMiles * 1.60934;
+  const ret = [];
+  const distanceX = km / (111.320 * Math.cos(coords.latitude * Math.PI / 180));
+  const distanceY = km / 110.574;
+  for (let i = 0; i < points; i++) {
+    const theta = (i / points) * (2 * Math.PI);
+    const x = distanceX * Math.cos(theta);
+    const y = distanceY * Math.sin(theta);
+    ret.push([coords.longitude + x, coords.latitude + y]);
+  }
+  ret.push(ret[0]);
+  return {
+    type: 'Feature' as const,
+    geometry: {
+      type: 'Polygon' as const,
+      coordinates: [ret]
+    },
+    properties: {}
+  };
+}
+
 const ShipperDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -53,6 +81,8 @@ const ShipperDashboard: React.FC = () => {
   const { shipments } = useShipments();
   const [availableCarriers, setAvailableCarriers] = useState<any[]>([]);
   const [showAvailableCarriers, setShowAvailableCarriers] = useState(false);
+  const [searchInput, setSearchInput] = useState('');
+  const [isGeocoding, setIsGeocoding] = useState(false);
 
   // Mock shipments data
   const mockShipments: Shipment[] = [
@@ -283,6 +313,52 @@ const ShipperDashboard: React.FC = () => {
     fetchCarriers();
   }, [showAvailableCarriers]);
 
+  // Add real-time geolocation tracking for shipper user
+  useEffect(() => {
+    let watchId: number | null = null;
+    if (navigator.geolocation) {
+      watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          setUserLocation([position.coords.longitude, position.coords.latitude]);
+        },
+        (error) => {
+          console.warn('Geolocation error:', error);
+          // Optionally, show a message to the user
+        },
+        { enableHighAccuracy: true }
+      );
+    }
+    return () => {
+      if (watchId !== null && navigator.geolocation.clearWatch) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
+  }, []);
+
+  // Function to geocode address using Mapbox
+  const handleAddressSearch = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!searchInput) return;
+    setIsGeocoding(true);
+    try {
+      const accessToken = process.env.REACT_APP_MAPBOX_TOKEN;
+      const response = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(searchInput)}.json?access_token=${accessToken}`
+      );
+      const data = await response.json();
+      if (data.features && data.features.length > 0) {
+        const [lng, lat] = data.features[0].center;
+        setUserLocation([lng, lat]);
+      } else {
+        alert('Address not found. Please try another.');
+      }
+    } catch (err) {
+      alert('Error searching address.');
+    } finally {
+      setIsGeocoding(false);
+    }
+  };
+
   return (
     <div className={styles.dashboard}>
       {process.env.NODE_ENV === 'development' && (
@@ -344,21 +420,6 @@ const ShipperDashboard: React.FC = () => {
                   {showActiveShipments ? 'Show Available Carriers' : 'Show Active Shipments'}
                 </span>
               </div>
-              
-              {!showActiveShipments && (
-                <div className={styles.radiusSelector}>
-                  <label htmlFor="radius">Radius: {radiusInMiles} miles</label>
-                  <input
-                    type="range"
-                    id="radius"
-                    min="10"
-                    max="100"
-                    step="5"
-                    value={radiusInMiles}
-                    onChange={handleRadiusChange}
-                  />
-                </div>
-              )}
             </div>
           </div>
           
@@ -372,39 +433,82 @@ const ShipperDashboard: React.FC = () => {
                 type: 'carrier',
               })) : getMapMarkers()}
               onMapLoad={(map) => {
-                // If showing available carriers, add a circle for the radius
                 if (!showActiveShipments) {
-                  const radiusInMeters = radiusInMiles * 1609.34;
+                  // Only show the radius circle for available carriers
+                  if (map.getLayer('radius')) map.removeLayer('radius');
+                  if (map.getLayer('radius-outline')) map.removeLayer('radius-outline');
+                  if (map.getSource('radius')) map.removeSource('radius');
+                  const circleGeoJSON = createGeoJSONCircle(userLocation, radiusInMiles);
                   map.addSource('radius', {
                     type: 'geojson',
-                    data: {
-                      type: 'Feature',
-                      geometry: {
-                        type: 'Point',
-                        coordinates: userLocation
-                      },
-                      properties: {
-                        radius: radiusInMeters
-                      }
-                    }
+                    data: circleGeoJSON
                   });
-
                   map.addLayer({
                     id: 'radius',
-                    type: 'circle',
+                    type: 'fill',
                     source: 'radius',
                     paint: {
-                      'circle-radius': ['/', ['get', 'radius'], ['cos', ['*', ['get', 'lat'], 0.0174533]]],
-                      'circle-color': '#4285F4',
-                      'circle-opacity': 0.1,
-                      'circle-stroke-width': 2,
-                      'circle-stroke-color': '#4285F4'
+                      'fill-color': '#4285F4',
+                      'fill-opacity': 0.12
                     }
                   });
+                  map.addLayer({
+                    id: 'radius-outline',
+                    type: 'line',
+                    source: 'radius',
+                    paint: {
+                      'line-color': '#4285F4',
+                      'line-width': 2
+                    }
+                  });
+                  // Fit map to the bounds of the circle
+                  const coordinates = circleGeoJSON.geometry.coordinates[0];
+                  const bounds = new mapboxgl.LngLatBounds(
+                    new mapboxgl.LngLat(coordinates[0][0], coordinates[0][1]),
+                    new mapboxgl.LngLat(coordinates[Math.floor(coordinates.length / 2)][0], coordinates[Math.floor(coordinates.length / 2)][1])
+                  );
+                  coordinates.forEach(coord => bounds.extend(new mapboxgl.LngLat(coord[0], coord[1])));
+                  map.fitBounds(bounds, { padding: 40, maxZoom: 12 });
+                } else {
+                  // Remove radius if present
+                  if (map.getLayer('radius')) map.removeLayer('radius');
+                  if (map.getLayer('radius-outline')) map.removeLayer('radius-outline');
+                  if (map.getSource('radius')) map.removeSource('radius');
                 }
               }}
             />
           </div>
+          {/* Controls below the map, outside of .mapContainer */}
+          {!showActiveShipments && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 16 }}>
+              <form onSubmit={handleAddressSearch} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <input
+                  type="text"
+                  placeholder="Search address or city..."
+                  value={searchInput}
+                  onChange={e => setSearchInput(e.target.value)}
+                  style={{ padding: 8, borderRadius: 4, border: '1px solid #ccc', minWidth: 220 }}
+                  disabled={isGeocoding}
+                />
+                <button type="submit" style={{ padding: '8px 16px', borderRadius: 4, border: 'none', background: '#1976d2', color: 'white', fontWeight: 500 }} disabled={isGeocoding}>
+                  {isGeocoding ? 'Searching...' : 'Search'}
+                </button>
+              </form>
+              <div className={styles.radiusSelector}>
+                <label htmlFor="radius">Radius: {radiusInMiles} miles</label>
+                <input
+                  type="range"
+                  id="radius"
+                  min="10"
+                  max="100"
+                  step="5"
+                  value={radiusInMiles}
+                  onChange={handleRadiusChange}
+                  style={{ marginLeft: 8, verticalAlign: 'middle' }}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         <div className={styles.recentShipments}>

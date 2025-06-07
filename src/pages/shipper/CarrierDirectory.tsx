@@ -60,6 +60,7 @@ const CarrierDirectory: React.FC = () => {
   useEffect(() => {
     const fetchCarriers = async () => {
       setLoading(true);
+      // Query the users collection for carriers
       const q = query(collection(db, 'users'), where('userType', '==', 'carrier'));
       const querySnapshot = await getDocs(q);
       const carrierList: CarrierUser[] = [];

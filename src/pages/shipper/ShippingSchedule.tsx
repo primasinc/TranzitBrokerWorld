@@ -19,6 +19,7 @@ interface ScheduledShipment {
   status: 'Active' | 'Delayed' | 'Completed' | 'Cancelled';
   type: string;
   shipTo?: string;
+  poNumber: string;
 }
 
 const ShippingSchedule: React.FC = () => {
@@ -141,7 +142,7 @@ const ShippingSchedule: React.FC = () => {
             <thead>
               <tr>
                 <th>Date</th>
-                <th>Time</th>
+                <th>PO Number</th>
                 <th>Destination</th>
                 <th>Carrier</th>
                 <th>Status</th>
@@ -156,9 +157,7 @@ const ShippingSchedule: React.FC = () => {
                   <td>{editingId === schedule.id ? (
                     <input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} />
                   ) : schedule.date}</td>
-                  <td>{editingId === schedule.id ? (
-                    <input type="time" value={editTime} onChange={e => setEditTime(e.target.value)} />
-                  ) : schedule.time}</td>
+                  <td>{schedule.poNumber}</td>
                   <td>{schedule.destination}</td>
                   <td>{
                     typeof schedule.carrier === 'object'

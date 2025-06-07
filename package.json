@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@mapbox/mapbox-gl-geocoder": "^5.0.3",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.2.0",
@@ -20,6 +21,7 @@
     "firebase": "^11.8.1",
     "firebase-admin": "^13.2.0",
     "mapbox-gl": "^3.11.0",
+    "nodemailer": "^7.0.3",
     "nth-check": "^2.1.1",
     "postcss": "^8.5.3",
     "react": "^18.2.0",
@@ -31,6 +33,7 @@
     "react-scripts": "^5.0.1",
     "serve-favicon": "^2.5.0",
     "svgo": "^3.3.2",
+    "typescript": "^4.9.5",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
@@ -59,7 +62,19 @@
   },
   "devDependencies": {
     "@types/node": "^22.14.1",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.8.3"
-  }
+    "ts-node": "^10.9.2"
+  },
+  "description": "This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/primasinc/TranzitELD.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/primasinc/TranzitELD/issues"
+  },
+  "homepage": "http://localhost:3000"
 }

@@ -44,6 +44,7 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ onClose }) => {
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
   const trayRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -60,28 +61,38 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ onClose }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        const q = query(
-          collection(db, 'notifications'),
-          where('recipientId', '==', user.uid)
-        );
-        const querySnapshot = await getDocs(q);
-        const notificationList: Notification[] = [];
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          notificationList.push({
-            id: doc.id,
-            type: data.type,
-            senderId: data.senderId,
-            senderName: data.senderName,
-            message: data.message,
-            read: data.read,
-            createdAt: data.createdAt.toDate(),
-            requiresAction: data.requiresAction,
-            loadDetails: data.loadDetails
+        try {
+          const q = query(
+            collection(db, 'notifications'),
+            where('recipientId', '==', user.uid)
+          );
+          const querySnapshot = await getDocs(q);
+          const notificationList: Notification[] = [];
+          querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            notificationList.push({
+              id: doc.id,
+              type: data.type,
+              senderId: data.senderId,
+              senderName: data.senderName,
+              message: data.message,
+              read: data.read,
+              createdAt: data.createdAt.toDate(),
+              requiresAction: data.requiresAction,
+              loadDetails: data.loadDetails
+            });
           });
-        });
-        setNotifications(notificationList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()));
+          setNotifications(notificationList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()));
+          setLoading(false);
+          setError(null);
+        } catch (err: any) {
+          setError('Could not load notifications. Please check your permissions or contact support.');
+          setLoading(false);
+        }
+      } else {
+        setNotifications([]);
         setLoading(false);
+        setError(null);
       }
     });
     return () => unsubscribe();
@@ -177,7 +188,9 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ onClose }) => {
           <span>Notifications</span>
           <button className={styles.closeButton} onClick={onClose}>×</button>
         </div>
-        {loading ? (
+        {error ? (
+          <div className={styles.error}>{error}</div>
+        ) : loading ? (
           <div>Loading notifications...</div>
         ) : notifications.length === 0 ? (
           <p>No notifications</p>

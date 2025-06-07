@@ -111,29 +111,48 @@ const CarrierProfileCard: React.FC<CarrierProfileCardProps> = ({ carrier, onPart
               <p>
                 <strong>MC Number:</strong> {carrier.mcNumber} <br />
                 <a
-                  href={`https://safer.fmcsa.dot.gov/query.asp?query_type=MC&query_param=${carrier.mcNumber}`}
+                  href="https://safer.fmcsa.dot.gov/CompanySnapshot.aspx"
                   target="_blank"
                   rel="noopener noreferrer"
+                  title="Click to open the SAFER Company Snapshot search page. MC Number will be copied to your clipboard. On the SAFER page, select 'MC/MX Number', paste the number, and search."
+                  onClick={e => {
+                    e.preventDefault();
+                    navigator.clipboard.writeText(carrier.mcNumber);
+                    window.open('https://safer.fmcsa.dot.gov/CompanySnapshot.aspx', '_blank');
+                  }}
+                  style={{ textDecoration: 'underline', cursor: 'pointer' }}
                 >
                   Check MC on SAFER
                 </a>
+                <span style={{ marginLeft: 8, fontSize: '0.9em', color: '#888' }} title="MC Number copied to clipboard when you click the link!">🛈</span>
               </p>
             )}
             {carrier.dotNumber && (
               <p>
                 <strong>DOT Number:</strong> {carrier.dotNumber} <br />
                 <a
-                  href={`https://safer.fmcsa.dot.gov/query.asp?query_type=USDOT&query_param=${carrier.dotNumber}`}
+                  href="https://safer.fmcsa.dot.gov/CompanySnapshot.aspx"
                   target="_blank"
                   rel="noopener noreferrer"
+                  title="Click to open the SAFER Company Snapshot search page. DOT Number will be copied to your clipboard. On the SAFER page, select 'USDOT Number', paste the number, and search."
+                  onClick={e => {
+                    e.preventDefault();
+                    navigator.clipboard.writeText(carrier.dotNumber);
+                    window.open('https://safer.fmcsa.dot.gov/CompanySnapshot.aspx', '_blank');
+                  }}
+                  style={{ textDecoration: 'underline', cursor: 'pointer' }}
                 >
                   Check DOT on SAFER
                 </a>
+                <span style={{ marginLeft: 8, fontSize: '0.9em', color: '#888' }} title="DOT Number copied to clipboard when you click the link!">🛈</span>
               </p>
             )}
             {!(carrier.mcNumber || carrier.dotNumber) && (
               <p>No MC or DOT number available for this carrier.</p>
             )}
+            <div style={{ marginTop: 16, fontSize: '0.95em', color: '#555', background: '#f8f9fa', padding: 8, borderRadius: 4 }}>
+              <strong>Instructions:</strong> Click the MC or DOT link above. The number will be copied to your clipboard. On the SAFER page, select the correct search type, paste the number, and click Search.
+            </div>
             <button className={styles.closeButton} onClick={() => setShowSaferModal(false)}>Close</button>
           </div>
         </div>

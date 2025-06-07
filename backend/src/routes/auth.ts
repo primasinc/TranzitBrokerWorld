@@ -4,8 +4,12 @@ import { body } from 'express-validator';
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User';
 import { auth } from '../middleware/auth';
+import { db } from '../index';
+import { v4 as uuidv4 } from 'uuid';
+import express from 'express';
+import nodemailer from 'nodemailer';
 
-const router = Router();
+const router = express.Router();
 
 // Register route
 router.post(
@@ -82,5 +86,79 @@ router.post(
     }
   }
 );
+
+// Helper to send invite email
+async function sendInviteEmail(to: string, link: string) {
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    secure: false,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS
+    }
+  });
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    to,
+    subject: 'You are invited to join as a driver',
+    html: `<p>You have been invited to join. Click <a href="${link}">here</a> to register.</p>`
+  });
+}
+
+// Invite driver endpoint
+router.post('/invite-driver', async (req, res) => {
+  try {
+    const { name, phone, email, companyName, companyRep, inviterId } = req.body;
+    if (!name || !phone || !email || !companyName || !companyRep || !inviterId) {
+      return res.status(400).json({ error: 'Missing required fields.' });
+    }
+    const token = uuidv4();
+    await db.collection('invites').doc(token).set({
+      name, phone, email, companyName, companyRep, inviterId,
+      createdAt: new Date(),
+      used: false
+    });
+    const inviteLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/register?invite=${token}`;
+    // Send invite email
+    await sendInviteEmail(email, inviteLink);
+    res.json({ success: true, inviteLink });
+  } catch (err) {
+    console.error('Error creating invite:', err);
+    res.status(500).json({ error: 'Failed to create invite.' });
+  }
+});
+
+// Fetch invite data endpoint
+router.get('/invite/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    const doc = await db.collection('invites').doc(token).get();
+    if (!doc.exists || doc.data()?.used) {
+      return res.status(404).json({ error: 'Invalid or expired invite.' });
+    }
+    res.json(doc.data());
+  } catch (err) {
+    console.error('Error fetching invite:', err);
+    res.status(500).json({ error: 'Failed to fetch invite.' });
+  }
+});
+
+// Mark invite as used endpoint
+router.patch('/invite/:token/use', async (req, res) => {
+  try {
+    const { token } = req.params;
+    const docRef = db.collection('invites').doc(token);
+    const doc = await docRef.get();
+    if (!doc.exists) {
+      return res.status(404).json({ error: 'Invite not found.' });
+    }
+    await docRef.update({ used: true, usedAt: new Date() });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error marking invite as used:', err);
+    res.status(500).json({ error: 'Failed to mark invite as used.' });
+  }
+});
 
 export default router;
