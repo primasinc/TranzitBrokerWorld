@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, getDoc, getDocs } from 'firebase/firestore';
 import { db, auth } from '../../firebase';
 import styles from './MyLoads.module.css';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -28,6 +28,7 @@ interface Load {
   dimensions: string;
   createdAt: Date;
   updatedAt: Date;
+  poNumber?: string;
 }
 
 const MyLoads: React.FC = () => {
@@ -116,6 +117,36 @@ const MyLoads: React.FC = () => {
         'delivery.status': 'in_progress',
         updatedAt: new Date()
       });
+
+      // --- Update the corresponding shipment for the shipper ---
+      // Get the load to find shipperId and poNumber
+      const loadSnap = await getDoc(loadRef);
+      if (loadSnap.exists()) {
+        const loadData = loadSnap.data();
+        const { shipperId, poNumber } = loadData;
+        if (!poNumber || !shipperId) {
+          console.error('Load is missing poNumber or shipperId. Cannot update shipment.');
+        } else {
+          // Find the shipment with matching shipperId and poNumber
+          const shipmentsQuery = query(
+            collection(db, 'shipments'),
+            where('shipperId', '==', shipperId),
+            where('poNumber', '==', poNumber)
+          );
+          const shipmentsSnap = await getDocs(shipmentsQuery);
+          if (!shipmentsSnap.empty) {
+            const shipmentDoc = shipmentsSnap.docs[0];
+            await updateDoc(doc(db, 'shipments', shipmentDoc.id), {
+              status: 'in_progress',
+              updatedAt: new Date()
+            });
+          } else {
+            console.error(`No shipment found for shipperId=${shipperId} and poNumber=${poNumber}`);
+          }
+        }
+      } else {
+        console.error('Load document not found for id:', id);
+      }
 
       if (!user) return;
       const userDoc = await getDoc(doc(db, 'users', user.uid));
@@ -243,6 +274,12 @@ const MyLoads: React.FC = () => {
                     <label>Shipper:</label>
                     <span>{load.shipper}</span>
                   </div>
+                  {load.poNumber && (
+                    <div className={styles.detail}>
+                      <label>PO Number:</label>
+                      <span>{load.poNumber}</span>
+                    </div>
+                  )}
                   <div className={styles.locationInfo}>
                     <div className={styles.location}>
                       <label>Pickup:</label>

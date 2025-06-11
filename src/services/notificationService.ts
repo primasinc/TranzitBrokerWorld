@@ -1,5 +1,5 @@
 import { db } from '../firebase';
-import { collection, addDoc, serverTimestamp, doc, updateDoc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, updateDoc, getDoc, query, where, getDocs } from 'firebase/firestore';
 
 export interface LoadRequestNotification {
   id?: string;
@@ -32,6 +32,7 @@ export interface LoadRequestNotification {
     weight: number;
     rate: number;
     shipperCompany?: string;
+    poNumber?: string;
   };
   createdAt: any;
   updatedAt: any;
@@ -61,6 +62,7 @@ export const sendLoadRequestToCarrier = async (
 export const updateLoadRequestStatus = async (
   notificationId: string,
   status: LoadRequestNotification['status'],
+  poNumber: string,
   counterOffer?: number
 ) => {
   const notificationRef = doc(db, 'notifications', notificationId);
@@ -92,6 +94,76 @@ export const updateLoadRequestStatus = async (
       // Update the shipping schedule status to 'Active'
       const scheduleRef = doc(db, 'purchaseOrders', notifData.shippingScheduleId);
       await updateDoc(scheduleRef, { status: 'Active' });
+    }
+    // --- Ensure a shipment exists for this PO and shipper ---
+    if (notifData?.shipperId && poNumber) {
+      const shipmentsQuery = query(
+        collection(db, 'shipments'),
+        where('shipperId', '==', notifData.shipperId),
+        where('poNumber', '==', poNumber)
+      );
+      const shipmentsSnap = await getDocs(shipmentsQuery);
+      if (shipmentsSnap.empty) {
+        // Create a new shipment document
+        const shipmentData = {
+          shipperId: notifData.shipperId,
+          poNumber,
+          origin: notifData.loadDetails?.pickupLocation?.address || '',
+          destination: notifData.loadDetails?.deliveryLocation?.address || '',
+          carrier: {
+            id: notifData.carrierId,
+            name: notifData.loadDetails?.shipperCompany || ''
+          },
+          scheduledPickup: notifData.loadDetails?.pickupLocation?.date ? new Date(notifData.loadDetails.pickupLocation.date) : new Date(),
+          scheduledDelivery: notifData.loadDetails?.deliveryLocation?.date ? new Date(notifData.loadDetails.deliveryLocation.date) : new Date(),
+          status: 'in_progress',
+          cost: notifData.loadDetails?.rate || 0,
+          isOnTime: true,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        console.log('[updateLoadRequestStatus] Creating shipment:', shipmentData);
+        if (shipmentData.poNumber && shipmentData.shipperId && shipmentData.carrier.id) {
+          await addDoc(collection(db, 'shipments'), shipmentData);
+          console.log('[updateLoadRequestStatus] Shipment successfully created.');
+        } else {
+          console.error('[updateLoadRequestStatus] Missing required fields for shipment:', shipmentData);
+        }
+      }
+    } else {
+      console.error('[updateLoadRequestStatus] Missing shipperId or poNumber for shipment creation:', { shipperId: notifData?.shipperId, poNumber });
+    }
+    // --- Add load to 'loads' collection for carrier's My Loads ---
+    const loadsRef = collection(db, 'loads');
+    const loadData = {
+      carrierId: notifData.carrierId,
+      shipperId: notifData.shipperId,
+      title: notifData.loadDetails?.shipperCompany || 'Load',
+      shipper: notifData.loadDetails?.shipperCompany || '',
+      pickup: {
+        location: notifData.loadDetails?.pickupLocation?.address || '',
+        time: notifData.loadDetails?.pickupLocation?.date || '',
+        status: 'pending'
+      },
+      delivery: {
+        location: notifData.loadDetails?.deliveryLocation?.address || '',
+        time: notifData.loadDetails?.deliveryLocation?.date || '',
+        status: 'pending'
+      },
+      status: 'active',
+      payment: notifData.loadDetails?.rate || 0,
+      weight: notifData.loadDetails?.weight?.toString() || '',
+      dimensions: `${notifData.loadDetails?.dimensions?.length || ''}x${notifData.loadDetails?.dimensions?.width || ''}x${notifData.loadDetails?.dimensions?.height || ''}`,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      poNumber: poNumber || '',
+    };
+    console.log('[updateLoadRequestStatus] Creating load for carrier:', loadData);
+    if (loadData.carrierId && loadData.shipperId && loadData.poNumber) {
+      await addDoc(loadsRef, loadData);
+      console.log('[updateLoadRequestStatus] Load successfully created for carrier.');
+    } else {
+      console.error('[updateLoadRequestStatus] Missing required fields for load:', loadData);
     }
     // Notify the shipper
     if (notifData?.shipperId) {
@@ -125,30 +197,6 @@ export const updateLoadRequestStatus = async (
         updatedAt: serverTimestamp()
       });
     }
-    // --- Add load to 'loads' collection for carrier's My Loads ---
-    const loadsRef = collection(db, 'loads');
-    await addDoc(loadsRef, {
-      carrierId: notifData.carrierId,
-      shipperId: notifData.shipperId,
-      title: notifData.loadDetails?.shipperCompany || 'Load',
-      shipper: notifData.loadDetails?.shipperCompany || '',
-      pickup: {
-        location: notifData.loadDetails?.pickupLocation?.address || '',
-        time: notifData.loadDetails?.pickupLocation?.date || '',
-        status: 'pending'
-      },
-      delivery: {
-        location: notifData.loadDetails?.deliveryLocation?.address || '',
-        time: notifData.loadDetails?.deliveryLocation?.date || '',
-        status: 'pending'
-      },
-      status: 'active',
-      payment: notifData.loadDetails?.rate || 0,
-      weight: notifData.loadDetails?.weight?.toString() || '',
-      dimensions: `${notifData.loadDetails?.dimensions?.length || ''}x${notifData.loadDetails?.dimensions?.width || ''}x${notifData.loadDetails?.dimensions?.height || ''}`,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
   } else if (status === 'rejected') {
     // Update the shipping schedule status to 'Rejected'
     if (notifData?.shippingScheduleId) {

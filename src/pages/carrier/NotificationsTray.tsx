@@ -29,6 +29,7 @@ interface Notification {
       state: string;
     };
     rate: number;
+    poNumber?: string;
   };
 }
 
@@ -148,7 +149,7 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ onClose }) => {
   const handleAcceptCounterOffer = async () => {
     if (selectedNotification?.id) {
       try {
-        await updateLoadRequestStatus(selectedNotification.id, 'accepted');
+        await updateLoadRequestStatus(selectedNotification.id, 'accepted', selectedNotification.loadDetails?.poNumber || '');
         setShowCounterOfferModal(false);
         // Refresh notifications
         const notificationRef = doc(db, 'notifications', selectedNotification.id);
@@ -166,7 +167,7 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ onClose }) => {
   const handleRejectCounterOffer = async () => {
     if (selectedNotification?.id) {
       try {
-        await updateLoadRequestStatus(selectedNotification.id, 'rejected');
+        await updateLoadRequestStatus(selectedNotification.id, 'rejected', selectedNotification.loadDetails?.poNumber || '');
         setShowCounterOfferModal(false);
         // Refresh notifications
         const notificationRef = doc(db, 'notifications', selectedNotification.id);

@@ -341,7 +341,11 @@ const AvailableLoads: React.FC = () => {
                 <LoadRequestCard
                   key={request.id}
                   notification={request}
-                  onStatusUpdate={() => {}}
+                  onStatusUpdate={(status) => {
+                    if (status === 'accepted') {
+                      navigate('/carrier/my-loads');
+                    }
+                  }}
                 />
               ))
             )}

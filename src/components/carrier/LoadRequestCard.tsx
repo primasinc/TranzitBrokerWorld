@@ -33,6 +33,7 @@ interface LoadRequestNotification {
     weight: number;
     rate: number;
     shipperCompany?: string;
+    poNumber?: string;
   };
   createdAt: any;
   updatedAt: any;
@@ -50,7 +51,7 @@ const LoadRequestCard: React.FC<LoadRequestCardProps> = ({ notification, onStatu
   const handleAction = async (action: LoadRequestNotification['status']) => {
     try {
       setIsSubmitting(true);
-      await updateLoadRequestStatus(notification.id!, action);
+      await updateLoadRequestStatus(notification.id!, action, notification.loadDetails.poNumber || '');
       onStatusUpdate(action);
     } catch (error) {
       console.error('Error updating load request status:', error);
@@ -63,7 +64,7 @@ const LoadRequestCard: React.FC<LoadRequestCardProps> = ({ notification, onStatu
   const handleCounterOffer = async () => {
     try {
       setIsSubmitting(true);
-      await updateLoadRequestStatus(notification.id!, 'counter_offer', counterOffer);
+      await updateLoadRequestStatus(notification.id!, 'counter_offer', notification.loadDetails.poNumber || '', counterOffer);
       onStatusUpdate('counter_offer');
     } catch (error) {
       console.error('Error submitting counter offer:', error);
@@ -110,6 +111,14 @@ const LoadRequestCard: React.FC<LoadRequestCardProps> = ({ notification, onStatu
           <p>Dimensions: {notification.loadDetails.dimensions.length}L x {notification.loadDetails.dimensions.width}W x {notification.loadDetails.dimensions.height}H</p>
           <p>Rate: ${notification.loadDetails.rate}</p>
         </div>
+
+        {/* Show PO Number if present */}
+        {notification.loadDetails.poNumber && (
+          <div className={styles.section}>
+            <h4>PO Number</h4>
+            <p>{notification.loadDetails.poNumber}</p>
+          </div>
+        )}
       </div>
 
       {notification.status === 'pending' && (

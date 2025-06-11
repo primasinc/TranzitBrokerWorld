@@ -76,13 +76,12 @@ export const createCarrier = async (
   }
 };
 
-export const getCarrier = async (carrierId: string): Promise<CarrierProfile | null> => {
+export const getCarrier = async (carrierId: string): Promise<any | null> => {
   try {
-    const carrierRef = doc(db, CARRIERS_COLLECTION, carrierId);
+    const carrierRef = doc(db, 'users', carrierId);
     const carrierSnap = await getDoc(carrierRef);
-    
     if (carrierSnap.exists()) {
-      return carrierSnap.data() as CarrierProfile;
+      return carrierSnap.data();
     }
     return null;
   } catch (error) {

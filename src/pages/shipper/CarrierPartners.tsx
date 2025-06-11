@@ -211,7 +211,8 @@ const CarrierPartners: React.FC = () => {
               dimensions,
               weight,
               rate,
-              shipperCompany
+              shipperCompany,
+              poNumber: locationState.poData.poNumber || orderData.poNumber || ''
             }
           );
         }
