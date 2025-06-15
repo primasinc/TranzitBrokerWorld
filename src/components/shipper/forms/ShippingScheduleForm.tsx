@@ -4,6 +4,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import styles from './ShippingScheduleForm.module.css';
 import { sendLoadRequestToCarrier } from '../../../services/notificationService';
 import { useAuth } from '../../../contexts/AuthContext';
+import { db } from '../../../firebase';
+import { addDoc, collection, getDocs, query, where, updateDoc, doc } from 'firebase/firestore';
 
 interface ShippingScheduleFormData {
   pickupLocation: {
@@ -166,6 +168,24 @@ const ShippingScheduleForm: React.FC = () => {
         };
       }
       
+      // Geocode pickup address to get coordinates
+      const pickupAddress = `${data.pickupLocation.address}, ${data.pickupLocation.city}, ${data.pickupLocation.state} ${data.pickupLocation.zipCode}`;
+      let pickupPosition: [number, number] = [0, 0];
+      try {
+        const accessToken = process.env.REACT_APP_MAPBOX_TOKEN;
+        const response = await fetch(
+          `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(pickupAddress)}.json?access_token=${accessToken}`
+        );
+        const geoData = await response.json();
+        if (geoData.features && geoData.features.length > 0) {
+          pickupPosition = geoData.features[0].center;
+        }
+      } catch (err) {
+        console.warn('Geocoding failed for pickup address:', pickupAddress, err);
+      }
+      // Attach position to pickupLocation
+      (data.pickupLocation as any).position = pickupPosition;
+
       // Save the shipping schedule data
       const response = await fetch('/api/shipping-schedules', {
         method: 'POST',
@@ -203,8 +223,42 @@ const ShippingScheduleForm: React.FC = () => {
         );
       }
 
+      // After creating the shipping schedule, update the PO status
+      if (locationState?.poData?.poNumber) {
+        const q = query(collection(db, 'purchaseOrders'), where('poNumber', '==', locationState.poData.poNumber));
+        const snapshot = await getDocs(q);
+        snapshot.forEach(async (poDoc) => {
+          // If marketplace, set to 'Processing', else 'Active'
+          const newStatus = selectedOption === 'marketplace' ? 'Processing' : 'Active';
+          await updateDoc(doc(db, 'purchaseOrders', poDoc.id), { status: newStatus });
+        });
+      }
+
       // Navigate based on the selected option
       if (selectedOption === 'marketplace') {
+        // Create a load in the 'loads' collection for carriers
+        const poData = locationState?.poData || {};
+        const pickupLocation = {
+          ...data.pickupLocation,
+          position: poData.vendorInfo?.position || [0, 0], // Use real geocode if available
+        };
+        const deliveryLocation = {
+          ...data.deliveryLocation,
+          position: poData.shipTo?.position || [0, 0], // Use real geocode if available
+        };
+        const loadDoc = {
+          title: poData.title || poData.poNumber || 'Marketplace Load',
+          pickupLocation,
+          deliveryLocation,
+          rate: poData.rate || 0,
+          status: 'open',
+          poNumber: poData.poNumber || '',
+          weight: data.cargoDetails.weight,
+          dimensions: data.cargoDetails.dimensions,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        await addDoc(collection(db, 'loads'), loadDoc);
         navigate('/shipper/loads');
       } else {
         // After creating shipping schedule, navigate to the schedule view

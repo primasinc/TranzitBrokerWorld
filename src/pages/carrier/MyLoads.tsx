@@ -68,8 +68,12 @@ const MyLoads: React.FC = () => {
         const loadsData = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate(),
-          updatedAt: doc.data().updatedAt?.toDate(),
+          createdAt: doc.data().createdAt && typeof doc.data().createdAt.toDate === 'function'
+            ? doc.data().createdAt.toDate()
+            : doc.data().createdAt,
+          updatedAt: doc.data().updatedAt && typeof doc.data().updatedAt.toDate === 'function'
+            ? doc.data().updatedAt.toDate()
+            : doc.data().updatedAt,
         })) as Load[];
         setLoads(loadsData);
         setLoading(false);
@@ -283,18 +287,18 @@ const MyLoads: React.FC = () => {
                   <div className={styles.locationInfo}>
                     <div className={styles.location}>
                       <label>Pickup:</label>
-                      <span>{load.pickup.location}</span>
-                      <span>{load.pickup.time}</span>
-                      <span className={getStatusColor(load.pickup.status)}>
-                        {load.pickup.status}
+                      <span>{load.pickup && load.pickup.location ? load.pickup.location : ''}</span>
+                      <span>{load.pickup && load.pickup.time ? load.pickup.time : ''}</span>
+                      <span className={getStatusColor(load.pickup && load.pickup.status ? load.pickup.status : '')}>
+                        {load.pickup && load.pickup.status ? load.pickup.status : ''}
                       </span>
                     </div>
                     <div className={styles.location}>
                       <label>Delivery:</label>
-                      <span>{load.delivery.location}</span>
-                      <span>{load.delivery.time}</span>
-                      <span className={getStatusColor(load.delivery.status)}>
-                        {load.delivery.status}
+                      <span>{load.delivery && load.delivery.location ? load.delivery.location : ''}</span>
+                      <span>{load.delivery && load.delivery.time ? load.delivery.time : ''}</span>
+                      <span className={getStatusColor(load.delivery && load.delivery.status ? load.delivery.status : '')}>
+                        {load.delivery && load.delivery.status ? load.delivery.status : ''}
                       </span>
                     </div>
                   </div>

@@ -106,11 +106,12 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
       tax,
       total,
       carrierOption: selectedOption,
-      rate: selectedOption === 'carrier' ? parseFloat(carrierRate) : null,
-      status: 'Processing',
+      rate: parseFloat(carrierRate) || 0,
+      status: selectedOption ? 'Active' : 'Processing',
+      shippingScheduleStatus: selectedOption ? 'Active' : 'Open',
       createdAt: new Date().toISOString(),
       date,
-      poNumber
+      poNumber: poNumber || ''
     };
 
     // Save to Firestore
@@ -135,7 +136,7 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
       // Submit to marketplace and create shipping schedule, then go to dashboard
       onSubmit({
         ...formData,
-        shippingScheduleStatus: 'open'
+        shippingScheduleStatus: 'Open'
       });
       navigate('/shipper/orders');
     }

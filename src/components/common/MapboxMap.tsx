@@ -91,6 +91,18 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
   const createMarkerElement = (marker: MapMarker) => {
     const el = document.createElement('div');
     el.className = styles.marker;
+    el.style.cursor = 'pointer'; // Add pointer cursor for better UX
+
+    // Add colored circle if specified
+    if (marker.icon === 'circle') {
+      el.style.width = '22px';
+      el.style.height = '22px';
+      el.style.background = '#4285F4';
+      el.style.borderRadius = '50%';
+      el.style.border = '2px solid #fff';
+      el.style.boxShadow = '0 2px 8px rgba(66,133,244,0.18)';
+      el.style.display = 'block';
+    }
 
     // Add truck icon if specified
     if (marker.icon === 'truck') {
@@ -127,6 +139,15 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
     // Update or add markers
     allMarkers.forEach(marker => {
       const el = createMarkerElement(marker);
+      // Always remove previous click event listeners
+      el.onclick = null;
+      if (marker.onClick) {
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          console.log('Marker clicked:', marker.id);
+          marker.onClick && marker.onClick();
+        });
+      }
 
       if (markersRef.current[marker.id]) {
         // Update existing marker

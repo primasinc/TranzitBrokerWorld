@@ -6,16 +6,10 @@ import { collection, getDocs, doc, updateDoc, deleteDoc, query, where } from 'fi
 import { PurchaseOrderForm } from '../../components/shipper/forms/PurchaseOrderForm';
 
 enum PurchaseOrderStatus {
-  DRAFT = 'Draft',
-  PENDING_APPROVAL = 'Pending Approval',
-  APPROVED = 'Approved',
   PROCESSING = 'Processing',
-  PARTIALLY_SHIPPED = 'Partially Shipped',
-  SHIPPED = 'Shipped',
-  DELIVERED = 'Delivered',
+  ACTIVE = 'Active',
   COMPLETED = 'Completed',
-  CANCELLED = 'Cancelled',
-  ON_HOLD = 'On Hold'
+  CANCELLED = 'Cancelled'
 }
 
 interface PurchaseOrder {
@@ -98,6 +92,13 @@ const PurchaseOrders: React.FC = () => {
       }
     });
     await Promise.all(batchDeletes);
+    // Delete from loads collection (cleanup orphaned loads)
+    const loadsSnapshot = await getDocs(query(collection(db, 'loads'), where('poNumber', '==', poNumber)));
+    const loadDeletes: Promise<any>[] = [];
+    loadsSnapshot.forEach(loadDoc => {
+      loadDeletes.push(deleteDoc(doc(db, 'loads', loadDoc.id)));
+    });
+    await Promise.all(loadDeletes);
     setOrders(orders => orders.filter(o => o.id !== id && o.poNumber !== poNumber));
     setConfirmDeleteId(null);
   };
@@ -130,16 +131,10 @@ const PurchaseOrders: React.FC = () => {
             onChange={(e) => setFilterStatus(e.target.value)}
           >
             <option value="all">All Status</option>
-            <option value={PurchaseOrderStatus.DRAFT}>Draft</option>
-            <option value={PurchaseOrderStatus.PENDING_APPROVAL}>Pending Approval</option>
-            <option value={PurchaseOrderStatus.APPROVED}>Approved</option>
             <option value={PurchaseOrderStatus.PROCESSING}>Processing</option>
-            <option value={PurchaseOrderStatus.PARTIALLY_SHIPPED}>Partially Shipped</option>
-            <option value={PurchaseOrderStatus.SHIPPED}>Shipped</option>
-            <option value={PurchaseOrderStatus.DELIVERED}>Delivered</option>
+            <option value={PurchaseOrderStatus.ACTIVE}>Active</option>
             <option value={PurchaseOrderStatus.COMPLETED}>Completed</option>
             <option value={PurchaseOrderStatus.CANCELLED}>Cancelled</option>
-            <option value={PurchaseOrderStatus.ON_HOLD}>On Hold</option>
           </select>
         </div>
       </div>
@@ -168,7 +163,7 @@ const PurchaseOrders: React.FC = () => {
                 <td>{order.vendorInfo?.name}</td>
                 <td>{order.companyInfo?.name}</td>
                 <td>{order.shipTo?.name}</td>
-                <td>${(order.amount ?? 0).toFixed(2)}</td>
+                <td>${(order.rate ? order.rate : 0).toFixed(2)}</td>
                 <td>
                   <span className={`${styles.status} ${styles[order.status.toLowerCase()]}`}>
                     {order.status}

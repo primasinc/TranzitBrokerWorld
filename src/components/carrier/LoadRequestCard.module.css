@@ -152,4 +152,24 @@
   color: #666;
   background: #f8f9fa;
   border-radius: 4px;
+}
+
+.logMessage {
+  padding: 10px;
+  margin-top: 15px;
+  text-align: left;
+  font-size: 0.9rem;
+  background: #f8f9fa;
+  border-radius: 4px;
+  border-left: 4px solid;
+}
+
+.logMessage.error {
+  border-left-color: #f44336;
+  background: #ffebee;
+}
+
+.logMessage.success {
+  border-left-color: #4CAF50;
+  background: #e8f5e9;
 } 

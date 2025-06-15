@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styles from './DriverUpdates.module.css';
 import { getCarrier } from '../../services/carrierService';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where, getDoc, doc } from 'firebase/firestore';
 import { db, auth } from '../../config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Timestamp } from 'firebase/firestore';
@@ -59,8 +59,23 @@ const DriverUpdates: React.FC = () => {
             where('status', 'in', ['in_transit', 'in_progress', 'delayed'])
           );
           const snapshot = await getDocs(shipmentsQuery);
-          const updatesList: DriverUpdate[] = snapshot.docs.map(doc => {
-            const data = doc.data();
+          
+          // Fetch all loads for these shipments
+          const loadsQuery = query(
+            collection(db, 'loads'),
+            where('shipperId', '==', user.uid)
+          );
+          const loadsSnapshot = await getDocs(loadsQuery);
+          const loadsMap = new Map();
+          loadsSnapshot.forEach(doc => {
+            const load = doc.data();
+            loadsMap.set(load.poNumber, load);
+          });
+
+          const updatesList: DriverUpdate[] = await Promise.all(snapshot.docs.map(async shipmentDoc => {
+            const data = shipmentDoc.data();
+            const load = loadsMap.get(data.poNumber);
+            
             // Determine status for display
             let status = 'N/A';
             if (data.status === 'in_transit' || data.status === 'in_progress') {
@@ -70,21 +85,36 @@ const DriverUpdates: React.FC = () => {
             } else if (data.status) {
               status = data.status;
             }
+
+            // Get carrier details if available
+            let carrierName = 'N/A';
+            let carrierId = data.carrier?.id;
+            if (load?.carrierId) {
+              const carrierDocSnap = await getDoc(doc(db, 'carriers', load.carrierId));
+              if (carrierDocSnap.exists()) {
+                const carrierData: any = carrierDocSnap.data();
+                carrierName = carrierData.companyName || 'N/A';
+                carrierId = load.carrierId;
+              }
+            }
+
             return {
-              driverId: data.carrier?.id || doc.id,
-              driverName: data.carrier?.name || 'N/A',
-              location: data.origin || 'N/A', // Use origin as location for now
+              driverId: carrierId || shipmentDoc.id,
+              driverName: carrierName,
+              location: data.origin || 'N/A',
               status,
               lastUpdate: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toLocaleString() : 'N/A',
               eta: 'N/A', // Placeholder for ETA logic
               load: data.poNumber || 'N/A',
-              carrierId: data.carrier?.id || undefined,
+              carrierId: carrierId,
               pickupCoords: data.pickupCoords,
               deliveryCoords: data.deliveryCoords,
             };
-          });
+          }));
+
           setUpdates(updatesList);
         } catch (error) {
+          console.error('Error fetching driver updates:', error);
           setUpdates([]);
         } finally {
           setLoading(false);

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom';
 // import { LoadScript } from '@react-google-maps/api';
 // import Layout from './components/Layout';
@@ -58,6 +58,69 @@ const ViewProfileWrapper = () => {
   return <ViewProfile id={id || ''} />;
 };
 
+// Global LocationEnforcer wrapper
+function LocationEnforcer({ children }: { children: React.ReactNode }) {
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [locationGranted, setLocationGranted] = useState(false);
+
+  useEffect(() => {
+    let watchId: number | null = null;
+    function requestLocation() {
+      setLocationError(null);
+      if (navigator.geolocation) {
+        watchId = navigator.geolocation.watchPosition(
+          (position) => {
+            setLocationGranted(true);
+            setLocationError(null);
+          },
+          (error) => {
+            setLocationGranted(false);
+            setLocationError('Location access is required to use this app. Please enable location services and reload.');
+          },
+          { enableHighAccuracy: true }
+        );
+      } else {
+        setLocationGranted(false);
+        setLocationError('Geolocation is not supported by your browser.');
+      }
+    }
+    requestLocation();
+    return () => {
+      if (watchId !== null && navigator.geolocation.clearWatch) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
+  }, []);
+
+  if (locationError || !locationGranted) {
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        background: 'rgba(255,255,255,0.98)',
+        zIndex: 9999,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+        <h2>Location Required</h2>
+        <p>{locationError || 'Location access is required to use this app.'}</p>
+        <button
+          style={{ padding: '12px 24px', fontSize: 18, marginTop: 24 }}
+          onClick={() => window.location.reload()}
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+  return <>{children}</>;
+}
+
 function App() {
   return (
     <AuthProvider>
@@ -74,7 +137,7 @@ function App() {
               <Route path="/test-konexial" element={<TestKonexial />} />
 
               {/* Carrier Routes */}
-              <Route path="/carrier" element={<CarrierLayout />}>
+              <Route path="/carrier" element={<LocationEnforcer><CarrierLayout /></LocationEnforcer>}>
                 <Route index element={<Navigate to="home" />} />
                 <Route path="home" element={<HomeFeed />} />
                 <Route path="available-loads" element={<AvailableLoads />} />
@@ -89,7 +152,7 @@ function App() {
               </Route>
 
               {/* Shipper Routes */}
-              <Route path="/shipper" element={<ShipperLayout />}>
+              <Route path="/shipper" element={<LocationEnforcer><ShipperLayout /></LocationEnforcer>}>
                 <Route index element={<Navigate to="dashboard" />} />
                 <Route path="dashboard" element={<ShipperDashboard />} />
                 <Route path="loads" element={<LoadsOverview />} />

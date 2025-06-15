@@ -72,7 +72,6 @@ const ShipperDashboard: React.FC = () => {
   const [userLocation, setUserLocation] = useState<[number, number]>([-87.6298, 41.8781]); // Chicago coordinates
   const [metrics, setMetrics] = useState({
     activeShipments: 0,
-    delayedShipments: 0,
     onTimeDelivery: 0,
     averageCost: 0
   });
@@ -83,6 +82,7 @@ const ShipperDashboard: React.FC = () => {
   const [showAvailableCarriers, setShowAvailableCarriers] = useState(false);
   const [searchInput, setSearchInput] = useState('');
   const [isGeocoding, setIsGeocoding] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
   // Mock shipments data
   const mockShipments: Shipment[] = [
@@ -254,14 +254,11 @@ const ShipperDashboard: React.FC = () => {
     }
   };
 
-  const delayedShipmentsCount = shipments.filter(s => s.status === 'Delayed').length;
-
   // Calculate metrics based on shipments from context (shipping schedule)
   useEffect(() => {
     if (!shipments || shipments.length === 0) {
       setMetrics({
         activeShipments: 0,
-        delayedShipments: 0,
         onTimeDelivery: 0,
         averageCost: 0
       });
@@ -270,7 +267,6 @@ const ShipperDashboard: React.FC = () => {
 
     // Active shipments: not completed or cancelled
     const activeShipments = shipments.filter(s => s.status === 'Active').length;
-    const delayedShipments = shipments.filter(s => s.status === 'Delayed').length;
     // On-time delivery: completed and not delayed (customize as needed)
     const completedShipments = shipments.filter(s => s.status === 'Completed');
     const onTimeDeliveries = completedShipments.length; // Adjust if you have a flag for on-time
@@ -281,7 +277,6 @@ const ShipperDashboard: React.FC = () => {
 
     setMetrics({
       activeShipments,
-      delayedShipments,
       onTimeDelivery,
       averageCost
     });
@@ -313,27 +308,60 @@ const ShipperDashboard: React.FC = () => {
     fetchCarriers();
   }, [showAvailableCarriers]);
 
-  // Add real-time geolocation tracking for shipper user
+  // Prompt for geolocation immediately and block UI if denied
   useEffect(() => {
     let watchId: number | null = null;
-    if (navigator.geolocation) {
-      watchId = navigator.geolocation.watchPosition(
-        (position) => {
-          setUserLocation([position.coords.longitude, position.coords.latitude]);
-        },
-        (error) => {
-          console.warn('Geolocation error:', error);
-          // Optionally, show a message to the user
-        },
-        { enableHighAccuracy: true }
-      );
+    function requestLocation() {
+      setLocationError(null);
+      if (navigator.geolocation) {
+        watchId = navigator.geolocation.watchPosition(
+          (position) => {
+            setUserLocation([position.coords.longitude, position.coords.latitude]);
+            setLocationError(null);
+          },
+          (error) => {
+            setLocationError('Location access is required to use this app. Please enable location services and reload.');
+          },
+          { enableHighAccuracy: true }
+        );
+      } else {
+        setLocationError('Geolocation is not supported by your browser.');
+      }
     }
+    requestLocation();
     return () => {
       if (watchId !== null && navigator.geolocation.clearWatch) {
         navigator.geolocation.clearWatch(watchId);
       }
     };
   }, []);
+
+  if (locationError) {
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        background: 'rgba(255,255,255,0.98)',
+        zIndex: 9999,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+        <h2>Location Required</h2>
+        <p>{locationError}</p>
+        <button
+          style={{ padding: '12px 24px', fontSize: 18, marginTop: 24 }}
+          onClick={() => window.location.reload()}
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   // Function to geocode address using Mapbox
   const handleAddressSearch = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -382,15 +410,6 @@ const ShipperDashboard: React.FC = () => {
         >
           <h3>Active Shipments</h3>
           <div className={styles.metricValue}>{shipments.length}</div>
-        </div>
-        <div 
-          className={`${styles.metricCard} ${styles.clickable}`}
-          onClick={() => handleMetricClick('delayed')}
-          role="button"
-          tabIndex={0}
-        >
-          <h3>Delayed Shipments</h3>
-          <div className={styles.metricValue}>{delayedShipmentsCount}</div>
         </div>
         <div className={styles.metricCard}>
           <h3>On-Time Delivery</h3>
@@ -535,40 +554,38 @@ const ShipperDashboard: React.FC = () => {
           <div className={styles.shipmentList}>
             {showActiveShipments ? (
               // Show active shipments list from real data, omitting cancelled
-              shipments
-                .filter(shipment => shipment.status !== 'Cancelled')
-                .map(shipment => (
-                  <div key={shipment.id} className={styles.shipmentCard}>
-                    <div className={styles.shipmentHeader}>
-                      <h3>{shipment.carrier}</h3>
-                      <span className={`${styles.status} ${styles[shipment.status.toLowerCase()]}`}>
-                        {shipment.status}
-                      </span>
+              shipments.map(shipment => (
+                <div key={shipment.id} className={styles.shipmentCard}>
+                  <div className={styles.shipmentHeader}>
+                    <h3>{shipment.carrier}</h3>
+                    <span className={`${styles.status} ${styles[shipment.status.toLowerCase()]}`}>
+                      {shipment.status}
+                    </span>
+                  </div>
+                  <div className={styles.shipmentDetails}>
+                    <div>
+                      <label>Type:</label>
+                      <span>{shipment.type}</span>
                     </div>
-                    <div className={styles.shipmentDetails}>
-                      <div>
-                        <label>Type:</label>
-                        <span>{shipment.type}</span>
-                      </div>
-                      <div>
-                        <label>Carrier:</label>
-                        <span>{shipment.carrier}</span>
-                      </div>
-                      <div>
-                        <label>Date:</label>
-                        <span>{shipment.date}</span>
-                      </div>
-                      <div>
-                        <label>Cost:</label>
-                        <span>${shipment.cost}</span>
-                      </div>
-                      <div>
-                        <label>PO Number:</label>
-                        <span>{shipment.poNumber}</span>
-                      </div>
+                    <div>
+                      <label>Carrier:</label>
+                      <span>{shipment.carrier}</span>
+                    </div>
+                    <div>
+                      <label>Date:</label>
+                      <span>{shipment.date}</span>
+                    </div>
+                    <div>
+                      <label>Cost:</label>
+                      <span>${shipment.cost}</span>
+                    </div>
+                    <div>
+                      <label>PO Number:</label>
+                      <span>{shipment.poNumber}</span>
                     </div>
                   </div>
-                ))
+                </div>
+              ))
             ) : (
               // Show available carriers list
               availableCarriers.map(carrier => (

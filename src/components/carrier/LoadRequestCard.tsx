@@ -47,14 +47,17 @@ interface LoadRequestCardProps {
 const LoadRequestCard: React.FC<LoadRequestCardProps> = ({ notification, onStatusUpdate }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [counterOffer, setCounterOffer] = useState(notification.loadDetails.rate);
+  const [logMessage, setLogMessage] = useState<string | null>(null);
 
   const handleAction = async (action: LoadRequestNotification['status']) => {
     try {
       setIsSubmitting(true);
       await updateLoadRequestStatus(notification.id!, action, notification.loadDetails.poNumber || '');
       onStatusUpdate(action);
+      setLogMessage(`Action: ${action} submitted successfully.`);
     } catch (error) {
       console.error('Error updating load request status:', error);
+      setLogMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
       // TODO: Show error message to user
     } finally {
       setIsSubmitting(false);
@@ -66,8 +69,10 @@ const LoadRequestCard: React.FC<LoadRequestCardProps> = ({ notification, onStatu
       setIsSubmitting(true);
       await updateLoadRequestStatus(notification.id!, 'counter_offer', notification.loadDetails.poNumber || '', counterOffer);
       onStatusUpdate('counter_offer');
+      setLogMessage(`Counter offer of $${counterOffer} submitted successfully.`);
     } catch (error) {
       console.error('Error submitting counter offer:', error);
+      setLogMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
       // TODO: Show error message to user
     } finally {
       setIsSubmitting(false);
@@ -162,6 +167,13 @@ const LoadRequestCard: React.FC<LoadRequestCardProps> = ({ notification, onStatu
           {notification.status === 'accepted' && 'You have accepted this load'}
           {notification.status === 'rejected' && 'You have rejected this load'}
           {notification.status === 'counter_offer' && 'You have made a counter offer'}
+        </div>
+      )}
+
+      {/* Log message area */}
+      {logMessage && (
+        <div className={`${styles.logMessage} ${logMessage.startsWith('Error') ? styles.error : styles.success}`}>
+          {logMessage}
         </div>
       )}
     </div>

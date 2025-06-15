@@ -41,6 +41,7 @@ const HomeFeed: React.FC = () => {
   const [partnerLoading, setPartnerLoading] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
   const unreadCount = useUnreadNotifications();
+  const [locationError, setLocationError] = useState<string | null>(null);
 
   const { loads: availableLoads, loading: loadsLoading, error: loadsError } = useAvailableLoads(userLocation, radiusMiles);
 
@@ -62,6 +63,34 @@ const HomeFeed: React.FC = () => {
     });
     return () => unsubscribe();
   }, [user]);
+
+  // Prompt for geolocation immediately and block UI if denied
+  useEffect(() => {
+    let watchId: number | null = null;
+    function requestLocation() {
+      setLocationError(null);
+      if (navigator.geolocation) {
+        watchId = navigator.geolocation.watchPosition(
+          (position) => {
+            setUserLocation([position.coords.longitude, position.coords.latitude]);
+            setLocationError(null);
+          },
+          (error) => {
+            setLocationError('Location access is required to use this app. Please enable location services and reload.');
+          },
+          { enableHighAccuracy: true }
+        );
+      } else {
+        setLocationError('Geolocation is not supported by your browser.');
+      }
+    }
+    requestLocation();
+    return () => {
+      if (watchId !== null && navigator.geolocation.clearWatch) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
+  }, []);
 
   const currentLoad = {
     poNumber: 'PO-12345',
@@ -86,6 +115,33 @@ const HomeFeed: React.FC = () => {
   const handleLogout = () => {
     navigate('/login');
   };
+
+  if (locationError) {
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        background: 'rgba(255,255,255,0.98)',
+        zIndex: 9999,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+        <h2>Location Required</h2>
+        <p>{locationError}</p>
+        <button
+          style={{ padding: '12px 24px', fontSize: 18, marginTop: 24 }}
+          onClick={() => window.location.reload()}
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.container}>
@@ -181,7 +237,17 @@ const HomeFeed: React.FC = () => {
 
           {/* Available Loads */}
           <section className={styles.availableLoads}>
-            <h2>Available Loads</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <h2 style={{ margin: 0 }}>Available Loads</h2>
+              {availableLoads.length > 0 && (
+                <a
+                  href="/carrier/available-loads"
+                  style={{ color: '#007bff', textDecoration: 'underline', fontWeight: 500, fontSize: 14 }}
+                >
+                  See all
+                </a>
+              )}
+            </div>
             <div className={styles.viewToggle}>
               <button
                 className={`${styles.toggleButton} ${activeTab === 'MARKETPLACE' ? styles.active : ''}`}
@@ -205,16 +271,19 @@ const HomeFeed: React.FC = () => {
                 ) : availableLoads.length === 0 ? (
                   <div>No available loads in your area.</div>
                 ) : (
-                  availableLoads.map((load) => (
-                    <div key={load.id} className={styles.loadCard}>
-                      <h3>{load.title}</h3>
-                      <p>Pickup: {load.pickupLocation.address}</p>
-                      <p>Delivery: {load.deliveryLocation.address}</p>
-                      <button onClick={() => console.log('View details:', load)}>
-                        View Details
-                      </button>
-                    </div>
-                  ))
+                  availableLoads
+                    .filter(load => load && load.pickupLocation && load.deliveryLocation && load.pickupLocation.address && load.deliveryLocation.address)
+                    .map((load) => (
+                      <div key={load.id} className={styles.loadCard}>
+                        <h3>{load.title}</h3>
+                        <p>Pickup: {load.pickupLocation.address}</p>
+                        <p>Delivery: {load.deliveryLocation.address}</p>
+                        <p>Rate: {load.rate ? `$${load.rate.toLocaleString()}` : '—'}</p>
+                        <button onClick={() => console.log('View details:', load)}>
+                          View Details
+                        </button>
+                      </div>
+                    ))
                 )}
               </div>
             ) : (

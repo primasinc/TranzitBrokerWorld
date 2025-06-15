@@ -14,6 +14,7 @@ export interface AvailableLoad {
     position: [number, number];
   };
   rate?: number;
+  poNumber?: string;
   // Add other fields as needed
 }
 
@@ -47,14 +48,30 @@ export function useAvailableLoads(carrierLocation: [number, number] | null, radi
         if (!snapshot.empty) {
           allLoads = snapshot.docs.map(doc => {
             const data = doc.data();
-            return {
-              id: doc.id,
-              title: data.title,
-              pickupLocation: data.pickupLocation,
-              deliveryLocation: data.deliveryLocation,
-              rate: data.rate,
-            } as AvailableLoad;
-          });
+            // Defensive: Only include loads with valid pickupLocation and deliveryLocation
+            if (
+              data.pickupLocation &&
+              typeof data.pickupLocation.address === 'string' &&
+              Array.isArray(data.pickupLocation.position) &&
+              data.pickupLocation.position.length === 2 &&
+              data.deliveryLocation &&
+              typeof data.deliveryLocation.address === 'string' &&
+              Array.isArray(data.deliveryLocation.position) &&
+              data.deliveryLocation.position.length === 2
+            ) {
+              return {
+                id: doc.id,
+                title: data.title,
+                pickupLocation: data.pickupLocation,
+                deliveryLocation: data.deliveryLocation,
+                rate: typeof data.rate === 'number' ? data.rate : 0,
+                poNumber: data.poNumber || '',
+              } as AvailableLoad;
+            } else {
+              console.warn('Skipping malformed load:', doc.id, data);
+              return null;
+            }
+          }).filter((l): l is AvailableLoad => l !== null);
         } else {
           // Fallback to sample data if Firestore is empty
           allLoads = [
@@ -94,6 +111,17 @@ export function useAvailableLoads(carrierLocation: [number, number] | null, radi
             return dist <= radiusMiles;
           });
         }
+        // Filter by valid purchase orders
+        const poSnapshot = await getDocs(collection(db, 'purchaseOrders'));
+        const validPoNumbers = new Set<string>();
+        poSnapshot.forEach(poDoc => {
+          const poData = poDoc.data();
+          const status = (poData.status || '').toLowerCase();
+          if (status !== 'cancelled') {
+            validPoNumbers.add(poData.poNumber);
+          }
+        });
+        filtered = filtered.filter(load => load.poNumber && validPoNumbers.has(load.poNumber));
         if (isMounted) setLoads(filtered);
       } catch (err: any) {
         if (isMounted) setError(err.message || 'Failed to fetch loads');
