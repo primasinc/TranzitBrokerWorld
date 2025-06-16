@@ -72,10 +72,31 @@ const DriverUpdates: React.FC = () => {
             loadsMap.set(load.poNumber, load);
           });
 
-          const updatesList: DriverUpdate[] = await Promise.all(snapshot.docs.map(async shipmentDoc => {
+          // Explicitly type as (DriverUpdate | null)[]
+          const updatesList: (DriverUpdate | null)[] = await Promise.all(snapshot.docs.map(async shipmentDoc => {
             const data = shipmentDoc.data();
             const load = loadsMap.get(data.poNumber);
             
+            // Cross-check purchaseOrder status by poNumber
+            let poStatus = '';
+            if (data.poNumber) {
+              try {
+                const poQuery = query(collection(db, 'purchaseOrders'), where('poNumber', '==', data.poNumber));
+                const poSnap = await getDocs(poQuery);
+                if (poSnap.empty) {
+                  return null; // Skip this update if purchaseOrder does not exist
+                } else {
+                  const poData = poSnap.docs[0].data();
+                  poStatus = (poData.status || poData.shippingScheduleStatus || '').toLowerCase();
+                }
+              } catch (err) {
+                // Ignore errors, fallback to showing
+              }
+            }
+            if (poStatus === 'cancelled' || poStatus === 'completed') {
+              return null; // Skip this update
+            }
+
             // Determine status for display
             let status = 'N/A';
             if (data.status === 'in_transit' || data.status === 'in_progress') {
@@ -112,7 +133,7 @@ const DriverUpdates: React.FC = () => {
             };
           }));
 
-          setUpdates(updatesList);
+          setUpdates(updatesList.filter((u): u is DriverUpdate => Boolean(u)));
         } catch (error) {
           console.error('Error fetching driver updates:', error);
           setUpdates([]);
@@ -158,43 +179,43 @@ const DriverUpdates: React.FC = () => {
         {loading ? (
           <div>Loading...</div>
         ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Driver</th>
-                <th>Location</th>
-                <th>Status</th>
-                <th>Last Update</th>
-                <th>ETA</th>
+        <table>
+          <thead>
+            <tr>
+              <th>Driver</th>
+              <th>Location</th>
+              <th>Status</th>
+              <th>Last Update</th>
+              <th>ETA</th>
                 <th>PO Number</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
               {updates.length === 0 ? (
                 <tr><td colSpan={7} style={{textAlign:'center'}}>No active carrier partners or shipments found.</td></tr>
               ) : (
                 updates.map((update) => (
-                  <tr key={update.driverId}>
-                    <td>{update.driverName}</td>
-                    <td>{update.location}</td>
-                    <td>
-                      <span className={`${styles.status} ${styles[update.status.toLowerCase()]}`}>
-                        {update.status}
-                      </span>
-                    </td>
-                    <td>{update.lastUpdate}</td>
-                    <td>{update.eta}</td>
-                    <td>{update.load}</td>
-                    <td>
+              <tr key={update.driverId}>
+                <td>{update.driverName}</td>
+                <td>{update.location}</td>
+                <td>
+                  <span className={`${styles.status} ${styles[update.status.toLowerCase()]}`}>
+                    {update.status}
+                  </span>
+                </td>
+                <td>{update.lastUpdate}</td>
+                <td>{update.eta}</td>
+                <td>{update.load}</td>
+                <td>
                       <button className={styles.actionButton} onClick={() => handleContactClick(update.carrierId, update.driverName)}>Contact</button>
                       <button className={styles.actionButton} onClick={() => handleViewDetailsClick(update.driverId, update.pickupCoords, update.deliveryCoords)}>View Details</button>
-                    </td>
-                  </tr>
+                </td>
+              </tr>
                 ))
               )}
-            </tbody>
-          </table>
+          </tbody>
+        </table>
         )}
       </div>
 
@@ -219,8 +240,8 @@ const DriverUpdates: React.FC = () => {
             <h2>Driver Route Details</h2>
             {/* Location Info and Progress Bar at the top */}
             <div style={{ marginBottom: 24, width: '100%' }}>
-              <p><strong>Current Location:</strong> {eldDetails.location}</p>
-              <p><strong>Coordinates:</strong> {eldDetails.coordinates[0]}, {eldDetails.coordinates[1]}</p>
+                <p><strong>Current Location:</strong> {eldDetails.location}</p>
+                <p><strong>Coordinates:</strong> {eldDetails.coordinates[0]}, {eldDetails.coordinates[1]}</p>
               {/* Modern Progress Bar */}
               {eldDetails.pickup && eldDetails.delivery && eldDetails.coordinates && (
                 (() => {
@@ -237,10 +258,10 @@ const DriverUpdates: React.FC = () => {
                       <div style={{ width: '100%', height: 18, background: '#e9ecef', borderRadius: 10, overflow: 'hidden', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
                         <div style={{ width: `${percent}%`, height: '100%', background: 'linear-gradient(90deg, #007bff 0%, #00c6ff 100%)', borderRadius: 10, transition: 'width 0.4s' }} />
                       </div>
-                    </div>
+              </div>
                   );
                 })()
-              )}
+            )}
             </div>
             {/* Large Map below */}
             <div className={styles.largeMap}>

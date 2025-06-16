@@ -400,25 +400,26 @@ const Payments: React.FC = () => {
     
     return (
       <div className={styles.actionButtons}>
-        <button 
+        {/* <button 
           className={`${styles.actionButton} ${styles.documentButton}`}
           onClick={() => handleDocuments(payment)}
         >
           Documents
-        </button>
+        </button> */}
         <button 
           className={`${styles.actionButton} ${styles.paymentButton}`}
           onClick={() => handlePaymentRequest(payment)}
           disabled={payment.status === 'Canceled'}
         >
-          Payment Request
+          Shipper Pay
         </button>
         <button 
           className={`${styles.actionButton} ${styles.factorButton}`}
+          style={{ marginLeft: '8px' }}
           onClick={() => handleFactorRequest(payment)}
           disabled={payment.status === 'Canceled'}
         >
-          Factor Request
+          Factor Pay
         </button>
       </div>
     );
@@ -864,7 +865,7 @@ const Payments: React.FC = () => {
             <thead>
               <tr>
                 <th>Invoice #</th>
-                <th>Load ID</th>
+                <th>PO Number</th>
                 <th>Customer</th>
                 <th>Issue Date</th>
                 <th>Due Date</th>
@@ -888,9 +889,9 @@ const Payments: React.FC = () => {
                     </span>
                   </td>
                   <td>
-                    <div className={styles.actions}>
-                      <button className={styles.viewButton}>View</button>
-                      <button className={styles.downloadButton}>Download</button>
+                    <div className={styles.invoiceActions}>
+                      <button className={styles.invoiceViewButton}>View</button>
+                      <button className={styles.invoiceDownloadButton}>Download</button>
                     </div>
                   </td>
                 </tr>

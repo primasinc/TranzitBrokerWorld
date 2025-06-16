@@ -578,4 +578,38 @@
 
 .dropdownMenu button:hover {
   background-color: #f5f5f5;
+}
+
+.invoiceActions {
+  display: flex;
+  gap: 10px;
+}
+
+.invoiceViewButton, .invoiceDownloadButton {
+  padding: 7px 18px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  color: #222;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s, color 0.18s;
+}
+
+.invoiceViewButton:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+.invoiceDownloadButton {
+  border-color: #007bff;
+  color: #007bff;
+}
+
+.invoiceDownloadButton:hover {
+  background: #007bff;
+  border-color: #007bff;
+  color: #fff;
 } 

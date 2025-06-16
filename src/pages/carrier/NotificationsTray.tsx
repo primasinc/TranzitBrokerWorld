@@ -63,28 +63,28 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ onClose }) => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
-          const q = query(
-            collection(db, 'notifications'),
-            where('recipientId', '==', user.uid)
-          );
-          const querySnapshot = await getDocs(q);
-          const notificationList: Notification[] = [];
-          querySnapshot.forEach((doc) => {
-            const data = doc.data();
-            notificationList.push({
-              id: doc.id,
-              type: data.type,
-              senderId: data.senderId,
-              senderName: data.senderName,
-              message: data.message,
-              read: data.read,
-              createdAt: data.createdAt.toDate(),
-              requiresAction: data.requiresAction,
-              loadDetails: data.loadDetails
-            });
+        const q = query(
+          collection(db, 'notifications'),
+          where('recipientId', '==', user.uid)
+        );
+        const querySnapshot = await getDocs(q);
+        const notificationList: Notification[] = [];
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          notificationList.push({
+            id: doc.id,
+            type: data.type,
+            senderId: data.senderId,
+            senderName: data.senderName,
+            message: data.message,
+            read: data.read,
+            createdAt: data.createdAt.toDate(),
+            requiresAction: data.requiresAction,
+            loadDetails: data.loadDetails
           });
-          setNotifications(notificationList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()));
-          setLoading(false);
+        });
+        setNotifications(notificationList.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()));
+        setLoading(false);
           setError(null);
         } catch (err: any) {
           setError('Could not load notifications. Please check your permissions or contact support.');

@@ -120,18 +120,10 @@ const Documents: React.FC = () => {
           >
             Load Documents
           </button>
-          <button className={styles.uploadButton}>
-            Upload New Document
-          </button>
+        <button className={styles.uploadButton}>
+          Upload New Document
+        </button>
         </div>
-      </div>
-
-      <div className={styles.complianceAlert}>
-        <div className={styles.alertHeader}>
-          <h3>📋 Compliance Status</h3>
-          <span className={styles.compliantBadge}>Compliant</span>
-        </div>
-        <p>All required documents are up to date. Next document expiration: Insurance (Dec 31, 2024)</p>
       </div>
 
       <div className={styles.documentGrid}>

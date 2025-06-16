@@ -5,6 +5,7 @@ import { db } from '../../firebase';
 import { collection, getDocs, doc, updateDoc, getDoc, addDoc, serverTimestamp, query, where } from 'firebase/firestore';
 import { useShipments } from '../../context/ShipmentsContext';
 import CarrierProfileCard from '../../components/carrier/CarrierProfileCard';
+import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay, format, parse } from 'date-fns';
 
 interface LocationState {
   filter?: 'active' | 'delayed';
@@ -40,6 +41,7 @@ const ShippingSchedule: React.FC = () => {
   const [reviewOrderId, setReviewOrderId] = useState<string | null>(null);
   const [reviewCarrierId, setReviewCarrierId] = useState<string | null>(null);
   const [reviewLoading, setReviewLoading] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
   // Get filter from navigation state
   useEffect(() => {
@@ -224,6 +226,58 @@ const ShippingSchedule: React.FC = () => {
     refreshShipments();
   };
 
+  // Helper: get all loads for a given date
+  const getLoadsForDate = (date: Date) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    return shipments.filter(s => s.date === dateStr);
+  };
+
+  // Calendar grid logic
+  const renderCalendarGrid = () => {
+    const monthStart = startOfMonth(currentDate);
+    const monthEnd = endOfMonth(monthStart);
+    const startDate = startOfWeek(monthStart, { weekStartsOn: 0 });
+    const endDate = endOfWeek(monthEnd, { weekStartsOn: 0 });
+    const rows = [];
+    let days = [];
+    let day = startDate;
+    let formattedDate = '';
+    while (day <= endDate) {
+      for (let i = 0; i < 7; i++) {
+        formattedDate = format(day, 'd');
+        const fullDate = format(day, 'yyyy-MM-dd');
+        const hasLoads = shipments.some(s => s.date === fullDate);
+        days.push(
+          <td
+            key={day.toString()}
+            className={
+              `${styles.calendarCell} ${!isSameMonth(day, monthStart) ? styles.notCurrentMonth : ''} ` +
+              `${selectedDate && isSameDay(day, selectedDate) ? styles.selectedDate : ''}`
+            }
+            onClick={() => setSelectedDate(parse(fullDate, 'yyyy-MM-dd', new Date()))}
+            style={{ cursor: 'pointer', background: selectedDate && isSameDay(day, selectedDate) ? '#e3f2fd' : hasLoads ? '#e8f5e9' : undefined }}
+          >
+            <div>{formattedDate}</div>
+            {hasLoads && <div className={styles.loadMarker} title="Loads scheduled">●</div>}
+          </td>
+        );
+        day = addDays(day, 1);
+      }
+      rows.push(<tr key={day.toString()}>{days}</tr>);
+      days = [];
+    }
+    return (
+      <table className={styles.calendarTable}>
+        <thead>
+          <tr>
+            <th>Sun</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th>
+          </tr>
+        </thead>
+        <tbody>{rows}</tbody>
+      </table>
+    );
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.header}>
@@ -260,19 +314,57 @@ const ShippingSchedule: React.FC = () => {
 
       {viewType === 'calendar' ? (
         <div className={styles.calendar}>
-          {/* Calendar implementation */}
           <div className={styles.calendarHeader}>
-            <button onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() - 1)))}>
+            <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))}>
               Previous
             </button>
             <h2>{currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</h2>
-            <button onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() + 1)))}>
+            <button onClick={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))}>
               Next
             </button>
           </div>
           <div className={styles.calendarGrid}>
-            {/* Calendar grid implementation */}
+            {renderCalendarGrid()}
           </div>
+          {selectedDate && (
+            <div className={styles.loadsForDay}>
+              <h3>Loads for {format(selectedDate, 'MMMM d, yyyy')}</h3>
+              {getLoadsForDate(selectedDate).length === 0 ? (
+                <div>No loads scheduled for this day.</div>
+              ) : (
+                <table className={styles.loadsTable}>
+                  <thead>
+                    <tr>
+                      <th>PO Number</th>
+                      <th>Pickup</th>
+                      <th>Destination</th>
+                      <th>Carrier</th>
+                      <th>Status</th>
+                      <th>Type</th>
+                      <th>Ship To</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {getLoadsForDate(selectedDate).map(load => (
+                      <tr key={load.id}>
+                        <td>{load.poNumber}</td>
+                        <td>{load.pickup || ''}</td>
+                        <td>{load.destination}</td>
+                        <td>{typeof load.carrier === 'object' ? (load.carrier as any).companyName || (load.carrier as any).id || 'TBD' : load.carrier}</td>
+                        <td>
+                          <span className={styles[load.status.toLowerCase().replace(/\s+/g, '')]}>
+                            {load.status}
+                          </span>
+                        </td>
+                        <td>{load.type}</td>
+                        <td>{load.shipTo}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
         </div>
       ) : (
         <div className={styles.listView}>
@@ -330,7 +422,8 @@ const ShippingSchedule: React.FC = () => {
                         <button className={styles.actionButton} onClick={cancelCancel}>No</button>
                       </div>
                     )}
-                    {schedule.status === 'Carrier Review' && (
+                    {/* Carrier Review button only for marketplace loads in Carrier Pending status */}
+                    {schedule.status === 'Carrier Pending' && schedule.carrier === 'Marketplace' && (
                       <button
                         className={styles.carrierReviewButton}
                         onClick={() => handleCarrierReview(schedule)}

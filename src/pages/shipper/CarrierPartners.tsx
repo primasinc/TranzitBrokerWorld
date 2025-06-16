@@ -166,7 +166,8 @@ const CarrierPartners: React.FC = () => {
       if (!querySnapshot.empty) {
         const orderDoc = querySnapshot.docs[0];
         await updateDoc(doc(db, 'purchaseOrders', orderDoc.id), {
-          status: 'Carrier Pending',
+          status: 'Active',
+          shippingScheduleStatus: 'Carrier Pending',
           selectedCarrier: carrier,
         });
         

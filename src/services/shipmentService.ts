@@ -270,4 +270,36 @@ export const clearShipperData = async (shipperId: string): Promise<boolean> => {
     console.error('Error clearing shipper data:', error);
     return false;
   }
+};
+
+/**
+ * Deletes all shipments with the given poNumber if the corresponding purchaseOrder is completed, cancelled, or missing.
+ * Safe to call after any purchaseOrder status change or deletion.
+ */
+export const cleanupShipmentsForPO = async (poNumber: string) => {
+  try {
+    // Check purchaseOrder status
+    const poQuery = query(collection(db, 'purchaseOrders'), where('poNumber', '==', poNumber));
+    const poSnap = await getDocs(poQuery);
+    let shouldDelete = false;
+    if (poSnap.empty) {
+      // purchaseOrder does not exist
+      shouldDelete = true;
+    } else {
+      const poData = poSnap.docs[0].data();
+      const status = (poData.status || poData.shippingScheduleStatus || '').toLowerCase();
+      if (status === 'completed' || status === 'cancelled') {
+        shouldDelete = true;
+      }
+    }
+    if (shouldDelete) {
+      // Delete all shipments with this poNumber
+      const shipmentsQuery = query(collection(db, 'shipments'), where('poNumber', '==', poNumber));
+      const shipmentsSnap = await getDocs(shipmentsQuery);
+      const deletePromises = shipmentsSnap.docs.map(docSnap => deleteDoc(docSnap.ref));
+      await Promise.all(deletePromises);
+    }
+  } catch (err) {
+    console.error('Error cleaning up shipments for poNumber', poNumber, err);
+  }
 }; 

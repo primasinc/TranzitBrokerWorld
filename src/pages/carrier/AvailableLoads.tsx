@@ -83,6 +83,27 @@ function createGeoJSONCircle(center: [number, number], radiusInMiles: number, po
   };
 }
 
+// Helper to check if a partner request is still valid
+export async function isValidPartnerRequest(request: any): Promise<boolean> {
+  // Check status
+  if (!request.status || request.status !== 'pending') return false;
+  // Check for related PO existence and status
+  if (request.poNumber) {
+    const poSnapshot = await getDocs(query(collection(db, 'purchaseOrders'), where('poNumber', '==', request.poNumber)));
+    if (poSnapshot.empty) return false;
+    const poData = poSnapshot.docs[0].data();
+    if (['cancelled', 'completed'].includes((poData.status || '').toLowerCase())) return false;
+  }
+  // Check for related load existence and status
+  if (request.loadId) {
+    const loadDoc = await getDoc(doc(db, 'loads', request.loadId));
+    if (!loadDoc.exists()) return false;
+    const loadData = loadDoc.data();
+    if (['cancelled', 'completed'].includes((loadData.status || '').toLowerCase())) return false;
+  }
+  return true;
+}
+
 const AvailableLoads: React.FC = () => {
   console.log('AvailableLoads component loaded');
   const [viewType, setViewType] = useState<'map' | 'list'>('map');
@@ -164,17 +185,17 @@ const AvailableLoads: React.FC = () => {
     let watchId: number | null = null;
     function requestLocation() {
       setLocationError(null);
-      if (navigator.geolocation) {
-        watchId = navigator.geolocation.watchPosition(
-          (position) => {
-            setCarrierLocation([position.coords.longitude, position.coords.latitude]);
+    if (navigator.geolocation) {
+      watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          setCarrierLocation([position.coords.longitude, position.coords.latitude]);
             setLocationError(null);
-          },
-          (error) => {
+        },
+        (error) => {
             setLocationError('Location access is required to use this app. Please enable location services and reload.');
-          },
-          { enableHighAccuracy: true }
-        );
+        },
+        { enableHighAccuracy: true }
+      );
       } else {
         setLocationError('Geolocation is not supported by your browser.');
       }
@@ -453,20 +474,10 @@ const AvailableLoads: React.FC = () => {
           <div className={styles.listView}>
             {partnerLoading ? (
               <div>Loading partner requests...</div>
-            ) : partnerRequests.filter(r => r.status === 'pending').length === 0 ? (
-              <div>No partner requests at this time.</div>
             ) : (
-              partnerRequests.filter(r => r.status === 'pending').map((request) => (
-                <LoadRequestCard
-                  key={request.id}
-                  notification={request}
-                  onStatusUpdate={(status) => {
-                    if (status === 'accepted') {
-                      navigate('/carrier/my-loads');
-                    }
-                  }}
-                />
-              ))
+              <React.Suspense fallback={<div>Loading...</div>}>
+                <PartnerRequestsList partnerRequests={partnerRequests} />
+              </React.Suspense>
             )}
           </div>
         )}
@@ -474,5 +485,33 @@ const AvailableLoads: React.FC = () => {
     </div>
   );
 };
+
+function PartnerRequestsList({ partnerRequests }: { partnerRequests: any[] }) {
+  const [validRequests, setValidRequests] = React.useState<any[]>([]);
+  React.useEffect(() => {
+    let isMounted = true;
+    async function filterRequests() {
+      const filtered = [];
+      for (const req of partnerRequests) {
+        if (await isValidPartnerRequest(req)) filtered.push(req);
+      }
+      if (isMounted) setValidRequests(filtered);
+    }
+    filterRequests();
+    return () => { isMounted = false; };
+  }, [partnerRequests]);
+  if (validRequests.length === 0) return <div>No partner requests at this time.</div>;
+  return (
+    <>
+      {validRequests.map((request) => (
+        <LoadRequestCard
+          key={request.id}
+          notification={request}
+          onStatusUpdate={() => {}}
+        />
+      ))}
+    </>
+  );
+}
 
 export default AvailableLoads;

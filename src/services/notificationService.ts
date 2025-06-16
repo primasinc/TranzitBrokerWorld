@@ -201,20 +201,20 @@ export const updateLoadRequestStatus = async (
       });
     }
   } else if (status === 'rejected') {
-    // Update the shipping schedule status to 'Cancelled'
-    let cancelRef = null;
+    // Update the shipping schedule status to 'Open' (not Cancelled)
+    let openRef = null;
     if (poNumber) {
       const poSnapshot = await getDocs(query(collection(db, 'purchaseOrders'), where('poNumber', '==', poNumber)));
       if (!poSnapshot.empty) {
-        cancelRef = doc(db, 'purchaseOrders', poSnapshot.docs[0].id);
+        openRef = doc(db, 'purchaseOrders', poSnapshot.docs[0].id);
       }
     }
-    if (cancelRef) {
+    if (openRef) {
       try {
-        await updateDoc(cancelRef, { status: 'Cancelled', shippingScheduleStatus: 'Cancelled' });
-        console.log('[updateLoadRequestStatus] Cancelled PO for poNumber:', poNumber);
+        await updateDoc(openRef, { status: 'Open', shippingScheduleStatus: 'Open' });
+        console.log('[updateLoadRequestStatus] Set PO to Open for poNumber:', poNumber);
       } catch (err) {
-        console.error('[updateLoadRequestStatus] Error cancelling PO:', err);
+        console.error('[updateLoadRequestStatus] Error setting PO to Open:', err);
       }
     }
     // Notify the shipper of rejection

@@ -40,6 +40,7 @@ const MyLoads: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
@@ -87,7 +88,16 @@ const MyLoads: React.FC = () => {
     return () => unsubscribe();
   }, [authLoading, user]);
 
-  const filteredLoads = loads.filter(load => load.status === activeTab);
+  const filteredLoads = loads.filter(load => load.status === activeTab).filter(load => {
+    if (!searchTerm) return true;
+    const term = searchTerm.toLowerCase();
+    return (
+      (load.poNumber && load.poNumber.toLowerCase().includes(term)) ||
+      (load.shipper && load.shipper.toLowerCase().includes(term)) ||
+      (load.pickup?.location && load.pickup.location.toLowerCase().includes(term)) ||
+      (load.delivery?.location && load.delivery.location.toLowerCase().includes(term))
+    );
+  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -246,6 +256,15 @@ const MyLoads: React.FC = () => {
             Completed
           </button>
         </div>
+        <div className={styles.searchBar}>
+          <input
+            type="text"
+            placeholder="Search by PO Number, Shipper, Pickup, Delivery..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            className={styles.searchInput}
+          />
+        </div>
         <div className={styles.loadsList}>
           {authLoading ? (
             <div className={styles.loadingState}>
@@ -265,6 +284,48 @@ const MyLoads: React.FC = () => {
           ) : filteredLoads.length === 0 ? (
             <div className={styles.errorState}>
               <p>No loads found for this tab.</p>
+            </div>
+          ) : activeTab === 'completed' ? (
+            <div className={styles.completedTableWrapper}>
+              <table className={styles.completedTable}>
+                <thead>
+                  <tr>
+                    <th>Shipper</th>
+                    <th>PO Number</th>
+                    <th>Pickup</th>
+                    <th>Delivery</th>
+                    <th>Payment</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredLoads.map(load => (
+                    <tr key={load.id}>
+                      <td>{load.shipper}</td>
+                      <td>{load.poNumber}</td>
+                      <td>{load.pickup?.location}</td>
+                      <td>{load.delivery?.location}</td>
+                      <td>${load.payment}</td>
+                      <td><span className={getStatusColor(load.status)}>{load.status}</span></td>
+                      <td>
+                        <button 
+                          className={styles.viewButton}
+                          onClick={() => navigate(`/carrier/loads/${load.id}`)}
+                        >
+                          View Details
+                        </button>
+                        <button
+                          className={styles.invoiceButton}
+                          onClick={() => alert('Create Invoice functionality coming soon!')}
+                        >
+                          Create Invoice
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : (
             filteredLoads.map(load => (
@@ -306,14 +367,6 @@ const MyLoads: React.FC = () => {
                     <div className={styles.detail}>
                       <label>Payment:</label>
                       <span>${load.payment}</span>
-                    </div>
-                    <div className={styles.detail}>
-                      <label>Weight:</label>
-                      <span>{load.weight}</span>
-                    </div>
-                    <div className={styles.detail}>
-                      <label>Dimensions:</label>
-                      <span>{load.dimensions}</span>
                     </div>
                   </div>
                   <div className={styles.actions}>

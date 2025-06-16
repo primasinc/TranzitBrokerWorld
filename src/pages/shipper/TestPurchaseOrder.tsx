@@ -133,18 +133,18 @@ export const TestPurchaseOrder: React.FC = () => {
           await updateDoc(poRef, {
             ...data,
             poNumber,
-            updatedAt: new Date().toISOString()
-          });
-        } else {
-          // Create new PO
-          const newOrder = {
+          updatedAt: new Date().toISOString()
+        });
+      } else {
+        // Create new PO
+        const newOrder = {
             poNumber,
-            date: data.date || new Date().toISOString().split('T')[0],
-            vendor: data.vendorInfo?.name || '',
-            amount: data.total || 0,
+          date: data.date || new Date().toISOString().split('T')[0],
+          vendor: data.vendorInfo?.name || '',
+          amount: data.total || 0,
             rate: data.rate || 0,
-            items: data.items?.length || 0,
-            deliveryDate: data.shipTo?.deliveryDate || '',
+          items: data.items?.length || 0,
+          deliveryDate: data.shipTo?.deliveryDate || '',
             ...data,
             status: data.carrierOption ? 'Active' : 'Processing',
             shippingScheduleStatus: data.carrierOption ? 'Active' : 'Open',

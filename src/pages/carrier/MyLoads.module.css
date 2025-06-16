@@ -304,4 +304,85 @@
 
 .errorState button:hover {
   background-color: #2980b9;
+}
+
+.searchBar {
+  margin: 20px 0 10px 0;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.searchInput {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  width: 300px;
+  font-size: 16px;
+}
+
+.completedTableWrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.completedTable {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+  margin-bottom: 20px;
+}
+
+.completedTable th, .completedTable td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+  font-size: 15px;
+}
+
+.completedTable th {
+  background: #f8f9fa;
+  font-weight: 600;
+}
+
+.completedTable tr:last-child td {
+  border-bottom: none;
+}
+
+.completedTable td button {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  background: #007bff;
+  color: white;
+  cursor: pointer;
+  font-size: 0.95em;
+}
+
+.completedTable td button:hover {
+  background: #0056b3;
+}
+
+.completedTable td .invoiceButton {
+  background: #28a745 !important;
+}
+
+.completedTable td .invoiceButton:hover {
+  background: #218838 !important;
+}
+
+.invoiceButton {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  background: #28a745;
+  color: white;
+  cursor: pointer;
+  font-size: 0.95em;
+  margin-left: 8px;
+}
+
+.invoiceButton:hover {
+  background: #218838;
 } 

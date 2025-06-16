@@ -10,7 +10,7 @@ export interface ScheduledShipment {
   destination: string;
   pickup?: string;
   carrier: string;
-  status: 'Open' | 'Carrier Review' | 'Active' | 'Completed' | 'Cancelled';
+  status: 'Open' | 'Carrier Pending' | 'Active' | 'Completed';
   type: string;
   shipTo?: string;
   cost: number;
@@ -30,12 +30,10 @@ export const ShipmentsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const refreshShipments = async () => {
     const statusMap: { [key: string]: ScheduledShipment['status'] } = {
       'open': 'Open',
-      'carrier review': 'Carrier Review',
-      'carrier pending': 'Carrier Review',
-      'carrier pending/approval': 'Carrier Review',
+      'carrier pending': 'Carrier Pending',
+      'carrier pending/approval': 'Carrier Pending',
       'active': 'Active',
       'completed': 'Completed',
-      'cancelled': 'Cancelled',
     };
     const querySnapshot = await getDocs(collection(db, 'purchaseOrders'));
     const shipmentsData = querySnapshot.docs

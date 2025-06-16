@@ -185,7 +185,7 @@ const ShippingScheduleForm: React.FC = () => {
       }
       // Attach position to pickupLocation
       (data.pickupLocation as any).position = pickupPosition;
-
+      
       // Save the shipping schedule data
       const response = await fetch('/api/shipping-schedules', {
         method: 'POST',

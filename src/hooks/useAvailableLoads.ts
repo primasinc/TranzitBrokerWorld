@@ -59,14 +59,14 @@ export function useAvailableLoads(carrierLocation: [number, number] | null, radi
               Array.isArray(data.deliveryLocation.position) &&
               data.deliveryLocation.position.length === 2
             ) {
-              return {
-                id: doc.id,
-                title: data.title,
-                pickupLocation: data.pickupLocation,
-                deliveryLocation: data.deliveryLocation,
+            return {
+              id: doc.id,
+              title: data.title,
+              pickupLocation: data.pickupLocation,
+              deliveryLocation: data.deliveryLocation,
                 rate: typeof data.rate === 'number' ? data.rate : 0,
                 poNumber: data.poNumber || '',
-              } as AvailableLoad;
+            } as AvailableLoad;
             } else {
               console.warn('Skipping malformed load:', doc.id, data);
               return null;

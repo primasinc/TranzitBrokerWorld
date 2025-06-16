@@ -8,6 +8,7 @@ import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestor
 import { db } from '../../firebase';
 import NotificationsTray, { useUnreadNotifications } from '../carrier/NotificationsTray';
 import { useAvailableLoads } from '../../hooks/useAvailableLoads';
+import { isValidPartnerRequest } from './AvailableLoads';
 
 interface AvailableLoad {
   id: string;
@@ -25,7 +26,7 @@ interface AvailableLoad {
 
 const TABS = {
   MARKETPLACE: 'Marketplace Loads',
-  PARTNER: 'Partner Loads',
+  PARTNER: 'Partner Requests',
 } as const;
 type TabType = keyof typeof TABS;
 
@@ -42,6 +43,7 @@ const HomeFeed: React.FC = () => {
   const [showNotifications, setShowNotifications] = useState(false);
   const unreadCount = useUnreadNotifications();
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [validRequests, setValidRequests] = React.useState<any[]>([]);
 
   const { loads: availableLoads, loading: loadsLoading, error: loadsError } = useAvailableLoads(userLocation, radiusMiles);
 
@@ -91,6 +93,26 @@ const HomeFeed: React.FC = () => {
       }
     };
   }, []);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    async function filterAndDedupe() {
+      const seen = new Set();
+      const valid: any[] = [];
+      for (const req of partnerRequests.filter(r => r.status === 'pending')) {
+        if (await isValidPartnerRequest(req)) {
+          const poNum = req.loadDetails?.poNumber || req.poNumber;
+          if (!seen.has(poNum)) {
+            seen.add(poNum);
+            valid.push(req);
+          }
+        }
+      }
+      if (isMounted) setValidRequests(valid);
+    }
+    filterAndDedupe();
+    return () => { isMounted = false; };
+  }, [partnerRequests]);
 
   const currentLoad = {
     poNumber: 'PO-12345',
@@ -259,7 +281,7 @@ const HomeFeed: React.FC = () => {
                 className={`${styles.toggleButton} ${activeTab === 'PARTNER' ? styles.active : ''}`}
                 onClick={() => setActiveTab('PARTNER')}
               >
-                Partner Loads
+                Partner Requests
               </button>
             </div>
             {activeTab === 'MARKETPLACE' ? (
@@ -274,38 +296,69 @@ const HomeFeed: React.FC = () => {
                   availableLoads
                     .filter(load => load && load.pickupLocation && load.deliveryLocation && load.pickupLocation.address && load.deliveryLocation.address)
                     .map((load) => (
-                      <div key={load.id} className={styles.loadCard}>
-                        <h3>{load.title}</h3>
-                        <p>Pickup: {load.pickupLocation.address}</p>
-                        <p>Delivery: {load.deliveryLocation.address}</p>
+                    <div key={load.id} className={styles.loadCard}>
+                      <h3>{load.title}</h3>
+                      <p>Pickup: {load.pickupLocation.address}</p>
+                      <p>Delivery: {load.deliveryLocation.address}</p>
                         <p>Rate: {load.rate ? `$${load.rate.toLocaleString()}` : '—'}</p>
-                        <button onClick={() => console.log('View details:', load)}>
-                          View Details
-                        </button>
-                      </div>
-                    ))
+                      <button onClick={() => console.log('View details:', load)}>
+                        View Details
+                      </button>
+                    </div>
+                  ))
                 )}
               </div>
             ) : (
               <div className={styles.listView}>
                 {partnerLoading ? (
                   <div>Loading partner loads...</div>
-                ) : partnerRequests.filter(r => r.status === 'pending').length === 0 ? (
+                ) : validRequests.length === 0 ? (
                   <div>No partner loads at this time.</div>
                 ) : (
-                  partnerRequests.filter(r => r.status === 'pending').map((request) => (
-                    <LoadRequestCard
-                      key={request.id}
-                      notification={request}
-                      onStatusUpdate={() => {}}
-                    />
-                  ))
+                  <table className={styles.partnerTable}>
+                    <thead>
+                      <tr>
+                        <th>PO Number</th>
+                        <th>Shipper</th>
+                        <th>Pickup</th>
+                        <th>Delivery</th>
+                        <th>Rate</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {validRequests.slice(0, 5).map((request) => (
+                        <tr key={request.id}>
+                          <td>{request.loadDetails?.poNumber || '-'}</td>
+                          <td>{request.loadDetails?.shipperCompany || '-'}</td>
+                          <td>{request.loadDetails?.pickupLocation?.address || '-'}</td>
+                          <td>{request.loadDetails?.deliveryLocation?.address || '-'}</td>
+                          <td>{typeof request.loadDetails?.rate === 'number' ? `$${request.loadDetails.rate}` : '-'}</td>
+                          <td>
+                            <a
+                              href="/carrier/available-loads#partner"
+                              style={{ color: '#007bff', textDecoration: 'underline', cursor: 'pointer', fontWeight: 500 }}
+                            >
+                              View
+                            </a>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 )}
               </div>
             )}
           </section>
         </div>
       </main>
+      <div className={styles.complianceAlert}>
+        <div className={styles.alertHeader}>
+          <h3>📋 Compliance Status</h3>
+          <span className={styles.compliantBadge}>Compliant</span>
+        </div>
+        <p>All required documents are up to date. Next document expiration: Insurance (Dec 31, 2024)</p>
+      </div>
     </div>
   );
 };

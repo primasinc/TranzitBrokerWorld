@@ -6,7 +6,7 @@ import { generateTestData } from '../../utils/seedTestData';
 import styles from './Dashboard.module.css';
 import MapboxMap from '../../components/common/MapboxMap';
 import { db } from '../../firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, getDoc, doc } from 'firebase/firestore';
 import { useShipments } from '../../context/ShipmentsContext';
 import mapboxgl from 'mapbox-gl';
 
@@ -311,6 +311,33 @@ const ShipperDashboard: React.FC = () => {
   // Prompt for geolocation immediately and block UI if denied
   useEffect(() => {
     let watchId: number | null = null;
+    let didSetLocation = false;
+    async function fetchAndGeocodeProfileAddress() {
+      try {
+        if (!user?.uid) return;
+        const userDoc = await import('../../firebase').then(m => m.db).then(db => import('firebase/firestore').then(fb => fb.getDoc(fb.doc(db, 'users', user.uid))));
+        const docSnap = await userDoc;
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          const addressParts = [data.address, data.city, data.state, data.zip].filter(Boolean);
+          if (addressParts.length > 0) {
+            const fullAddress = addressParts.join(', ');
+            const accessToken = process.env.REACT_APP_MAPBOX_TOKEN;
+            const response = await fetch(
+              `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(fullAddress)}.json?access_token=${accessToken}`
+            );
+            const geoData = await response.json();
+            if (geoData.features && geoData.features.length > 0) {
+              const [lng, lat] = geoData.features[0].center;
+              setUserLocation([lng, lat]);
+              didSetLocation = true;
+            }
+          }
+        }
+      } catch (err) {
+        // Ignore errors, fallback to default
+      }
+    }
     function requestLocation() {
       setLocationError(null);
       if (navigator.geolocation) {
@@ -318,14 +345,19 @@ const ShipperDashboard: React.FC = () => {
           (position) => {
             setUserLocation([position.coords.longitude, position.coords.latitude]);
             setLocationError(null);
+            didSetLocation = true;
           },
-          (error) => {
-            setLocationError('Location access is required to use this app. Please enable location services and reload.');
+          async (error) => {
+            // If denied, try to use profile address
+            await fetchAndGeocodeProfileAddress();
+            if (!didSetLocation) {
+              setLocationError('Location access is required to use this app. Please enable location services and reload.');
+            }
           },
           { enableHighAccuracy: true }
         );
       } else {
-        setLocationError('Geolocation is not supported by your browser.');
+        fetchAndGeocodeProfileAddress();
       }
     }
     requestLocation();
@@ -334,7 +366,7 @@ const ShipperDashboard: React.FC = () => {
         navigator.geolocation.clearWatch(watchId);
       }
     };
-  }, []);
+  }, [user]);
 
   if (locationError) {
     return (
@@ -555,37 +587,37 @@ const ShipperDashboard: React.FC = () => {
             {showActiveShipments ? (
               // Show active shipments list from real data, omitting cancelled
               shipments.map(shipment => (
-                <div key={shipment.id} className={styles.shipmentCard}>
-                  <div className={styles.shipmentHeader}>
-                    <h3>{shipment.carrier}</h3>
-                    <span className={`${styles.status} ${styles[shipment.status.toLowerCase()]}`}>
-                      {shipment.status}
-                    </span>
+                  <div key={shipment.id} className={styles.shipmentCard}>
+                    <div className={styles.shipmentHeader}>
+                      <h3>{shipment.carrier}</h3>
+                      <span className={`${styles.status} ${styles[shipment.status.toLowerCase()]}`}>
+                        {shipment.status}
+                      </span>
+                    </div>
+                    <div className={styles.shipmentDetails}>
+                      <div>
+                        <label>Type:</label>
+                        <span>{shipment.type}</span>
+                      </div>
+                      <div>
+                        <label>Carrier:</label>
+                        <span>{shipment.carrier}</span>
+                      </div>
+                      <div>
+                        <label>Date:</label>
+                        <span>{shipment.date}</span>
+                      </div>
+                      <div>
+                        <label>Cost:</label>
+                        <span>${shipment.cost}</span>
+                      </div>
+                      <div>
+                        <label>PO Number:</label>
+                        <span>{shipment.poNumber}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className={styles.shipmentDetails}>
-                    <div>
-                      <label>Type:</label>
-                      <span>{shipment.type}</span>
-                    </div>
-                    <div>
-                      <label>Carrier:</label>
-                      <span>{shipment.carrier}</span>
-                    </div>
-                    <div>
-                      <label>Date:</label>
-                      <span>{shipment.date}</span>
-                    </div>
-                    <div>
-                      <label>Cost:</label>
-                      <span>${shipment.cost}</span>
-                    </div>
-                    <div>
-                      <label>PO Number:</label>
-                      <span>{shipment.poNumber}</span>
-                    </div>
-                  </div>
-                </div>
-              ))
+                ))
             ) : (
               // Show available carriers list
               availableCarriers.map(carrier => (
