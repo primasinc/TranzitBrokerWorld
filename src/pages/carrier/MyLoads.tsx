@@ -5,6 +5,7 @@ import { db, auth } from '../../firebase';
 import styles from './MyLoads.module.css';
 import { onAuthStateChanged } from 'firebase/auth';
 import { konexialService } from '../../services/konexialService';
+import InvoiceModal from '../../components/carrier/InvoiceModal';
 
 interface Load {
   id: string;
@@ -41,6 +42,8 @@ const MyLoads: React.FC = () => {
   const [authLoading, setAuthLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [selectedLoad, setSelectedLoad] = useState<Load | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
@@ -317,7 +320,7 @@ const MyLoads: React.FC = () => {
                         </button>
                         <button
                           className={styles.invoiceButton}
-                          onClick={() => alert('Create Invoice functionality coming soon!')}
+                          onClick={() => { setSelectedLoad(load); setShowInvoiceModal(true); }}
                         >
                           Create Invoice
                         </button>
@@ -389,6 +392,14 @@ const MyLoads: React.FC = () => {
           )}
         </div>
       </main>
+      {showInvoiceModal && selectedLoad && (
+        <InvoiceModal
+          isOpen={showInvoiceModal}
+          onClose={() => setShowInvoiceModal(false)}
+          load={selectedLoad}
+          user={user}
+        />
+      )}
     </div>
   );
 };

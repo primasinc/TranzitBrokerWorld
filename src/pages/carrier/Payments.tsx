@@ -9,6 +9,9 @@ import PaymentReportsModal from '../../components/PaymentReportsModal';
 import PaymentAnalyticsModal from '../../components/PaymentAnalyticsModal';
 import PaymentSettingsModal, { PaymentSettings } from '../../components/PaymentSettingsModal';
 import AdvancedSearchModal, { SearchCriteria, SavedSearch } from '../../components/AdvancedSearchModal';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../../config/firebase';
+import InvoiceViewModal from '../../components/carrier/InvoiceViewModal';
 
 interface Payment {
   id: string;
@@ -38,6 +41,8 @@ interface Invoice {
   dueDate: string;
   issueDate: string;
   customer: string;
+  invoiceNumber?: string;
+  poNumber?: string;
 }
 
 type PaymentStatus = 'Pending' | 'Requested' | 'Paid' | 'Canceled' | 'Processing';
@@ -71,51 +76,9 @@ const Payments: React.FC = () => {
   const [isFactorRequestModalOpen, setIsFactorRequestModalOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [isCancelPaymentModalOpen, setIsCancelPaymentModalOpen] = useState(false);
-  const [payments, setPayments] = useState<Payment[]>([
-    {
-      id: "PAY001",
-      loadId: "L123",
-      amount: 2500.00,
-      status: "Paid",
-      date: "2024-02-20",
-      method: "Direct Deposit",
-      reference: "REF123456",
-      customer: "ABC Manufacturing"
-    },
-    {
-      id: "PAY002",
-      loadId: "L124",
-      amount: 1800.00,
-      status: "Processing",
-      date: "2024-02-22",
-      method: "ACH Transfer",
-      reference: "REF123457",
-      customer: "XYZ Corp"
-    },
-    // Add more payments
-  ]);
+  const [payments, setPayments] = useState<Payment[]>([]);
 
-  const invoices: Invoice[] = [
-    {
-      id: "INV001",
-      loadId: "L123",
-      amount: 2500.00,
-      status: "Paid",
-      dueDate: "2024-02-28",
-      issueDate: "2024-02-14",
-      customer: "ABC Manufacturing"
-    },
-    {
-      id: "INV002",
-      loadId: "L124",
-      amount: 1800.00,
-      status: "Unpaid",
-      dueDate: "2024-03-07",
-      issueDate: "2024-02-21",
-      customer: "XYZ Corp"
-    },
-    // Add more invoices
-  ];
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
 
   const totalEarnings = payments
     .filter(p => p.status === 'Paid')
@@ -192,6 +155,8 @@ const Payments: React.FC = () => {
   ]);
   const [advancedSearchCriteria, setAdvancedSearchCriteria] = useState<SearchCriteria | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showInvoiceView, setShowInvoiceView] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
 
   useEffect(() => {
     let result = [...payments];
@@ -248,6 +213,15 @@ const Payments: React.FC = () => {
     
     setFilteredPayments(result);
   }, [payments, statusFilter, dateFilter, sortConfig, searchQuery]);
+
+  useEffect(() => {
+    async function fetchInvoices() {
+      const snapshot = await getDocs(collection(db, 'invoices'));
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setInvoices(data as Invoice[]);
+    }
+    fetchInvoices();
+  }, []);
 
   const handleSort = (key: keyof Payment) => {
     setSortConfig(prevConfig => ({
@@ -406,21 +380,10 @@ const Payments: React.FC = () => {
         >
           Documents
         </button> */}
-        <button 
-          className={`${styles.actionButton} ${styles.paymentButton}`}
-          onClick={() => handlePaymentRequest(payment)}
-          disabled={payment.status === 'Canceled'}
-        >
-          Shipper Pay
-        </button>
-        <button 
-          className={`${styles.actionButton} ${styles.factorButton}`}
-          style={{ marginLeft: '8px' }}
-          onClick={() => handleFactorRequest(payment)}
-          disabled={payment.status === 'Canceled'}
-        >
-          Factor Pay
-        </button>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+          <button className={styles.payActionButton}>Shipper Pay</button>
+          <button className={styles.payActionButton}>Factor Pay</button>
+        </div>
       </div>
     );
   };
@@ -550,9 +513,11 @@ const Payments: React.FC = () => {
       <td onClick={() => handleViewPaymentDetails(payment)}>{payment.loadId}</td>
       <td onClick={() => handleViewPaymentDetails(payment)}>{payment.date}</td>
       <td onClick={() => handleViewPaymentDetails(payment)}>{payment.customer}</td>
-      <td onClick={() => handleViewPaymentDetails(payment)}>${payment.amount.toFixed(2)}</td>
+      <td onClick={() => handleViewPaymentDetails(payment)}>${typeof payment.amount === 'number' ? payment.amount.toFixed(2) : '-'}</td>
       <td onClick={() => handleViewPaymentDetails(payment)}>{renderPaymentStatus(payment.status)}</td>
-      <td onClick={(e) => e.stopPropagation()}>{renderActionButtons(payment)}</td>
+      <td style={{ textAlign: 'right' }}>
+        {renderActionButtons(payment)}
+      </td>
     </tr>
   );
 
@@ -690,56 +655,59 @@ const Payments: React.FC = () => {
         </button>
       </div>
 
-      <div className={styles.filtersRow}>
-        <input
-          type="text"
-          placeholder="Search by Load ID or Customer"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className={styles.searchInput}
-          disabled={!!advancedSearchCriteria}
-          style={{ minWidth: 220, marginRight: 10 }}
-        />
-        <select 
-          value={statusFilter} 
-          onChange={(e) => setStatusFilter(e.target.value as PaymentStatus | 'All')}
-          className={styles.filterSelect}
-          style={{ marginRight: 10 }}
-        >
-          <option value="All">All Statuses</option>
-          <option value="Pending">Pending</option>
-          <option value="Requested">Requested</option>
-          <option value="Paid">Paid</option>
-          <option value="Canceled">Canceled</option>
-          <option value="Processing">Processing</option>
-        </select>
-        <input
-          type="date"
-          value={dateFilter.start}
-          onChange={(e) => setDateFilter(prev => ({ ...prev, start: e.target.value }))}
-          className={styles.dateInput}
-          style={{ marginRight: 10 }}
-        />
-        <input
-          type="date"
-          value={dateFilter.end}
-          onChange={(e) => setDateFilter(prev => ({ ...prev, end: e.target.value }))}
-          className={styles.dateInput}
-          style={{ marginRight: 10 }}
-        />
-        <button 
-          onClick={clearFilters}
-          className={styles.clearFiltersButton}
-        >
-          Clear Filters
-        </button>
-        <button 
-          className={styles.advancedSearchButton}
-          onClick={() => setIsAdvancedSearchModalOpen(true)}
-          style={{ marginLeft: 10 }}
-        >
-          Advanced Search
-        </button>
+      <div className={styles.filtersRowContainer}>
+        <div className={styles.filtersRow}>
+          <input
+            type="text"
+            placeholder="Search by Invoice # or Customer"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className={styles.searchInput}
+            disabled={!!advancedSearchCriteria}
+            style={{ minWidth: 220, marginRight: 10 }}
+          />
+          <select 
+            value={statusFilter} 
+            onChange={(e) => setStatusFilter(e.target.value as PaymentStatus | 'All')}
+            className={styles.filterSelect}
+            style={{ marginRight: 10 }}
+          >
+            <option value="All">All Statuses</option>
+            <option value="Pending">Pending</option>
+            <option value="Requested">Requested</option>
+            <option value="Paid">Paid</option>
+            <option value="Canceled">Canceled</option>
+            <option value="Processing">Processing</option>
+          </select>
+          <input
+            type="date"
+            value={dateFilter.start}
+            onChange={(e) => setDateFilter(prev => ({ ...prev, start: e.target.value }))}
+            className={styles.dateInput}
+            style={{ marginRight: 10 }}
+          />
+          <input
+            type="date"
+            value={dateFilter.end}
+            onChange={(e) => setDateFilter(prev => ({ ...prev, end: e.target.value }))}
+            className={styles.dateInput}
+            style={{ marginRight: 10 }}
+          />
+          <button 
+            onClick={clearFilters}
+            className={styles.clearFiltersButton}
+          >
+            Clear Filters
+          </button>
+        </div>
+        <div className={styles.advancedSearchButtonContainer}>
+          <button 
+            className={styles.advancedSearchButton}
+            onClick={() => setIsAdvancedSearchModalOpen(true)}
+          >
+            Advanced Search
+          </button>
+        </div>
       </div>
 
       {selectedPaymentIds.length > 0 && (
@@ -795,60 +763,35 @@ const Payments: React.FC = () => {
           <table>
             <thead>
               <tr>
-                <th className={styles.checkboxHeader}>
-                  <input
-                    type="checkbox"
-                    checked={selectedPaymentIds.length === filteredPayments.length && filteredPayments.length > 0}
-                    onChange={toggleAllPayments}
-                    className={styles.checkbox}
-                  />
-                </th>
-                <th onClick={() => handleSort('loadId')} className={styles.sortableHeader}>
-                  Load ID
-                  {sortConfig.key === 'loadId' && (
-                    <span className={styles.sortIcon}>
-                      {sortConfig.direction === 'ascending' ? '↑' : '↓'}
-                    </span>
-                  )}
-                </th>
-                <th onClick={() => handleSort('date')} className={styles.sortableHeader}>
-                  Date
-                  {sortConfig.key === 'date' && (
-                    <span className={styles.sortIcon}>
-                      {sortConfig.direction === 'ascending' ? '↑' : '↓'}
-                    </span>
-                  )}
-                </th>
-                <th onClick={() => handleSort('customer')} className={styles.sortableHeader}>
-                  Customer
-                  {sortConfig.key === 'customer' && (
-                    <span className={styles.sortIcon}>
-                      {sortConfig.direction === 'ascending' ? '↑' : '↓'}
-                    </span>
-                  )}
-                </th>
-                <th onClick={() => handleSort('amount')} className={styles.sortableHeader}>
-                  Amount
-                  {sortConfig.key === 'amount' && (
-                    <span className={styles.sortIcon}>
-                      {sortConfig.direction === 'ascending' ? '↑' : '↓'}
-                    </span>
-                  )}
-                </th>
-                <th onClick={() => handleSort('status')} className={styles.sortableHeader}>
-                  Status
-                  {sortConfig.key === 'status' && (
-                    <span className={styles.sortIcon}>
-                      {sortConfig.direction === 'ascending' ? '↑' : '↓'}
-                    </span>
-                  )}
-                </th>
-                <th>Actions</th>
+                <th>Invoice #</th>
+                <th>Customer</th>
+                <th>Issue Date</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th style={{ textAlign: 'center' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filteredPayments.length > 0 ? (
-                filteredPayments.map((payment) => renderPaymentRow(payment))
+              {invoices.length > 0 ? (
+                invoices.map((invoice) => (
+                  <tr key={invoice.id}>
+                    <td>{invoice.invoiceNumber || invoice.id}</td>
+                    <td>{invoice.customer || '-'}</td>
+                    <td>{invoice.issueDate || '-'}</td>
+                    <td>{typeof invoice.amount === 'number' ? `$${invoice.amount.toFixed(2)}` : '-'}</td>
+                    <td>
+                      <span className={`${styles.status} ${invoice.status ? styles[invoice.status.toLowerCase()] : ''}`}>
+                        {invoice.status || '-'}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <div className={styles.payActionButtons}>
+                        <button className={styles.payActionButton}>Shipper Pay</button>
+                        <button className={styles.payActionButton}>Factor Pay</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
               ) : (
                 <tr>
                   <td colSpan={6} className={styles.noResults}>
@@ -877,20 +820,20 @@ const Payments: React.FC = () => {
             <tbody>
               {invoices.map((invoice) => (
                 <tr key={invoice.id}>
-                  <td>{invoice.id}</td>
-                  <td>{invoice.loadId}</td>
-                  <td>{invoice.customer}</td>
-                  <td>{invoice.issueDate}</td>
-                  <td>{invoice.dueDate}</td>
-                  <td>${invoice.amount.toFixed(2)}</td>
+                  <td>{invoice.invoiceNumber || invoice.id}</td>
+                  <td>{invoice.poNumber || '-'}</td>
+                  <td>{invoice.customer || '-'}</td>
+                  <td>{invoice.issueDate || '-'}</td>
+                  <td>{invoice.dueDate || '-'}</td>
+                  <td>{typeof invoice.amount === 'number' ? `$${invoice.amount.toFixed(2)}` : '-'}</td>
                   <td>
-                    <span className={`${styles.status} ${styles[invoice.status.toLowerCase()]}`}>
-                      {invoice.status}
+                    <span className={`${styles.status} ${invoice.status ? styles[invoice.status.toLowerCase()] : ''}`}>
+                      {invoice.status || '-'}
                     </span>
                   </td>
                   <td>
                     <div className={styles.invoiceActions}>
-                      <button className={styles.invoiceViewButton}>View</button>
+                      <button className={styles.invoiceViewButton} onClick={() => { setSelectedInvoice(invoice); setShowInvoiceView(true); }}>View</button>
                       <button className={styles.invoiceDownloadButton}>Download</button>
                     </div>
                   </td>
@@ -901,67 +844,15 @@ const Payments: React.FC = () => {
         </div>
       )}
 
-      <DocumentModal
-        isOpen={isDocumentModalOpen}
-        onClose={() => setIsDocumentModalOpen(false)}
-        loadId={selectedLoadId}
-      />
-      
-      {selectedPayment && (
-        <>
-          <PaymentRequestModal
-            isOpen={isPaymentRequestModalOpen}
-            onClose={() => setIsPaymentRequestModalOpen(false)}
-            loadId={selectedPayment.loadId}
-            amount={selectedPayment.amount}
-            customer={selectedPayment.customer}
-          />
-          
-          <FactorRequestModal
-            isOpen={isFactorRequestModalOpen}
-            onClose={() => setIsFactorRequestModalOpen(false)}
-            loadId={selectedPayment.loadId}
-            amount={selectedPayment.amount}
-            customer={selectedPayment.customer}
-          />
-        </>
+      {showInvoiceView && selectedInvoice && (
+        <InvoiceViewModal
+          isOpen={showInvoiceView}
+          onClose={() => setShowInvoiceView(false)}
+          invoice={selectedInvoice}
+        />
       )}
-
-      <PaymentDetailsModal
-        isOpen={isPaymentDetailsModalOpen}
-        onClose={() => setIsPaymentDetailsModalOpen(false)}
-        payment={selectedPaymentDetails}
-      />
-
-      <PaymentReportsModal
-        isOpen={isReportsModalOpen}
-        onClose={() => setIsReportsModalOpen(false)}
-        payments={payments}
-      />
-
-      <PaymentAnalyticsModal
-        isOpen={isAnalyticsModalOpen}
-        onClose={() => setIsAnalyticsModalOpen(false)}
-        payments={payments}
-      />
-
-      <PaymentSettingsModal
-        isOpen={isSettingsModalOpen}
-        onClose={() => setIsSettingsModalOpen(false)}
-        settings={paymentSettings}
-        onSaveSettings={handleSaveSettings}
-      />
-
-      <AdvancedSearchModal
-        isOpen={isAdvancedSearchModalOpen}
-        onClose={() => setIsAdvancedSearchModalOpen(false)}
-        onSearch={handleAdvancedSearch}
-        savedSearches={savedSearches}
-        onSaveSearch={handleSaveSearch}
-        onDeleteSavedSearch={handleDeleteSavedSearch}
-      />
     </div>
   );
 };
 
-export default Payments; 
+export default Payments;
