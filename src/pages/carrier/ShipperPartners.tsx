@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { collection, getDocs, doc, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '../../config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import styles from './CarrierPartners.module.css';
 import { useMobileOptimization } from '../../hooks/useMobileOptimization';
+import NotificationsTray, { useUnreadNotifications } from './NotificationsTray';
 
 interface Partner {
   id: string;
@@ -20,6 +22,7 @@ const STATES = [
 ];
 
 const ShipperPartners: React.FC = () => {
+  const navigate = useNavigate();
   const [partners, setPartners] = useState<Partner[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
@@ -27,6 +30,8 @@ const ShipperPartners: React.FC = () => {
   const [stateFilter, setStateFilter] = useState('');
   const [pendingSearch, setPendingSearch] = useState('');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const unreadCount = useUnreadNotifications();
 
   // Mobile optimization
   const { 
@@ -89,9 +94,17 @@ const ShipperPartners: React.FC = () => {
     setPartners(prev => prev.filter(p => p.id !== partner.id));
   };
 
-  const handleProfile = () => {};
-  const handleSettings = () => {};
-  const handleLogout = () => {};
+  const handleProfile = () => {
+    navigate('/carrier/profile');
+  };
+
+  const handleSettings = () => {
+    navigate('/carrier/settings');
+  };
+
+  const handleLogout = () => {
+    navigate('/login');
+  };
 
   return (
     <div className={styles.container}>
@@ -103,12 +116,32 @@ const ShipperPartners: React.FC = () => {
           <div className={styles.headerRight}>
             <button
               className={styles.bellButton}
+              onClick={() => setShowNotifications(v => !v)}
               style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, position: 'relative' }}
               tabIndex={0}
               aria-label="Notifications"
             >
               <span role="img" aria-label="Notifications">🔔</span>
+              {unreadCount > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: 0,
+                  right: 0,
+                  background: 'red',
+                  color: 'white',
+                  borderRadius: '50%',
+                  width: 18,
+                  height: 18,
+                  fontSize: 12,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 700,
+                  zIndex: 10
+                }}>{unreadCount}</span>
+              )}
             </button>
+            {showNotifications && <NotificationsTray onClose={() => setShowNotifications(false)} />}
             <div className={styles.menuContainer}>
               <button 
                 className={styles.hamburgerButton}

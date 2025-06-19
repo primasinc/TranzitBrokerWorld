@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import styles from './Settings.module.css';
 import { useMobileOptimization } from '../../hooks/useMobileOptimization';
+import NotificationsTray, { useUnreadNotifications } from './NotificationsTray';
 
 interface Profile {
   companyName: string;
@@ -27,6 +29,7 @@ interface Profile {
 }
 
 const Settings: React.FC = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'profile' | 'notifications' | 'payment' | 'security'>('profile');
   const [profile, setProfile] = useState<Profile>({
     companyName: "ABC Trucking LLC",
@@ -52,6 +55,8 @@ const Settings: React.FC = () => {
     }
   });
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const unreadCount = useUnreadNotifications();
   const [showInviteForm, setShowInviteForm] = useState(false);
   const [inviteName, setInviteName] = useState('');
   const [invitePhone, setInvitePhone] = useState('');
@@ -125,9 +130,17 @@ const Settings: React.FC = () => {
     }));
   };
 
-  const handleProfile = () => {};
-  const handleSettings = () => {};
-  const handleLogout = () => {};
+  const handleProfile = () => {
+    navigate('/carrier/profile');
+  };
+
+  const handleSettings = () => {
+    navigate('/carrier/settings');
+  };
+
+  const handleLogout = () => {
+    navigate('/login');
+  };
 
   const handleSendInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -173,12 +186,32 @@ const Settings: React.FC = () => {
           <div className={styles.headerRight}>
             <button
               className={styles.bellButton}
+              onClick={() => setShowNotifications(v => !v)}
               style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, position: 'relative' }}
               tabIndex={0}
               aria-label="Notifications"
             >
               <span role="img" aria-label="Notifications">🔔</span>
+              {unreadCount > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: 0,
+                  right: 0,
+                  background: 'red',
+                  color: 'white',
+                  borderRadius: '50%',
+                  width: 18,
+                  height: 18,
+                  fontSize: 12,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 700,
+                  zIndex: 10
+                }}>{unreadCount}</span>
+              )}
             </button>
+            {showNotifications && <NotificationsTray onClose={() => setShowNotifications(false)} />}
             <div className={styles.menuContainer}>
               <button 
                 className={styles.hamburgerButton}

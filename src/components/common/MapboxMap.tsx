@@ -41,42 +41,118 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
   const map = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<{ [key: string]: mapboxgl.Marker }>({});
   const [konexialMarkers, setKonexialMarkers] = useState<MapMarker[]>([]);
+  const [mapError, setMapError] = useState<string | null>(null);
+  const [isMapInitializing, setIsMapInitializing] = useState(true);
   const updateInterval = useRef<NodeJS.Timeout>();
+
+  // Helper function to check if container has valid dimensions
+  const hasValidDimensions = (container: HTMLElement): boolean => {
+    const rect = container.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+  };
+
+  // Helper function to wait for container to have valid dimensions
+  const waitForValidDimensions = (container: HTMLElement, maxAttempts = 10): Promise<boolean> => {
+    return new Promise((resolve) => {
+      let attempts = 0;
+      const checkDimensions = () => {
+        attempts++;
+        if (hasValidDimensions(container)) {
+          resolve(true);
+        } else if (attempts < maxAttempts) {
+          setTimeout(checkDimensions, 100);
+        } else {
+          console.warn('Map container failed to get valid dimensions after', maxAttempts, 'attempts');
+          resolve(false);
+        }
+      };
+      checkDimensions();
+    });
+  };
 
   useEffect(() => {
     if (!mapContainer.current) return;
 
-    // Set the Mapbox access token dynamically if eldApiKey is provided
-    if (eldApiKey) {
-      mapboxgl.accessToken = eldApiKey;
-    } else {
-      mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_TOKEN || '';
-    }
+    setIsMapInitializing(true);
+    setMapError(null);
 
-    // Initialize map with center from props or default to US center
-    const initialCenter = center || pickupLocation || [-98.5795, 39.8283];
-
-    // Initialize map
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/streets-v12',
-      center: initialCenter,
-      zoom: zoom
-    });
-
-    // Add navigation controls
-    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
-
-    // Call onMapLoad callback if provided
-    if (onMapLoad && map.current) {
-      map.current.on('load', () => {
-        if (map.current && onMapLoad) {
-          onMapLoad(map.current);
+    const initializeMap = async () => {
+      try {
+        // Wait for container to have valid dimensions (especially important on mobile)
+        const hasDimensions = await waitForValidDimensions(mapContainer.current!);
+        if (!hasDimensions) {
+          setMapError('Map container has invalid dimensions');
+          setIsMapInitializing(false);
+          return;
         }
-      });
-    }
+
+        // Set the Mapbox access token dynamically if eldApiKey is provided
+        if (eldApiKey) {
+          mapboxgl.accessToken = eldApiKey;
+        } else {
+          mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_TOKEN || '';
+        }
+
+        if (!mapboxgl.accessToken) {
+          setMapError('Mapbox access token is missing');
+          setIsMapInitializing(false);
+          return;
+        }
+
+        // Initialize map with center from props or default to US center
+        const initialCenter = center || pickupLocation || [-98.5795, 39.8283];
+
+        console.log('Initializing map with center:', initialCenter, 'zoom:', zoom);
+
+        // Initialize map
+        map.current = new mapboxgl.Map({
+          container: mapContainer.current!,
+          style: 'mapbox://styles/mapbox/streets-v12',
+          center: initialCenter,
+          zoom: zoom,
+          // Mobile-specific optimizations
+          attributionControl: false, // Reduce clutter on mobile
+          preserveDrawingBuffer: false, // Better performance
+          antialias: false, // Better performance on mobile
+        });
+
+        // Add navigation controls with mobile-friendly positioning
+        map.current.addControl(new mapboxgl.NavigationControl({
+          showCompass: true,
+          showZoom: true,
+          visualizePitch: false // Disable on mobile for better performance
+        }), 'top-right');
+
+        // Call onMapLoad callback if provided
+        if (onMapLoad && map.current) {
+          map.current.on('load', () => {
+            if (map.current && onMapLoad) {
+              onMapLoad(map.current);
+            }
+          });
+        }
+
+        // Add error handling
+        map.current.on('error', (e) => {
+          console.error('Mapbox error:', e);
+          setMapError('Map failed to load');
+        });
+
+        setIsMapInitializing(false);
+        console.log('Map initialized successfully');
+
+      } catch (error) {
+        console.error('Error initializing map:', error);
+        setMapError('Failed to initialize map');
+        setIsMapInitializing(false);
+      }
+    };
+
+    // Add a small delay to ensure DOM is ready (especially important on mobile)
+    const initTimeout = setTimeout(initializeMap, 100);
 
     return () => {
+      clearTimeout(initTimeout);
       // Clean up markers
       Object.values(markersRef.current).forEach(marker => marker.remove());
       markersRef.current = {};
@@ -263,6 +339,71 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
       map.current?.resize();
     }, 150);
   }, []);
+
+  // Show loading state
+  if (isMapInitializing) {
+    return (
+      <div style={{ 
+        width: '100%', 
+        height: '100%', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        backgroundColor: '#f5f5f5',
+        borderRadius: '8px'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ 
+            width: '40px', 
+            height: '40px', 
+            border: '4px solid #f3f3f3', 
+            borderTop: '4px solid #007bff', 
+            borderRadius: '50%', 
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto 10px'
+          }}></div>
+          <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>Loading map...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (mapError) {
+    return (
+      <div style={{ 
+        width: '100%', 
+        height: '100%', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        backgroundColor: '#fff3cd',
+        border: '1px solid #ffeaa7',
+        borderRadius: '8px',
+        padding: '20px'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <p style={{ margin: '0 0 10px 0', color: '#856404', fontSize: '14px' }}>
+            ⚠️ {mapError}
+          </p>
+          <button 
+            onClick={() => window.location.reload()} 
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '14px'
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />;
 };

@@ -7,6 +7,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { konexialService } from '../../services/konexialService';
 import InvoiceModal from '../../components/carrier/InvoiceModal';
 import { useMobileOptimization } from '../../hooks/useMobileOptimization';
+import NotificationsTray, { useUnreadNotifications } from './NotificationsTray';
 
 interface Load {
   id: string;
@@ -45,6 +46,8 @@ const MyLoads: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [selectedLoad, setSelectedLoad] = useState<Load | null>(null);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const unreadCount = useUnreadNotifications();
 
   // Mobile optimization
   const { 
@@ -128,15 +131,15 @@ const MyLoads: React.FC = () => {
   };
 
   const handleProfile = () => {
-    // Implement profile handling logic
+    navigate('/carrier/profile');
   };
 
   const handleSettings = () => {
-    // Implement settings handling logic
+    navigate('/carrier/settings');
   };
 
   const handleLogout = () => {
-    // Implement logout handling logic
+    navigate('/login');
   };
 
   const handleStartLoad = async (id: string) => {
@@ -274,12 +277,32 @@ const MyLoads: React.FC = () => {
             <div className={styles.headerRight}>
               <button
                 className={styles.bellButton}
+                onClick={() => setShowNotifications(v => !v)}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, position: 'relative' }}
                 tabIndex={0}
                 aria-label="Notifications"
               >
                 <span role="img" aria-label="Notifications">🔔</span>
+                {unreadCount > 0 && (
+                  <span style={{
+                    position: 'absolute',
+                    top: 0,
+                    right: 0,
+                    background: 'red',
+                    color: 'white',
+                    borderRadius: '50%',
+                    width: 18,
+                    height: 18,
+                    fontSize: 12,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 700,
+                    zIndex: 10
+                  }}>{unreadCount}</span>
+                )}
               </button>
+              {showNotifications && <NotificationsTray onClose={() => setShowNotifications(false)} />}
               <div className={styles.menuContainer}>
                 <button 
                   className={styles.hamburgerButton}

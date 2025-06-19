@@ -251,6 +251,15 @@
   background-color: #f5f5f5;
 }
 
+.logoutButton {
+  color: #dc3545 !important;
+  font-weight: 500;
+}
+
+.logoutButton:hover {
+  background-color: #f8d7da !important;
+}
+
 .loadingState {
   display: flex;
   flex-direction: column;
@@ -906,4 +915,21 @@
   .completedTable td {
     border-bottom-color: #4a5568;
   }
+}
+
+.bellButton {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.bellButton:hover {
+  transform: scale(1.05);
 } 

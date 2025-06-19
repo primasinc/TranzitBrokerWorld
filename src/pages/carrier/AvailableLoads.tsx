@@ -163,6 +163,41 @@ const AvailableLoads: React.FC = () => {
     };
   }, [measurePerformance]);
 
+  // Debug map container dimensions
+  useEffect(() => {
+    if (viewType === 'map') {
+      const logContainerDimensions = () => {
+        const mapSection = document.querySelector(`.${styles.mapSection}`);
+        const mapContainer = document.querySelector(`.${styles.mapContainer}`);
+        
+        if (mapSection) {
+          const sectionRect = mapSection.getBoundingClientRect();
+          console.log('Map section dimensions:', {
+            width: sectionRect.width,
+            height: sectionRect.height,
+            top: sectionRect.top,
+            left: sectionRect.left
+          });
+        }
+        
+        if (mapContainer) {
+          const containerRect = mapContainer.getBoundingClientRect();
+          console.log('Map container dimensions:', {
+            width: containerRect.width,
+            height: containerRect.height,
+            top: containerRect.top,
+            left: containerRect.left
+          });
+        }
+      };
+
+      // Log immediately and after a delay
+      logContainerDimensions();
+      setTimeout(logContainerDimensions, 500);
+      setTimeout(logContainerDimensions, 1000);
+    }
+  }, [viewType, styles.mapSection, styles.mapContainer]);
+
   // Check if we should fetch data based on conditions
   useEffect(() => {
     if (!shouldFetchData('loads')) {
@@ -450,6 +485,12 @@ const AvailableLoads: React.FC = () => {
                   icon: 'circle',
                   onClick: () => handleLoadSelect(load)
                 }))}
+                onMapLoad={(map) => {
+                  console.log('Map loaded successfully on AvailableLoads page');
+                  console.log('Map container dimensions:', map.getContainer().getBoundingClientRect());
+                  console.log('Map center:', map.getCenter());
+                  console.log('Map zoom:', map.getZoom());
+                }}
               />
               {/* Mobile map controls */}
               <div className={styles.mapControls}>

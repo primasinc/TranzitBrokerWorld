@@ -604,6 +604,15 @@
   background-color: #f5f5f5;
 }
 
+.logoutButton {
+  color: #dc3545 !important;
+  font-weight: 500;
+}
+
+.logoutButton:hover {
+  background-color: #f8d7da !important;
+}
+
 .invoiceActions {
   display: flex;
   gap: 10px;
