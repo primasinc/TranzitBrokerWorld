@@ -12,6 +12,7 @@ import AdvancedSearchModal, { SearchCriteria, SavedSearch } from '../../componen
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import InvoiceViewModal from '../../components/carrier/InvoiceViewModal';
+import { useMobileOptimization } from '../../hooks/useMobileOptimization';
 
 interface Payment {
   id: string;
@@ -79,6 +80,19 @@ const Payments: React.FC = () => {
   const [payments, setPayments] = useState<Payment[]>([]);
 
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+
+  // Mobile optimization
+  const { 
+    isLowBandwidth, 
+    isLowBattery, 
+    getOptimalPageSize, 
+    shouldFetchData, 
+    measurePerformance 
+  } = useMobileOptimization({
+    enableOfflineMode: true,
+    enableLowBandwidthMode: true,
+    enableBatteryOptimization: true
+  });
 
   const totalEarnings = payments
     .filter(p => p.status === 'Paid')
@@ -657,48 +671,67 @@ const Payments: React.FC = () => {
 
       <div className={styles.filtersRowContainer}>
         <div className={styles.filtersRow}>
-          <input
-            type="text"
-            placeholder="Search by Invoice # or Customer"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className={styles.searchInput}
-            disabled={!!advancedSearchCriteria}
-            style={{ minWidth: 220, marginRight: 10 }}
-          />
-          <select 
-            value={statusFilter} 
-            onChange={(e) => setStatusFilter(e.target.value as PaymentStatus | 'All')}
-            className={styles.filterSelect}
-            style={{ marginRight: 10 }}
-          >
-            <option value="All">All Statuses</option>
-            <option value="Pending">Pending</option>
-            <option value="Requested">Requested</option>
-            <option value="Paid">Paid</option>
-            <option value="Canceled">Canceled</option>
-            <option value="Processing">Processing</option>
-          </select>
-          <input
-            type="date"
-            value={dateFilter.start}
-            onChange={(e) => setDateFilter(prev => ({ ...prev, start: e.target.value }))}
-            className={styles.dateInput}
-            style={{ marginRight: 10 }}
-          />
-          <input
-            type="date"
-            value={dateFilter.end}
-            onChange={(e) => setDateFilter(prev => ({ ...prev, end: e.target.value }))}
-            className={styles.dateInput}
-            style={{ marginRight: 10 }}
-          />
-          <button 
-            onClick={clearFilters}
-            className={styles.clearFiltersButton}
-          >
-            Clear Filters
-          </button>
+          <div className={styles.filterGroup}>
+            <label htmlFor="searchInput" className={styles.filterLabel}>Search</label>
+            <input
+              id="searchInput"
+              type="text"
+              placeholder="Search by Invoice # or Customer"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className={styles.searchInput}
+              disabled={!!advancedSearchCriteria}
+            />
+          </div>
+          
+          <div className={styles.filterGroup}>
+            <label htmlFor="statusFilter" className={styles.filterLabel}>Status</label>
+            <select 
+              id="statusFilter"
+              value={statusFilter} 
+              onChange={(e) => setStatusFilter(e.target.value as PaymentStatus | 'All')}
+              className={styles.filterSelect}
+            >
+              <option value="All">All Statuses</option>
+              <option value="Pending">Pending</option>
+              <option value="Requested">Requested</option>
+              <option value="Paid">Paid</option>
+              <option value="Canceled">Canceled</option>
+              <option value="Processing">Processing</option>
+            </select>
+          </div>
+          
+          <div className={styles.filterGroup}>
+            <label htmlFor="startDate" className={styles.filterLabel}>Start Date</label>
+            <input
+              id="startDate"
+              type="date"
+              value={dateFilter.start}
+              onChange={(e) => setDateFilter(prev => ({ ...prev, start: e.target.value }))}
+              className={styles.dateInput}
+            />
+          </div>
+          
+          <div className={styles.filterGroup}>
+            <label htmlFor="endDate" className={styles.filterLabel}>End Date</label>
+            <input
+              id="endDate"
+              type="date"
+              value={dateFilter.end}
+              onChange={(e) => setDateFilter(prev => ({ ...prev, end: e.target.value }))}
+              className={styles.dateInput}
+            />
+          </div>
+          
+          <div className={styles.filterGroup}>
+            <label className={styles.filterLabel}>&nbsp;</label>
+            <button 
+              onClick={clearFilters}
+              className={styles.clearFiltersButton}
+            >
+              Clear Filters
+            </button>
+          </div>
         </div>
         <div className={styles.advancedSearchButtonContainer}>
           <button 
@@ -850,6 +883,14 @@ const Payments: React.FC = () => {
           onClose={() => setShowInvoiceView(false)}
           invoice={selectedInvoice}
         />
+      )}
+      
+      {/* Mobile performance indicator */}
+      {(isLowBandwidth || isLowBattery) && (
+        <div className={styles.performanceIndicator}>
+          {isLowBandwidth && <span>📶 Slow connection - Optimized loading</span>}
+          {isLowBattery && <span>🔋 Low battery - Reduced animations</span>}
+        </div>
       )}
     </div>
   );

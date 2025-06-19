@@ -305,85 +305,433 @@
   margin-bottom: 30px;
 }
 
+/* Enhanced mobile responsive styles */
 @media (max-width: 900px) {
   .container {
-    padding: 10px;
+    padding: 12px;
   }
-  .header, .headerCard, .subHeader, .complianceAlert {
-    padding: 10px;
-    border-radius: 8px;
+  
+  .headerCard {
+    padding: 16px;
+    margin-bottom: 20px;
   }
+  
+  .headerRow {
+    flex-direction: row; /* Keep horizontal layout */
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .headerLeft {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .headerLeft h1 {
+    font-size: 1.5rem;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .headerRight {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .bellButton {
+    font-size: 20px !important;
+    padding: 8px;
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .hamburgerButton {
+    padding: 8px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  
+  .hamburgerIcon {
+    width: 20px;
+    height: 16px;
+  }
+  
+  .subHeader {
+    padding: 0;
+    margin-bottom: 20px;
+  }
+  
+  .menuBar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 20px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 8px;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  
+  .menuBar::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .tab {
+    flex: 0 0 auto;
+    min-width: 100px;
+    font-size: 14px;
+    padding: 10px 16px;
+    margin: 0;
+    white-space: nowrap;
+    border-radius: 6px;
+    font-weight: 500;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .uploadButton {
+    flex: 0 0 auto;
+    min-width: 140px;
+    font-size: 14px;
+    padding: 10px 16px;
+    margin: 0;
+    background: #28a745;
+    color: #fff;
+    font-weight: 600;
+    border-radius: 6px;
+    min-height: 44px;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
   .documentGrid {
     grid-template-columns: 1fr;
-    gap: 12px;
+    gap: 16px;
   }
+  
   .documentCard {
     flex-direction: column;
-    gap: 10px;
-    padding: 12px;
+    gap: 16px;
+    padding: 16px;
     border-radius: 8px;
     width: 100%;
     min-width: 0;
     box-sizing: border-box;
   }
+  
   .docDetails {
     grid-template-columns: 1fr;
-    gap: 6px;
+    gap: 8px;
   }
-  .menuBar {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    gap: 6px;
-    padding-bottom: 8px;
+  
+  .docActions {
+    flex-direction: row;
+    gap: 8px;
+    justify-content: flex-start;
+  }
+  
+  .viewButton,
+  .downloadButton,
+  .moreButton {
+    flex: 1;
+    min-height: 40px;
+    font-size: 14px;
+    padding: 8px 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 10px;
+  }
+  
+  .headerCard {
+    padding: 14px;
     margin-bottom: 16px;
-    scrollbar-width: none;
-    font-size: 0.97em;
   }
-  .menuBar::-webkit-scrollbar {
-    display: none;
+  
+  .headerLeft h1 {
+    font-size: 1.4rem;
   }
-  .tab, .uploadButton {
-    flex: 0 0 auto;
-    min-width: 80px;
-    font-size: 0.97em;
-    padding: 7px 8px;
-    margin: 0;
+  
+  .menuBar {
+    gap: 6px;
+    padding-bottom: 6px;
+    margin-bottom: 16px;
   }
+  
+  .tab {
+    min-width: 90px;
+    font-size: 13px;
+    padding: 8px 12px;
+    min-height: 40px;
+  }
+  
   .uploadButton {
-    background: #007bff;
-    color: #fff;
-    font-weight: 600;
-    border-radius: 6px;
-    margin-left: 6px;
+    min-width: 120px;
+    font-size: 13px;
+    padding: 8px 12px;
+    min-height: 40px;
+  }
+  
+  .documentCard {
+    padding: 14px;
+    gap: 12px;
+  }
+  
+  .docActions {
+    gap: 6px;
+  }
+  
+  .viewButton,
+  .downloadButton,
+  .moreButton {
+    min-height: 36px;
+    font-size: 13px;
+    padding: 6px 10px;
   }
 }
 
 @media (max-width: 480px) {
   .container {
-    padding: 4px;
+    padding: 8px;
   }
-  .header, .headerCard, .subHeader, .complianceAlert {
+  
+  .headerCard {
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+  
+  .headerLeft h1 {
+    font-size: 1.3rem;
+  }
+  
+  .bellButton {
+    font-size: 18px !important;
     padding: 6px;
-    border-radius: 6px;
+    min-width: 40px;
+    min-height: 40px;
   }
-  .documentCard {
+  
+  .hamburgerButton {
     padding: 6px;
-    border-radius: 6px;
+    min-width: 40px;
+    min-height: 40px;
   }
+  
+  .hamburgerIcon {
+    width: 18px;
+    height: 14px;
+  }
+  
+  .subHeader {
+    margin-bottom: 12px;
+  }
+  
   .menuBar {
     gap: 4px;
     padding-bottom: 4px;
-    margin-bottom: 10px;
-    font-size: 0.93em;
+    margin-bottom: 12px;
   }
-  .tab, .uploadButton {
-    min-width: 60px;
-    font-size: 0.93em;
-    padding: 5px 4px;
-    margin: 0;
+  
+  .tab {
+    min-width: 80px;
+    font-size: 12px;
+    padding: 6px 8px;
+    min-height: 36px;
+    border-radius: 4px;
   }
+  
   .uploadButton {
-    border-radius: 5px;
-    margin-left: 4px;
+    min-width: 100px;
+    font-size: 12px;
+    padding: 6px 8px;
+    min-height: 36px;
+    border-radius: 4px;
   }
+  
+  .documentCard {
+    padding: 12px;
+    gap: 10px;
+    border-radius: 6px;
+  }
+  
+  .docIcon {
+    font-size: 1.5em;
+  }
+  
+  .docInfo h3 {
+    font-size: 16px;
+    margin-bottom: 8px;
+  }
+  
+  .docMeta {
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  
+  .docType,
+  .status {
+    font-size: 11px;
+    padding: 3px 6px;
+  }
+  
+  .docDetails {
+    gap: 6px;
+  }
+  
+  .docDetails label {
+    font-size: 11px;
+  }
+  
+  .docActions {
+    gap: 4px;
+  }
+  
+  .viewButton,
+  .downloadButton,
+  .moreButton {
+    min-height: 32px;
+    font-size: 11px;
+    padding: 4px 6px;
+  }
+}
+
+/* Landscape orientation on mobile */
+@media (max-width: 900px) and (orientation: landscape) {
+  .menuBar {
+    gap: 10px;
+  }
+  
+  .tab {
+    min-width: 110px;
+    font-size: 14px;
+    padding: 10px 16px;
+  }
+  
+  .uploadButton {
+    min-width: 150px;
+    font-size: 14px;
+    padding: 10px 16px;
+  }
+  
+  .documentCard {
+    flex-direction: row;
+    gap: 16px;
+  }
+  
+  .docActions {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .viewButton,
+  .downloadButton,
+  .moreButton {
+    flex: none;
+    min-width: 80px;
+  }
+}
+
+/* Tablet optimizations */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .menuBar {
+    gap: 12px;
+  }
+  
+  .tab {
+    min-width: 120px;
+    font-size: 15px;
+    padding: 12px 20px;
+  }
+  
+  .uploadButton {
+    min-width: 160px;
+    font-size: 15px;
+    padding: 12px 20px;
+  }
+  
+  .documentGrid {
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 18px;
+  }
+}
+
+/* High DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .tab,
+  .uploadButton {
+    border-radius: 3px;
+  }
+  
+  .documentCard {
+    border-radius: 6px;
+  }
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+  .tab,
+  .uploadButton {
+    transition: none;
+  }
+  
+  .hamburgerIcon span {
+    transition: none;
+  }
+}
+
+/* Dark mode support (if needed in future) */
+@media (prefers-color-scheme: dark) {
+  .documentCard {
+    background: #2d3748;
+    color: #e2e8f0;
+  }
+  
+  .tab {
+    background: #4a5568;
+    color: #e2e8f0;
+    border-color: #718096;
+  }
+  
+  .tab.active {
+    background: #3182ce;
+    color: #e2e8f0;
+  }
+}
+
+/* Mobile performance indicator */
+.performanceIndicator {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #856404;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  max-width: 250px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.performanceIndicator span {
+  font-weight: 500;
 } 

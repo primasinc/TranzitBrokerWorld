@@ -308,8 +308,14 @@ const ShipperDashboard: React.FC = () => {
     fetchCarriers();
   }, [showAvailableCarriers]);
 
-  // Prompt for geolocation immediately and block UI if denied
+  // Get user location - only after authentication
   useEffect(() => {
+    // Only request location if user is authenticated
+    if (!user) {
+      console.log('User not authenticated, skipping location request');
+      return;
+    }
+
     let watchId: number | null = null;
     let didSetLocation = false;
     async function fetchAndGeocodeProfileAddress() {
@@ -351,10 +357,15 @@ const ShipperDashboard: React.FC = () => {
             // If denied, try to use profile address
             await fetchAndGeocodeProfileAddress();
             if (!didSetLocation) {
-              setLocationError('Location access is required to use this app. Please enable location services and reload.');
+              console.warn('Location access denied, using default location');
+              setLocationError(null); // Don't block the app
             }
           },
-          { enableHighAccuracy: true }
+          { 
+            enableHighAccuracy: false, // Less aggressive
+            timeout: 10000,
+            maximumAge: 300000 // 5 minutes cache
+          }
         );
       } else {
         fetchAndGeocodeProfileAddress();
@@ -366,34 +377,7 @@ const ShipperDashboard: React.FC = () => {
         navigator.geolocation.clearWatch(watchId);
       }
     };
-  }, [user]);
-
-  if (locationError) {
-    return (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        width: '100vw',
-        height: '100vh',
-        background: 'rgba(255,255,255,0.98)',
-        zIndex: 9999,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
-        <h2>Location Required</h2>
-        <p>{locationError}</p>
-        <button
-          style={{ padding: '12px 24px', fontSize: 18, marginTop: 24 }}
-          onClick={() => window.location.reload()}
-        >
-          Retry
-        </button>
-      </div>
-    );
-  }
+  }, [user]); // Only run when user changes
 
   // Function to geocode address using Mapbox
   const handleAddressSearch = async (e: React.FormEvent<HTMLFormElement>) => {

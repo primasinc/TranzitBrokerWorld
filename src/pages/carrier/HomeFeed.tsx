@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import MapboxMap from '../../components/common/MapboxMap';
@@ -6,9 +6,10 @@ import styles from './HomeFeed.module.css';
 import LoadRequestCard from '../../components/carrier/LoadRequestCard';
 import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
 import { db } from '../../firebase';
-import NotificationsTray, { useUnreadNotifications } from '../carrier/NotificationsTray';
+import NotificationsTray, { useUnreadNotifications } from './NotificationsTray';
 import { useAvailableLoads } from '../../hooks/useAvailableLoads';
 import { isValidPartnerRequest } from './AvailableLoads';
+import { useMobileOptimization } from '../../hooks/useMobileOptimization';
 
 interface AvailableLoad {
   id: string;
@@ -44,8 +45,41 @@ const HomeFeed: React.FC = () => {
   const unreadCount = useUnreadNotifications();
   const [locationError, setLocationError] = useState<string | null>(null);
   const [validRequests, setValidRequests] = React.useState<any[]>([]);
+  const [isMobile, setIsMobile] = useState(false);
+  const { 
+    networkInfo, 
+    batteryInfo, 
+    isLowBandwidth, 
+    isLowBattery, 
+    getOptimalPageSize,
+    shouldFetchData 
+  } = useMobileOptimization();
 
-  const { loads: availableLoads, loading: loadsLoading, error: loadsError } = useAvailableLoads(userLocation, radiusMiles);
+  // Mobile detection
+  useEffect(() => {
+    const checkMobile = () => {
+      const userAgent = navigator.userAgent.toLowerCase();
+      const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+      setIsMobile(isMobileDevice || window.innerWidth <= 768);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  const {
+    loads: availableLoads,
+    loading: loadsLoading,
+    error: loadsError,
+    hasMore: hasMoreLoads,
+    loadMore: loadMoreLoads
+  } = useAvailableLoads(
+    null, // carrierLocation - will be set when location is available
+    100, // radiusMiles
+    getOptimalPageSize(isLowBandwidth || isLowBattery ? 5 : 10) // Dynamic page size based on conditions
+  );
 
   useEffect(() => {
     if (!user) return;
@@ -66,8 +100,14 @@ const HomeFeed: React.FC = () => {
     return () => unsubscribe();
   }, [user]);
 
-  // Prompt for geolocation immediately and block UI if denied
+  // Get user location - optional for carriers
   useEffect(() => {
+    // Only request location if user is authenticated
+    if (!user) {
+      console.log('User not authenticated, skipping location request');
+      return;
+    }
+
     let watchId: number | null = null;
     function requestLocation() {
       setLocationError(null);
@@ -78,12 +118,18 @@ const HomeFeed: React.FC = () => {
             setLocationError(null);
           },
           (error) => {
-            setLocationError('Location access is required to use this app. Please enable location services and reload.');
+            console.warn('Geolocation error:', error);
+            // Don't block the app - just use default location
+            setLocationError(null);
           },
-          { enableHighAccuracy: true }
+          { 
+            enableHighAccuracy: true, // High accuracy for carriers
+            timeout: 10000,
+            maximumAge: 300000 // 5 minutes cache
+          }
         );
       } else {
-        setLocationError('Geolocation is not supported by your browser.');
+        console.log('Geolocation not supported, using default location');
       }
     }
     requestLocation();
@@ -92,7 +138,7 @@ const HomeFeed: React.FC = () => {
         navigator.geolocation.clearWatch(watchId);
       }
     };
-  }, []);
+  }, [user]); // Only run when user changes
 
   React.useEffect(() => {
     let isMounted = true;
@@ -114,67 +160,40 @@ const HomeFeed: React.FC = () => {
     return () => { isMounted = false; };
   }, [partnerRequests]);
 
-  const currentLoad = {
-    poNumber: 'PO-12345',
-    shipperName: 'ABC Logistics',
-    contact: 'John Doe | 555-0123',
+  // State for current load (mock data for now)
+  const [currentLoad] = useState({
+    poNumber: 'PO-2024-001',
+    shipperName: 'ABC Manufacturing',
+    contact: 'John Smith (555) 123-4567',
     pickup: {
-      location: '123 Pickup St, City, ST',
-      time: '2024-02-23 14:00',
+      location: '123 Factory St, Detroit, MI',
+      time: '2024-01-15 08:00 AM'
     },
     delivery: {
-      location: '456 Delivery Ave, City, ST',
-      time: '2024-02-24 10:00',
+      location: '456 Warehouse Ave, Chicago, IL',
+      time: '2024-01-16 02:00 PM'
     },
     product: {
-      description: 'Electronics',
-      size: '48" x 48" x 48"',
-      weight: '2000 lbs',
+      description: 'Automotive parts - Engine components',
+      size: '48ft x 8.5ft x 8.5ft',
+      weight: '45,000 lbs'
     },
-    notes: 'Handle with care. Liftgate required.',
-  };
+    notes: 'Handle with care. Temperature controlled shipment required.'
+  });
 
   const handleLogout = () => {
     navigate('/login');
   };
-
-  if (locationError) {
-    return (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        width: '100vw',
-        height: '100vh',
-        background: 'rgba(255,255,255,0.98)',
-        zIndex: 9999,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
-        <h2>Location Required</h2>
-        <p>{locationError}</p>
-        <button
-          style={{ padding: '12px 24px', fontSize: 18, marginTop: 24 }}
-          onClick={() => window.location.reload()}
-        >
-          Retry
-        </button>
-      </div>
-    );
-  }
 
   return (
     <div className={styles.container}>
       <main className={styles.mainContent}>
         <header className={styles.header}>
           <h1>Carrier Dashboard</h1>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', position: 'relative' }}>
+          <div className={styles.headerControls}>
             <button
               className={styles.bellButton}
               onClick={() => setShowNotifications(v => !v)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, position: 'relative' }}
             >
               <span role="img" aria-label="Notifications">🔔</span>
               {unreadCount > 0 && (
@@ -197,30 +216,55 @@ const HomeFeed: React.FC = () => {
               )}
             </button>
             {showNotifications && <NotificationsTray onClose={() => setShowNotifications(false)} />}
-            <button 
-              className={styles.hamburgerButton}
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-            >
-              <div className={styles.hamburgerIcon}>
-                <span></span>
-                <span></span>
-                <span></span>
-              </div>
-            </button>
-            {isMenuOpen && (
-              <div className={styles.dropdownMenu}>
-                <button onClick={() => navigate('/carrier/profile')}>Account</button>
-                <button onClick={() => navigate('/carrier/settings')}>Settings</button>
-                <button 
-                  onClick={handleLogout}
-                  className={styles.logoutButton}
-                >
-                  Logout
-                </button>
-              </div>
-            )}
+            <div className={styles.menuContainer}>
+              <button 
+                className={styles.hamburgerButton}
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+              >
+                <div className={styles.hamburgerIcon}>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+              </button>
+              {isMenuOpen && (
+                <div className={styles.dropdownMenu}>
+                  <button onClick={() => navigate('/carrier/profile')}>Account</button>
+                  <button onClick={() => navigate('/carrier/settings')}>Settings</button>
+                  <button 
+                    onClick={handleLogout}
+                    className={styles.logoutButton}
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </header>
+
+        {/* Mobile Performance Indicator */}
+        {(isLowBandwidth || isLowBattery) && (
+          <div style={{
+            background: '#fff3cd',
+            border: '1px solid #ffeaa7',
+            borderRadius: '8px',
+            padding: '8px 12px',
+            marginBottom: '12px',
+            fontSize: '12px',
+            color: '#856404',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <span>📱</span>
+            <span>
+              {isLowBandwidth ? 'Slow connection detected - Optimized loading enabled' : ''}
+              {isLowBattery ? 'Low battery detected - Reduced data loading' : ''}
+            </span>
+          </div>
+        )}
+
         <div className={styles.content}>
           {/* Current Load Information */}
           <section className={styles.currentLoad}>
@@ -293,19 +337,37 @@ const HomeFeed: React.FC = () => {
                 ) : availableLoads.length === 0 ? (
                   <div>No available loads in your area.</div>
                 ) : (
-                  availableLoads
-                    .filter(load => load && load.pickupLocation && load.deliveryLocation && load.pickupLocation.address && load.deliveryLocation.address)
-                    .map((load) => (
-                    <div key={load.id} className={styles.loadCard}>
-                      <h3>{load.title}</h3>
-                      <p>Pickup: {load.pickupLocation.address}</p>
-                      <p>Delivery: {load.deliveryLocation.address}</p>
+                  <>
+                    {availableLoads
+                      .filter(load => load && load.pickupLocation && load.deliveryLocation && load.pickupLocation.address && load.deliveryLocation.address)
+                      .map((load) => (
+                      <div key={load.id} className={styles.loadCard}>
+                        <h3>{load.title}</h3>
+                        <p>Pickup: {load.pickupLocation.address}</p>
+                        <p>Delivery: {load.deliveryLocation.address}</p>
                         <p>Rate: {load.rate ? `$${load.rate.toLocaleString()}` : '—'}</p>
-                      <button onClick={() => console.log('View details:', load)}>
-                        View Details
+                        <button onClick={() => console.log('View details:', load)}>
+                          View Details
+                        </button>
+                      </div>
+                    ))}
+                    {hasMoreLoads && (
+                      <button 
+                        onClick={loadMoreLoads}
+                        style={{
+                          width: '100%',
+                          padding: '12px',
+                          background: '#f8f9fa',
+                          border: '1px solid #dee2e6',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          marginTop: '12px'
+                        }}
+                      >
+                        Load More Loads
                       </button>
-                    </div>
-                  ))
+                    )}
+                  </>
                 )}
               </div>
             ) : (
@@ -315,37 +377,65 @@ const HomeFeed: React.FC = () => {
                 ) : validRequests.length === 0 ? (
                   <div>No partner loads at this time.</div>
                 ) : (
-                  <table className={styles.partnerTable}>
-                    <thead>
-                      <tr>
-                        <th>PO Number</th>
-                        <th>Shipper</th>
-                        <th>Pickup</th>
-                        <th>Delivery</th>
-                        <th>Rate</th>
-                        <th></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {validRequests.slice(0, 5).map((request) => (
-                        <tr key={request.id}>
-                          <td>{request.loadDetails?.poNumber || '-'}</td>
-                          <td>{request.loadDetails?.shipperCompany || '-'}</td>
-                          <td>{request.loadDetails?.pickupLocation?.address || '-'}</td>
-                          <td>{request.loadDetails?.deliveryLocation?.address || '-'}</td>
-                          <td>{typeof request.loadDetails?.rate === 'number' ? `$${request.loadDetails.rate}` : '-'}</td>
-                          <td>
+                  <>
+                    {/* Desktop Table View */}
+                    {!isMobile && (
+                      <table className={styles.partnerTable}>
+                        <thead>
+                          <tr>
+                            <th>PO Number</th>
+                            <th>Shipper</th>
+                            <th>Pickup</th>
+                            <th>Delivery</th>
+                            <th>Rate</th>
+                            <th></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {validRequests.slice(0, 5).map((request) => (
+                            <tr key={request.id}>
+                              <td>{request.loadDetails?.poNumber || '-'}</td>
+                              <td>{request.loadDetails?.shipperCompany || '-'}</td>
+                              <td>{request.loadDetails?.pickupLocation?.address || '-'}</td>
+                              <td>{request.loadDetails?.deliveryLocation?.address || '-'}</td>
+                              <td>{typeof request.loadDetails?.rate === 'number' ? `$${request.loadDetails.rate}` : '-'}</td>
+                              <td>
+                                <a
+                                  href="/carrier/available-loads#partner"
+                                  style={{ color: '#007bff', textDecoration: 'underline', cursor: 'pointer', fontWeight: 500 }}
+                                >
+                                  View
+                                </a>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                    
+                    {/* Mobile Card View */}
+                    {isMobile && (
+                      <div className={styles.mobilePartnerCards}>
+                        {validRequests.slice(0, 5).map((request) => (
+                          <div key={request.id} className={styles.partnerCard}>
+                            <h4>PO: {request.loadDetails?.poNumber || 'N/A'}</h4>
+                            <p><strong>Shipper:</strong> {request.loadDetails?.shipperCompany || 'N/A'}</p>
+                            <p><strong>Pickup:</strong> {request.loadDetails?.pickupLocation?.address || 'N/A'}</p>
+                            <p><strong>Delivery:</strong> {request.loadDetails?.deliveryLocation?.address || 'N/A'}</p>
+                            <p className={styles.rate}>
+                              <strong>Rate:</strong> {typeof request.loadDetails?.rate === 'number' ? `$${request.loadDetails.rate}` : 'N/A'}
+                            </p>
                             <a
                               href="/carrier/available-loads#partner"
-                              style={{ color: '#007bff', textDecoration: 'underline', cursor: 'pointer', fontWeight: 500 }}
+                              className={styles.viewLink}
                             >
-                              View
+                              View Details
                             </a>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}

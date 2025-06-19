@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import styles from './Documents.module.css';
+import { useMobileOptimization } from '../../hooks/useMobileOptimization';
 
 interface Document {
   id: string;
@@ -16,6 +17,19 @@ const Documents: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'all' | 'compliance' | 'loads'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // Mobile optimization
+  const { 
+    isLowBandwidth, 
+    isLowBattery, 
+    getOptimalPageSize, 
+    shouldFetchData, 
+    measurePerformance 
+  } = useMobileOptimization({
+    enableOfflineMode: true,
+    enableLowBandwidthMode: true,
+    enableBatteryOptimization: true
+  });
 
   const documents: Document[] = [
     {
@@ -174,6 +188,14 @@ const Documents: React.FC = () => {
           </div>
         ))}
       </div>
+
+      {/* Mobile performance indicator */}
+      {(isLowBandwidth || isLowBattery) && (
+        <div className={styles.performanceIndicator}>
+          {isLowBandwidth && <span>📶 Slow connection - Optimized loading</span>}
+          {isLowBattery && <span>🔋 Low battery - Reduced animations</span>}
+        </div>
+      )}
     </div>
   );
 };

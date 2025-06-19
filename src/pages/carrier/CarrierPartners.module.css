@@ -292,4 +292,413 @@
 
 .searchButton:hover {
   background-color: #0056b3;
+}
+
+/* Enhanced mobile responsive styles */
+@media (max-width: 900px) {
+  .container {
+    padding: 12px;
+  }
+  
+  .headerCard {
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+  
+  .headerRow {
+    flex-direction: row; /* Keep horizontal layout */
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .headerLeft {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .headerLeft h1 {
+    font-size: 1.5rem;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .headerRight {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .bellButton {
+    font-size: 20px !important;
+    padding: 8px;
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .hamburgerButton {
+    padding: 8px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  
+  .hamburgerIcon {
+    width: 20px;
+    height: 16px;
+  }
+  
+  .searchRow {
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+    margin-top: 0;
+  }
+  
+  .searchInput {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 16px; /* Prevent zoom on iOS */
+    min-height: 44px;
+  }
+  
+  .searchButton {
+    width: 100%;
+    padding: 10px 12px;
+    min-height: 44px;
+    font-size: 16px;
+  }
+  
+  .carrierGrid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .carrierCard {
+    padding: 16px;
+  }
+  
+  .cardHeader {
+    margin-bottom: 12px;
+  }
+  
+  .cardHeader h3 {
+    font-size: 1.1rem;
+  }
+  
+  .contact {
+    padding-top: 12px;
+    margin-bottom: 12px;
+  }
+  
+  .contact p {
+    margin: 4px 0;
+    font-size: 0.9rem;
+  }
+  
+  .actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .actionButton {
+    width: 100%;
+    padding: 10px 12px;
+    min-height: 44px;
+    font-size: 14px;
+  }
+  
+  .noCarriers {
+    padding: 30px 20px;
+  }
+  
+  .noCarriers p {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 10px;
+  }
+  
+  .headerCard {
+    padding: 14px;
+    margin-bottom: 16px;
+  }
+  
+  .headerLeft h1 {
+    font-size: 1.4rem;
+  }
+  
+  .searchRow {
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  
+  .searchInput {
+    padding: 8px 10px;
+    min-height: 40px;
+    font-size: 16px;
+  }
+  
+  .searchButton {
+    padding: 8px 10px;
+    min-height: 40px;
+    font-size: 16px;
+  }
+  
+  .carrierGrid {
+    gap: 12px;
+  }
+  
+  .carrierCard {
+    padding: 14px;
+  }
+  
+  .cardHeader h3 {
+    font-size: 1rem;
+  }
+  
+  .contact p {
+    font-size: 0.85rem;
+  }
+  
+  .actionButton {
+    padding: 8px 10px;
+    min-height: 40px;
+    font-size: 13px;
+  }
+  
+  .noCarriers {
+    padding: 25px 15px;
+  }
+  
+  .noCarriers p {
+    font-size: 0.95rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: 8px;
+  }
+  
+  .headerCard {
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+  
+  .headerLeft h1 {
+    font-size: 1.3rem;
+  }
+  
+  .bellButton {
+    font-size: 18px !important;
+    padding: 6px;
+    min-width: 40px;
+    min-height: 40px;
+  }
+  
+  .hamburgerButton {
+    padding: 6px;
+    min-width: 40px;
+    min-height: 40px;
+  }
+  
+  .hamburgerIcon {
+    width: 18px;
+    height: 14px;
+  }
+  
+  .searchRow {
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  
+  .searchInput {
+    padding: 6px 8px;
+    min-height: 36px;
+    font-size: 16px;
+  }
+  
+  .searchButton {
+    padding: 6px 8px;
+    min-height: 36px;
+    font-size: 16px;
+  }
+  
+  .carrierGrid {
+    gap: 8px;
+  }
+  
+  .carrierCard {
+    padding: 12px;
+  }
+  
+  .cardHeader h3 {
+    font-size: 0.95rem;
+  }
+  
+  .contact {
+    padding-top: 10px;
+    margin-bottom: 10px;
+  }
+  
+  .contact p {
+    font-size: 0.8rem;
+    margin: 3px 0;
+  }
+  
+  .actionButton {
+    padding: 6px 8px;
+    min-height: 36px;
+    font-size: 12px;
+  }
+  
+  .noCarriers {
+    padding: 20px 12px;
+  }
+  
+  .noCarriers p {
+    font-size: 0.9rem;
+  }
+}
+
+/* Landscape orientation on mobile */
+@media (max-width: 900px) and (orientation: landscape) {
+  .searchRow {
+    flex-direction: row;
+    gap: 10px;
+  }
+  
+  .searchInput {
+    flex: 1;
+    min-width: 200px;
+  }
+  
+  .searchButton {
+    flex: 0 0 auto;
+    width: auto;
+  }
+  
+  .carrierGrid {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 12px;
+  }
+  
+  .actions {
+    flex-direction: row;
+    gap: 6px;
+  }
+  
+  .actionButton {
+    width: auto;
+    flex: 1;
+  }
+}
+
+/* Tablet optimizations */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .searchRow {
+    flex-direction: row;
+    gap: 12px;
+  }
+  
+  .searchInput {
+    flex: 1;
+    min-width: 250px;
+  }
+  
+  .searchButton {
+    flex: 0 0 auto;
+    width: auto;
+  }
+  
+  .carrierGrid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 18px;
+  }
+  
+  .actions {
+    flex-direction: row;
+    gap: 8px;
+  }
+  
+  .actionButton {
+    width: auto;
+    flex: 1;
+  }
+}
+
+/* High DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .searchInput,
+  .searchButton,
+  .actionButton {
+    border-radius: 3px;
+  }
+  
+  .carrierCard {
+    border-radius: 6px;
+  }
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+  .searchInput,
+  .searchButton,
+  .actionButton {
+    transition: none;
+  }
+  
+  .hamburgerIcon span {
+    transition: none;
+  }
+}
+
+/* Dark mode support (if needed in future) */
+@media (prefers-color-scheme: dark) {
+  .carrierCard {
+    background: #2d3748;
+    color: #e2e8f0;
+  }
+  
+  .contact {
+    border-top-color: #4a5568;
+  }
+  
+  .searchInput {
+    background: #4a5568;
+    color: #e2e8f0;
+    border-color: #718096;
+  }
+}
+
+/* Mobile performance indicator */
+.performanceIndicator {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #856404;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  max-width: 250px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.performanceIndicator span {
+  font-weight: 500;
 } 

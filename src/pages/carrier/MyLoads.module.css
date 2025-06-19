@@ -323,6 +323,7 @@
 .completedTableWrapper {
   width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .completedTable {
@@ -332,6 +333,7 @@
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.08);
   margin-bottom: 20px;
+  min-width: 600px;
 }
 
 .completedTable th, .completedTable td {
@@ -339,11 +341,15 @@
   text-align: left;
   border-bottom: 1px solid #eee;
   font-size: 15px;
+  white-space: nowrap;
 }
 
 .completedTable th {
   background: #f8f9fa;
   font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .completedTable tr:last-child td {
@@ -358,6 +364,7 @@
   color: white;
   cursor: pointer;
   font-size: 0.95em;
+  white-space: nowrap;
 }
 
 .completedTable td button:hover {
@@ -385,4 +392,518 @@
 
 .invoiceButton:hover {
   background: #218838;
+}
+
+/* Desktop and mobile table view switching */
+.desktopTable {
+  display: block;
+}
+
+.mobileTable {
+  display: none;
+}
+
+/* Mobile table row styles */
+.mobileTableRow {
+  background: white;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border: 1px solid #eee;
+}
+
+.mobileRowHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mobileRowTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.mobileRowTitle strong {
+  font-size: 16px;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mobileRowPo {
+  font-size: 13px;
+  color: #666;
+  background: #f8f9fa;
+  padding: 4px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.mobileRowDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.mobileRowSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mobileRowItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.mobileRowItem:last-child {
+  border-bottom: none;
+}
+
+.mobileRowItem label {
+  font-size: 13px;
+  color: #666;
+  font-weight: 500;
+  min-width: 80px;
+  flex-shrink: 0;
+}
+
+.mobileRowItem span {
+  font-size: 14px;
+  color: #333;
+  text-align: right;
+  flex: 1;
+  word-break: break-word;
+}
+
+.mobileRowActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mobileRowActions button {
+  flex: 1;
+  min-width: 120px;
+  padding: 10px 12px;
+  font-size: 13px;
+  min-height: 40px;
+}
+
+/* Mobile responsive breakpoints */
+@media (max-width: 768px) {
+  .desktopTable {
+    display: none;
+  }
+  
+  .mobileTable {
+    display: block;
+  }
+  
+  .container {
+    padding: 12px;
+  }
+  
+  .headerCard {
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+  
+  .headerRow {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .headerLeft {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .headerLeft h1 {
+    font-size: 1.5rem;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .headerRight {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .bellButton {
+    font-size: 20px !important;
+    padding: 8px;
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .hamburgerButton {
+    padding: 8px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  
+  .hamburgerIcon {
+    width: 20px;
+    height: 16px;
+  }
+  
+  .tabs {
+    gap: 8px;
+    padding-bottom: 8px;
+  }
+  
+  .tab {
+    padding: 8px 16px;
+    font-size: 14px;
+    flex: 1;
+    text-align: center;
+  }
+  
+  .searchBar {
+    margin: 16px 0 8px 0;
+    justify-content: stretch;
+  }
+  
+  .searchInput {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 16px;
+  }
+  
+  .completedTableWrapper {
+    margin: 0 -12px;
+    padding: 0 12px;
+  }
+  
+  .completedTable {
+    min-width: 500px;
+    font-size: 14px;
+  }
+  
+  .completedTable th, .completedTable td {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+  
+  .completedTable td button {
+    padding: 8px 12px;
+    font-size: 12px;
+    min-width: 80px;
+  }
+  
+  .locationInfo {
+    grid-template-columns: 1fr;
+  }
+  
+  .loadSpecs {
+    grid-template-columns: 1fr;
+  }
+  
+  .actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .viewButton, .startButton, .completeButton {
+    width: 100%;
+    padding: 12px;
+    font-size: 14px;
+    min-height: 44px;
+  }
+  
+  .mobileTableRow {
+    padding: 12px;
+    margin-bottom: 8px;
+  }
+  
+  .mobileRowHeader {
+    margin-bottom: 10px;
+  }
+  
+  .mobileRowTitle strong {
+    font-size: 15px;
+  }
+  
+  .mobileRowPo {
+    font-size: 12px;
+    padding: 3px 6px;
+  }
+  
+  .mobileRowItem {
+    padding: 6px 0;
+  }
+  
+  .mobileRowItem label {
+    font-size: 12px;
+    min-width: 70px;
+  }
+  
+  .mobileRowItem span {
+    font-size: 13px;
+  }
+  
+  .mobileRowActions {
+    gap: 6px;
+  }
+  
+  .mobileRowActions button {
+    min-width: 100px;
+    padding: 8px 10px;
+    font-size: 12px;
+    min-height: 36px;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: 8px;
+  }
+  
+  .headerCard {
+    padding: 12px;
+    margin-bottom: 16px;
+  }
+  
+  .headerLeft h1 {
+    font-size: 1.3rem;
+  }
+  
+  .bellButton {
+    font-size: 18px !important;
+    padding: 6px;
+    min-width: 40px;
+    min-height: 40px;
+  }
+  
+  .hamburgerButton {
+    padding: 6px;
+    min-width: 40px;
+    min-height: 40px;
+  }
+  
+  .hamburgerIcon {
+    width: 18px;
+    height: 14px;
+  }
+  
+  .tabs {
+    gap: 4px;
+  }
+  
+  .tab {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+  
+  .searchInput {
+    padding: 8px 10px;
+    font-size: 16px;
+  }
+  
+  .completedTableWrapper {
+    margin: 0 -8px;
+    padding: 0 8px;
+  }
+  
+  .completedTable {
+    min-width: 450px;
+    font-size: 12px;
+  }
+  
+  .completedTable th, .completedTable td {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+  
+  .completedTable td button {
+    padding: 6px 8px;
+    font-size: 11px;
+    min-width: 70px;
+  }
+  
+  .loadCard {
+    padding: 16px;
+  }
+  
+  .loadHeader h3 {
+    font-size: 16px;
+  }
+  
+  .detail label {
+    min-width: 80px;
+    font-size: 13px;
+  }
+  
+  .mobileTableRow {
+    padding: 10px;
+    margin-bottom: 6px;
+  }
+  
+  .mobileRowTitle strong {
+    font-size: 14px;
+  }
+  
+  .mobileRowPo {
+    font-size: 11px;
+    padding: 2px 4px;
+  }
+  
+  .mobileRowItem label {
+    font-size: 11px;
+    min-width: 60px;
+  }
+  
+  .mobileRowItem span {
+    font-size: 12px;
+  }
+  
+  .mobileRowActions button {
+    min-width: 90px;
+    padding: 6px 8px;
+    font-size: 11px;
+    min-height: 32px;
+  }
+}
+
+/* Landscape orientation on mobile */
+@media (max-width: 900px) and (orientation: landscape) {
+  .completedTable {
+    min-width: 600px;
+  }
+  
+  .completedTable th, .completedTable td {
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+  
+  .completedTable td button {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+  
+  .mobileTableRow {
+    padding: 14px;
+  }
+  
+  .mobileRowActions {
+    flex-direction: row;
+  }
+  
+  .mobileRowActions button {
+    flex: 0 1 auto;
+  }
+}
+
+/* Tablet optimizations */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .completedTable {
+    min-width: 550px;
+  }
+  
+  .completedTable th, .completedTable td {
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+  
+  .completedTable td button {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+  
+  .mobileTableRow {
+    padding: 14px;
+  }
+  
+  .mobileRowActions {
+    flex-direction: row;
+  }
+  
+  .mobileRowActions button {
+    flex: 0 1 auto;
+  }
+}
+
+/* Mobile performance indicator */
+.performanceIndicator {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #856404;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  max-width: 250px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.performanceIndicator span {
+  font-weight: 500;
+}
+
+/* High DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .completedTable {
+    border-radius: 4px; /* Slightly reduced for sharper edges */
+  }
+  
+  .completedTable td button {
+    border-radius: 3px;
+  }
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+  .completedTable td button {
+    transition: none;
+  }
+  
+  .tab {
+    transition: none;
+  }
+}
+
+/* Dark mode support (if needed in future) */
+@media (prefers-color-scheme: dark) {
+  .completedTable {
+    background: #2d3748;
+    color: #e2e8f0;
+  }
+  
+  .completedTable th {
+    background: #4a5568;
+    color: #e2e8f0;
+  }
+  
+  .completedTable td {
+    border-bottom-color: #4a5568;
+  }
 } 

@@ -3,6 +3,7 @@ import { collection, getDocs, doc, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '../../config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import styles from './CarrierPartners.module.css';
+import { useMobileOptimization } from '../../hooks/useMobileOptimization';
 
 interface Partner {
   id: string;
@@ -26,6 +27,19 @@ const ShipperPartners: React.FC = () => {
   const [stateFilter, setStateFilter] = useState('');
   const [pendingSearch, setPendingSearch] = useState('');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // Mobile optimization
+  const { 
+    isLowBandwidth, 
+    isLowBattery, 
+    getOptimalPageSize, 
+    shouldFetchData, 
+    measurePerformance 
+  } = useMobileOptimization({
+    enableOfflineMode: true,
+    enableLowBandwidthMode: true,
+    enableBatteryOptimization: true
+  });
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -154,6 +168,14 @@ const ShipperPartners: React.FC = () => {
           ))
         )}
       </div>
+      
+      {/* Mobile performance indicator */}
+      {(isLowBandwidth || isLowBattery) && (
+        <div className={styles.performanceIndicator}>
+          {isLowBandwidth && <span>📶 Slow connection - Optimized loading</span>}
+          {isLowBattery && <span>🔋 Low battery - Reduced animations</span>}
+        </div>
+      )}
     </div>
   );
 };

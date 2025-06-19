@@ -1,15 +1,64 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styles from './LandingPage.module.css';
 import { db } from '../config/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import logoImg from '../assets/logo.png'; // Place your logo image in src/assets/logo.png
+import { useMobileOptimization } from '../hooks/useMobileOptimization';
 
 const LandingPage: React.FC = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [subscribed, setSubscribed] = useState(false);
   const [error, setError] = useState('');
+  const [performanceMetrics, setPerformanceMetrics] = useState<{
+    loadTime: number;
+    renderTime: number;
+  }>({ loadTime: 0, renderTime: 0 });
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Mobile optimization hooks
+  const { networkInfo, batteryInfo, isLowBandwidth, isLowBattery } = useMobileOptimization();
+
+  useEffect(() => {
+    // Detect mobile device
+    const checkMobile = () => {
+      const userAgent = navigator.userAgent.toLowerCase();
+      const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+      setIsMobile(isMobileDevice || window.innerWidth <= 768);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  useEffect(() => {
+    const startTime = performance.now();
+    
+    const measurePerformance = () => {
+      const loadTime = performance.now() - startTime;
+      setPerformanceMetrics(prev => ({
+        ...prev,
+        loadTime: Math.round(loadTime)
+      }));
+    };
+
+    // Measure initial render
+    const renderTime = performance.now() - startTime;
+    setPerformanceMetrics(prev => ({
+      ...prev,
+      renderTime: Math.round(renderTime)
+    }));
+
+    // Measure full load time
+    window.addEventListener('load', measurePerformance);
+    
+    return () => {
+      window.removeEventListener('load', measurePerformance);
+    };
+  }, []);
 
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,6 +78,24 @@ const LandingPage: React.FC = () => {
 
   return (
     <div className={styles.landingContainer}>
+      {/* Mobile Performance Indicator */}
+      {isMobile && (
+        <div style={{
+          position: 'fixed',
+          top: '10px',
+          right: '10px',
+          background: 'rgba(0, 234, 255, 0.9)',
+          color: '#0f2027',
+          padding: '4px 8px',
+          borderRadius: '4px',
+          fontSize: '10px',
+          zIndex: 1000,
+          fontFamily: 'monospace'
+        }}>
+          {performanceMetrics.loadTime}ms | {isLowBandwidth ? 'Slow' : 'Fast'}
+        </div>
+      )}
+
       <header className={styles.header}>
         <div className={styles.logo}><img src={logoImg} alt="Tranzit.io Logo" className={styles.logoImg} /> Tranzit.io</div>
         <nav className={styles.nav}>

@@ -4,6 +4,9 @@
   flex-direction: column;
   background: linear-gradient(135deg, #0f2027 0%, #2c5364 100%);
   font-family: 'Inter', Arial, sans-serif;
+  overflow-x: hidden;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .header {
@@ -121,6 +124,8 @@
   justify-content: center;
   gap: 2.5rem;
   margin-top: 1.5rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .pointBlock {
@@ -137,6 +142,9 @@
   flex-direction: column;
   align-items: center;
   border: 1.5px solid #00eaff33;
+  box-sizing: border-box;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .pointBlock h3 {
@@ -291,11 +299,14 @@
     flex-direction: column;
     gap: 1.5rem;
     align-items: center;
+    padding: 0 1rem;
   }
   .pointBlock {
     min-width: 220px;
     max-width: 100%;
     padding: 2rem 1rem 1.5rem 1rem;
+    width: 100%;
+    box-sizing: border-box;
   }
 }
 
@@ -316,9 +327,40 @@
     padding: 2rem 0.5rem 1rem 0.5rem;
     border-radius: 18px 18px 0 0;
   }
+  .pointsHeaderRow {
+    gap: 1rem;
+    padding: 0 0.5rem;
+  }
+  .pointBlock {
+    padding: 1.5rem 1rem 1rem 1rem;
+    min-width: auto;
+    max-width: 100%;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .pointBlock h3 {
+    font-size: 1.2rem;
+    margin: 0.8rem 0 0.5rem 0;
+  }
+  .pointBlock p {
+    font-size: 1rem;
+    line-height: 1.5;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
   .subscribeSection {
     padding: 2rem 0.5rem 1rem 0.5rem;
     border-radius: 0 0 18px 18px;
+  }
+  .subscribeForm {
+    flex-direction: column;
+    gap: 0.8rem;
+    width: 100%;
+  }
+  .emailInput {
+    width: 100%;
+    min-width: auto;
+    box-sizing: border-box;
   }
   .footerLinks {
     flex-direction: column;
@@ -354,5 +396,49 @@
   }
   .heroSection {
     padding: 2rem 0.5rem 1rem 0.5rem !important;
+  }
+  .heroSection h1 {
+    font-size: 1.8rem !important;
+    line-height: 1.2 !important;
+  }
+  .heroSection p {
+    font-size: 1.1rem !important;
+    line-height: 1.4 !important;
+  }
+  .pointsSection {
+    padding: 1.5rem 0.3rem 1rem 0.3rem !important;
+  }
+  .pointsHeaderRow {
+    gap: 0.8rem !important;
+    padding: 0 0.3rem !important;
+  }
+  .pointBlock {
+    padding: 1.2rem 0.8rem 1rem 0.8rem !important;
+    border-radius: 12px !important;
+  }
+  .pointBlock h3 {
+    font-size: 1.1rem !important;
+    margin: 0.6rem 0 0.4rem 0 !important;
+  }
+  .pointBlock p {
+    font-size: 0.95rem !important;
+    line-height: 1.4 !important;
+  }
+  .subscribeSection {
+    padding: 1.5rem 0.3rem 1rem 0.3rem !important;
+  }
+  .subscribeSection h2 {
+    font-size: 1.6rem !important;
+  }
+  .subscribeSection p {
+    font-size: 1rem !important;
+  }
+  .emailInput {
+    font-size: 1rem !important;
+    padding: 0.8rem 1rem !important;
+  }
+  .subscribeButton {
+    font-size: 1rem !important;
+    padding: 0.8rem 1.4rem !important;
   }
 } 

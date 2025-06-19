@@ -198,23 +198,328 @@ input:checked + .slider:before {
 }
 
 @media (max-width: 768px) {
+  .container {
+    padding: 10px;
+  }
+  
+  .headerCard {
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+  
+  .headerRow {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+  }
+  
+  .headerLeft {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .headerLeft h1 {
+    font-size: 1.3rem;
+    margin: 0;
+    line-height: 1.2;
+    display: flex;
+    align-items: center;
+    height: 100%;
+  }
+  
+  .headerRight {
+    gap: 6px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+  }
+  
   .content {
     flex-direction: column;
+    gap: 16px;
   }
 
   .sidebar {
     width: 100%;
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .tabButton {
+    flex-shrink: 0;
+    width: auto;
+    min-width: 120px;
+    padding: 12px 16px;
+    margin-bottom: 0;
+    text-align: center;
+    white-space: nowrap;
+    font-size: 14px;
+  }
+
+  .mainContent {
+    padding: 20px;
+    border-radius: 8px;
+  }
+  
+  .section {
+    max-width: 100%;
+  }
+  
+  .section h2 {
+    font-size: 1.2rem;
+    margin-bottom: 16px;
   }
 
   .formGrid {
     grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .formGroup {
+    gap: 6px;
+  }
+  
+  .formGroup label {
+    font-size: 14px;
+  }
+  
+  .formGroup input {
+    padding: 12px;
+    font-size: 16px; /* Prevents zoom on iOS */
+    border-radius: 6px;
   }
 
   .notificationOption,
   .securityOption {
     flex-direction: column;
     gap: 15px;
-    text-align: center;
+    text-align: left;
+    padding: 16px;
+  }
+  
+  .notificationOption h3 {
+    font-size: 1rem;
+    margin-bottom: 4px;
+  }
+  
+  .notificationOption p {
+    font-size: 14px;
+  }
+  
+  .switch {
+    align-self: flex-end;
+    margin-top: 8px;
+  }
+  
+  .paymentInfo {
+    max-width: 100%;
+  }
+  
+  .additionalDriversSection {
+    margin-top: 20px;
+  }
+  
+  .addButton {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    margin-bottom: 16px;
+  }
+  
+  .inviteForm {
+    background: #f8f9fa;
+    padding: 16px;
+    border-radius: 8px;
+    margin-top: 16px;
+  }
+  
+  .submitButton,
+  .cancelButton {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    margin-top: 12px;
+  }
+  
+  .cancelButton {
+    background-color: #6c757d;
+    margin-top: 8px;
+  }
+  
+  .error,
+  .success {
+    padding: 12px;
+    border-radius: 6px;
+    margin-top: 12px;
+    font-size: 14px;
+  }
+  
+  .error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+  }
+  
+  .success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+  }
+  
+  .dependentNotice {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 8px;
+    padding: 16px;
+    color: #856404;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: 8px;
+  }
+  
+  .headerCard {
+    padding: 12px;
+    margin-bottom: 16px;
+  }
+  
+  .headerLeft h1 {
+    font-size: 1.2rem;
+  }
+  
+  .headerRight {
+    gap: 4px;
+  }
+  
+  .bellButton,
+  .hamburgerButton {
+    padding: 8px;
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .hamburgerIcon {
+    width: 20px;
+    height: 16px;
+  }
+  
+  .hamburgerIcon span {
+    height: 2px;
+  }
+  
+  .content {
+    gap: 12px;
+  }
+  
+  .sidebar {
+    gap: 6px;
+  }
+  
+  .tabButton {
+    min-width: 100px;
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+  
+  .mainContent {
+    padding: 16px;
+  }
+  
+  .section h2 {
+    font-size: 1.1rem;
+    margin-bottom: 12px;
+  }
+  
+  .notificationOption,
+  .securityOption {
+    padding: 12px;
+  }
+  
+  .notificationOption h3 {
+    font-size: 0.95rem;
+  }
+  
+  .notificationOption p {
+    font-size: 13px;
+  }
+  
+  .switch {
+    width: 50px;
+    height: 28px;
+  }
+  
+  .slider:before {
+    height: 20px;
+    width: 20px;
+  }
+  
+  input:checked + .slider:before {
+    transform: translateX(22px);
+  }
+  
+  .formGroup input {
+    padding: 10px;
+    font-size: 16px;
+  }
+  
+  .addButton,
+  .submitButton,
+  .cancelButton {
+    padding: 10px;
+    font-size: 15px;
+  }
+  
+  .inviteForm {
+    padding: 12px;
+  }
+  
+  .error,
+  .success {
+    padding: 10px;
+    font-size: 13px;
+  }
+  
+  .dependentNotice {
+    padding: 12px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 375px) {
+  .headerLeft h1 {
+    font-size: 1.1rem;
+  }
+  
+  .tabButton {
+    min-width: 90px;
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+  
+  .mainContent {
+    padding: 12px;
+  }
+  
+  .section h2 {
+    font-size: 1rem;
+  }
+  
+  .notificationOption,
+  .securityOption {
+    padding: 10px;
+  }
+  
+  .formGroup input {
+    padding: 8px;
   }
 }
 
@@ -229,7 +534,7 @@ input:checked + .slider:before {
 .headerRow {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
 }
 
 .headerLeft {
@@ -307,4 +612,92 @@ input:checked + .slider:before {
 
 .dropdownMenu button:hover {
   background-color: #f5f5f5;
+}
+
+.addButton {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  background-color: #007bff;
+  color: white;
+  cursor: pointer;
+  font-weight: 500;
+  margin-bottom: 16px;
+}
+
+.addButton:hover {
+  background-color: #0056b3;
+}
+
+.inviteForm {
+  background: #f8f9fa;
+  padding: 20px;
+  border-radius: 8px;
+  margin-top: 16px;
+}
+
+.submitButton {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  background-color: #007bff;
+  color: white;
+  cursor: pointer;
+  font-weight: 500;
+  margin-top: 12px;
+  margin-right: 8px;
+}
+
+.submitButton:hover {
+  background-color: #0056b3;
+}
+
+.cancelButton {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  background-color: #6c757d;
+  color: white;
+  cursor: pointer;
+  font-weight: 500;
+  margin-top: 12px;
+}
+
+.cancelButton:hover {
+  background-color: #5a6268;
+}
+
+.error {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+  padding: 12px;
+  border-radius: 4px;
+  margin-top: 12px;
+}
+
+.success {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+  padding: 12px;
+  border-radius: 4px;
+  margin-top: 12px;
+}
+
+.dependentNotice {
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 8px;
+  padding: 16px;
+  color: #856404;
+}
+
+.additionalDriversSection {
+  margin-top: 20px;
+}
+
+.additionalDriversSection h3 {
+  margin-bottom: 12px;
+  font-size: 1.1rem;
 } 

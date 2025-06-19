@@ -45,7 +45,7 @@ import CarrierProvider from './context/CarrierContext';
 import CarrierProfilePage from './pages/carrier/Profile';
 import Notifications from './pages/carrier/Notifications';
 import ShipperPartners from './pages/carrier/ShipperPartners';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ShipmentsProvider } from './context/ShipmentsContext';
 import LandingPage from './pages/LandingPage';
 import HomePage from './pages/HomePage';
@@ -58,67 +58,82 @@ const ViewProfileWrapper = () => {
   return <ViewProfile id={id || ''} />;
 };
 
-// Global LocationEnforcer wrapper
-function LocationEnforcer({ children }: { children: React.ReactNode }) {
-  const [locationError, setLocationError] = useState<string | null>(null);
-  const [locationGranted, setLocationGranted] = useState(false);
+// Simple location notification component
+function LocationNotification() {
+  const [showNotification, setShowNotification] = useState(false);
+  const [locationStatus, setLocationStatus] = useState<'checking' | 'available' | 'unavailable'>('checking');
+  const { user } = useAuth();
 
   useEffect(() => {
-    let watchId: number | null = null;
-    function requestLocation() {
-      setLocationError(null);
-      if (navigator.geolocation) {
-        watchId = navigator.geolocation.watchPosition(
-          (position) => {
-            setLocationGranted(true);
-            setLocationError(null);
-          },
-          (error) => {
-            setLocationGranted(false);
-            setLocationError('Location access is required to use this app. Please enable location services and reload.');
-          },
-          { enableHighAccuracy: true }
-        );
-      } else {
-        setLocationGranted(false);
-        setLocationError('Geolocation is not supported by your browser.');
-      }
-    }
-    requestLocation();
-    return () => {
-      if (watchId !== null && navigator.geolocation.clearWatch) {
-        navigator.geolocation.clearWatch(watchId);
-      }
-    };
-  }, []);
+    if (!user) return;
 
-  if (locationError || !locationGranted) {
-    return (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        width: '100vw',
-        height: '100vh',
-        background: 'rgba(255,255,255,0.98)',
-        zIndex: 9999,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
-        <h2>Location Required</h2>
-        <p>{locationError || 'Location access is required to use this app.'}</p>
-        <button
-          style={{ padding: '12px 24px', fontSize: 18, marginTop: 24 }}
-          onClick={() => window.location.reload()}
-        >
-          Retry
-        </button>
-      </div>
-    );
+    // Try to get location silently
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLocationStatus('available');
+          // Don't show notification if location is working
+        },
+        (error) => {
+          setLocationStatus('unavailable');
+          setShowNotification(true);
+        },
+        { 
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 300000 // 5 minutes cache
+        }
+      );
+    } else {
+      setLocationStatus('unavailable');
+      setShowNotification(true);
+    }
+  }, [user]);
+
+  if (!showNotification || locationStatus !== 'unavailable') {
+    return null;
   }
-  return <>{children}</>;
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: '20px',
+      right: '20px',
+      backgroundColor: '#fff3cd',
+      border: '1px solid #ffeaa7',
+      borderRadius: '8px',
+      padding: '15px',
+      maxWidth: '300px',
+      zIndex: 1000,
+      boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+    }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+        <div style={{ fontSize: '20px' }}>📍</div>
+        <div>
+          <h4 style={{ margin: '0 0 5px 0', fontSize: '14px', fontWeight: 'bold' }}>
+            Location Not Available
+          </h4>
+          <p style={{ margin: '0 0 10px 0', fontSize: '12px', color: '#666' }}>
+            The app is not tracking your location. You can still use all features.
+          </p>
+          <button
+            onClick={() => setShowNotification(false)}
+            style={{
+              padding: '5px 10px',
+              fontSize: '12px',
+              backgroundColor: '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            Dismiss
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function App() {
@@ -137,7 +152,7 @@ function App() {
               <Route path="/test-konexial" element={<TestKonexial />} />
 
               {/* Carrier Routes */}
-              <Route path="/carrier" element={<LocationEnforcer><CarrierLayout /></LocationEnforcer>}>
+              <Route path="/carrier" element={<CarrierLayout />}>
                 <Route index element={<Navigate to="home" />} />
                 <Route path="home" element={<HomeFeed />} />
                 <Route path="available-loads" element={<AvailableLoads />} />
@@ -152,7 +167,7 @@ function App() {
               </Route>
 
               {/* Shipper Routes */}
-              <Route path="/shipper" element={<LocationEnforcer><ShipperLayout /></LocationEnforcer>}>
+              <Route path="/shipper" element={<ShipperLayout />}>
                 <Route index element={<Navigate to="dashboard" />} />
                 <Route path="dashboard" element={<ShipperDashboard />} />
                 <Route path="loads" element={<LoadsOverview />} />
@@ -185,6 +200,7 @@ function App() {
           </BrowserRouter>
         </ShipmentsProvider>
       </CarrierProvider>
+      <LocationNotification />
     </AuthProvider>
   );
 }

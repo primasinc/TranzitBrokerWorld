@@ -654,4 +654,613 @@
   display: flex;
   justify-content: flex-end;
   align-items: center;
+}
+
+/* Filter groups and labels */
+.filterGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.filterLabel {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #666;
+  margin-bottom: 2px;
+}
+
+/* Enhanced mobile responsive styles */
+@media (max-width: 900px) {
+  .container {
+    padding: 12px;
+  }
+  
+  .headerCard {
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+  
+  .headerRow {
+    flex-direction: row; /* Keep horizontal layout */
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .headerLeft {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .headerLeft h1 {
+    font-size: 1.5rem;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .headerRight {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .bellButton {
+    font-size: 20px !important;
+    padding: 8px;
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .hamburgerButton {
+    padding: 8px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  
+  .hamburgerIcon {
+    width: 20px;
+    height: 16px;
+  }
+  
+  .summaryCards {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  
+  .summaryCard {
+    padding: 16px;
+  }
+  
+  .summaryCard h3 {
+    font-size: 0.9em;
+  }
+  
+  .amount {
+    font-size: 20px;
+    margin: 8px 0 4px 0;
+  }
+  
+  .period {
+    font-size: 0.8em;
+  }
+  
+  .tabs {
+    padding: 6px 12px;
+    margin-bottom: 16px;
+    gap: 6px;
+  }
+  
+  .tab {
+    padding: 6px 16px;
+    font-size: 0.9rem;
+    min-height: 40px;
+  }
+  
+  .filtersRowContainer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  
+  .filtersRow {
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  
+  .filterGroup {
+    width: 100%;
+  }
+  
+  .filterLabel {
+    font-size: 0.8rem;
+    margin-bottom: 4px;
+  }
+  
+  .searchInput,
+  .filterSelect,
+  .dateInput {
+    width: 100%;
+    min-width: unset;
+    margin-right: 0;
+    padding: 10px 12px;
+    font-size: 16px; /* Prevent zoom on iOS */
+    min-height: 44px;
+  }
+  
+  .clearFiltersButton {
+    width: 100%;
+    padding: 10px 12px;
+    min-height: 44px;
+    font-size: 16px;
+  }
+  
+  .advancedSearchButtonContainer {
+    justify-content: stretch;
+  }
+  
+  .advancedSearchButton {
+    width: 100%;
+    padding: 10px 12px;
+    min-height: 44px;
+    font-size: 16px;
+  }
+  
+  .table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .table table {
+    min-width: 600px; /* Ensure minimum width for readability */
+  }
+  
+  .table th,
+  .table td {
+    padding: 8px 12px;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+  
+  .payActionButtons {
+    flex-direction: column;
+    gap: 6px;
+  }
+  
+  .payActionButton {
+    min-width: 100px !important;
+    padding: 6px 12px !important;
+    font-size: 13px !important;
+    min-height: 36px !important;
+  }
+  
+  .invoiceActions {
+    flex-direction: column;
+    gap: 6px;
+  }
+  
+  .invoiceViewButton,
+  .invoiceDownloadButton {
+    padding: 6px 12px;
+    font-size: 13px;
+    min-height: 36px;
+    width: 100%;
+  }
+  
+  .bulkActionsBar {
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px;
+  }
+  
+  .bulkActions {
+    width: 100%;
+  }
+  
+  .bulkActionsButton {
+    width: 100%;
+    padding: 10px 12px;
+    min-height: 44px;
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 10px;
+  }
+  
+  .headerCard {
+    padding: 14px;
+    margin-bottom: 16px;
+  }
+  
+  .headerLeft h1 {
+    font-size: 1.4rem;
+  }
+  
+  .summaryCards {
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  
+  .summaryCard {
+    padding: 14px;
+  }
+  
+  .amount {
+    font-size: 18px;
+  }
+  
+  .tabs {
+    padding: 4px 8px;
+    margin-bottom: 12px;
+  }
+  
+  .tab {
+    padding: 4px 12px;
+    font-size: 0.85rem;
+    min-height: 36px;
+  }
+  
+  .filtersRow {
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  
+  .filterLabel {
+    font-size: 0.75rem;
+  }
+  
+  .searchInput,
+  .filterSelect,
+  .dateInput {
+    padding: 8px 10px;
+    min-height: 40px;
+    font-size: 16px;
+  }
+  
+  .clearFiltersButton {
+    padding: 8px 10px;
+    min-height: 40px;
+    font-size: 16px;
+  }
+  
+  .advancedSearchButton {
+    padding: 8px 10px;
+    min-height: 40px;
+    font-size: 16px;
+  }
+  
+  .table table {
+    min-width: 500px;
+  }
+  
+  .table th,
+  .table td {
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+  
+  .payActionButton {
+    min-width: 90px !important;
+    padding: 4px 8px !important;
+    font-size: 12px !important;
+    min-height: 32px !important;
+  }
+  
+  .invoiceViewButton,
+  .invoiceDownloadButton {
+    padding: 4px 8px;
+    font-size: 12px;
+    min-height: 32px;
+  }
+  
+  .bulkActionsBar {
+    padding: 10px;
+    gap: 10px;
+  }
+  
+  .bulkActionsButton {
+    padding: 8px 10px;
+    min-height: 40px;
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: 8px;
+  }
+  
+  .headerCard {
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+  
+  .headerLeft h1 {
+    font-size: 1.3rem;
+  }
+  
+  .bellButton {
+    font-size: 18px !important;
+    padding: 6px;
+    min-width: 40px;
+    min-height: 40px;
+  }
+  
+  .hamburgerButton {
+    padding: 6px;
+    min-width: 40px;
+    min-height: 40px;
+  }
+  
+  .hamburgerIcon {
+    width: 18px;
+    height: 14px;
+  }
+  
+  .summaryCards {
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  
+  .summaryCard {
+    padding: 12px;
+  }
+  
+  .summaryCard h3 {
+    font-size: 0.8em;
+  }
+  
+  .amount {
+    font-size: 16px;
+    margin: 6px 0 3px 0;
+  }
+  
+  .period {
+    font-size: 0.75em;
+  }
+  
+  .tabs {
+    padding: 3px 6px;
+    margin-bottom: 10px;
+    gap: 4px;
+  }
+  
+  .tab {
+    padding: 3px 8px;
+    font-size: 0.8rem;
+    min-height: 32px;
+  }
+  
+  .filtersRow {
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  
+  .filterLabel {
+    font-size: 0.7rem;
+  }
+  
+  .searchInput,
+  .filterSelect,
+  .dateInput {
+    padding: 6px 8px;
+    min-height: 36px;
+    font-size: 16px;
+  }
+  
+  .clearFiltersButton {
+    padding: 6px 8px;
+    min-height: 36px;
+    font-size: 16px;
+  }
+  
+  .advancedSearchButton {
+    padding: 6px 8px;
+    min-height: 36px;
+    font-size: 16px;
+  }
+  
+  .table table {
+    min-width: 450px;
+  }
+  
+  .table th,
+  .table td {
+    padding: 4px 6px;
+    font-size: 12px;
+  }
+  
+  .payActionButton {
+    min-width: 80px !important;
+    padding: 3px 6px !important;
+    font-size: 11px !important;
+    min-height: 28px !important;
+  }
+  
+  .invoiceViewButton,
+  .invoiceDownloadButton {
+    padding: 3px 6px;
+    font-size: 11px;
+    min-height: 28px;
+  }
+  
+  .bulkActionsBar {
+    padding: 8px;
+    gap: 8px;
+  }
+  
+  .bulkActionsButton {
+    padding: 6px 8px;
+    min-height: 36px;
+    font-size: 16px;
+  }
+}
+
+/* Landscape orientation on mobile */
+@media (max-width: 900px) and (orientation: landscape) {
+  .filtersRow {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .filterGroup {
+    flex: 1;
+    min-width: 120px;
+  }
+  
+  .searchInput,
+  .filterSelect,
+  .dateInput {
+    flex: 1;
+    min-width: 120px;
+  }
+  
+  .clearFiltersButton {
+    flex: 0 0 auto;
+  }
+  
+  .table table {
+    min-width: 700px;
+  }
+  
+  .payActionButtons {
+    flex-direction: row;
+    gap: 4px;
+  }
+  
+  .invoiceActions {
+    flex-direction: row;
+    gap: 4px;
+  }
+}
+
+/* Tablet optimizations */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .filtersRow {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  
+  .filterGroup {
+    flex: 1;
+    min-width: 150px;
+  }
+  
+  .searchInput {
+    flex: 2;
+    min-width: 200px;
+  }
+  
+  .filterSelect {
+    flex: 1;
+    min-width: 150px;
+  }
+  
+  .dateInput {
+    flex: 1;
+    min-width: 140px;
+  }
+  
+  .clearFiltersButton {
+    flex: 0 0 auto;
+  }
+  
+  .table table {
+    min-width: 650px;
+  }
+}
+
+/* High DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .tab,
+  .searchInput,
+  .filterSelect,
+  .dateInput,
+  .clearFiltersButton,
+  .advancedSearchButton {
+    border-radius: 3px;
+  }
+  
+  .table {
+    border-radius: 6px;
+  }
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+  .tab,
+  .searchInput,
+  .filterSelect,
+  .dateInput,
+  .clearFiltersButton,
+  .advancedSearchButton {
+    transition: none;
+  }
+  
+  .hamburgerIcon span {
+    transition: none;
+  }
+}
+
+/* Dark mode support (if needed in future) */
+@media (prefers-color-scheme: dark) {
+  .table {
+    background: #2d3748;
+    color: #e2e8f0;
+  }
+  
+  .table th {
+    background: #4a5568;
+    color: #e2e8f0;
+  }
+  
+  .table td {
+    border-bottom-color: #4a5568;
+  }
+  
+  .searchInput,
+  .filterSelect,
+  .dateInput {
+    background: #4a5568;
+    color: #e2e8f0;
+    border-color: #718096;
+  }
+}
+
+/* Mobile performance indicator */
+.performanceIndicator {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #856404;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  max-width: 250px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.performanceIndicator span {
+  font-weight: 500;
 } 

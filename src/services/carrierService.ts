@@ -10,13 +10,20 @@ import {
   deleteDoc,
   Timestamp,
   orderBy,
-  limit 
+  limit,
+  startAfter,
+  onSnapshot,
+  Unsubscribe
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { CarrierProfile, CarrierMetrics, CarrierDocument } from '../types/carrier';
 
 const CARRIERS_COLLECTION = 'carriers';
 const CARRIER_METRICS_COLLECTION = 'carrier_metrics';
+
+// Mobile-optimized cache
+const mobileCache = new Map<string, { data: any, timestamp: number }>();
+const MOBILE_CACHE_DURATION = 3 * 60 * 1000; // 3 minutes for mobile
 
 export const createCarrier = async (
   userId: string,
@@ -245,4 +252,160 @@ export const addCarrierDocument = async (
     console.error('Error adding carrier document:', error);
     throw error;
   }
+};
+
+// Mobile-optimized carrier queries
+export const getCarrierProfileMobile = async (userId: string): Promise<CarrierProfile | null> => {
+  const cacheKey = `carrier_profile_${userId}`;
+  const cached = mobileCache.get(cacheKey);
+  
+  if (cached && Date.now() - cached.timestamp < MOBILE_CACHE_DURATION) {
+    return cached.data;
+  }
+
+  try {
+    const carriersQuery = query(
+      collection(db, CARRIERS_COLLECTION),
+      where('userId', '==', userId),
+      limit(1)
+    );
+    
+    const querySnapshot = await getDocs(carriersQuery);
+    
+    if (!querySnapshot.empty) {
+      const data = querySnapshot.docs[0].data() as CarrierProfile;
+      mobileCache.set(cacheKey, { data, timestamp: Date.now() });
+      return data;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error fetching carrier profile for mobile:', error);
+    throw error;
+  }
+};
+
+// Paginated carrier search for mobile
+export const searchCarriersMobile = async (
+  filters: {
+    equipmentType?: string;
+    serviceArea?: string;
+    status?: string;
+    searchTerm?: string;
+  },
+  pageSize: number = 10,
+  lastDoc?: any
+): Promise<{ carriers: CarrierProfile[], hasMore: boolean, lastDoc: any }> => {
+  try {
+    let baseQuery = query(
+      collection(db, CARRIERS_COLLECTION),
+      orderBy('companyName'),
+      limit(pageSize)
+    );
+
+    if (lastDoc) {
+      baseQuery = query(baseQuery, startAfter(lastDoc));
+    }
+
+    if (filters.status) {
+      baseQuery = query(
+        baseQuery,
+        where('status', '==', filters.status)
+      );
+    }
+
+    const querySnapshot = await getDocs(baseQuery);
+    let carriers = querySnapshot.docs.map(doc => doc.data() as CarrierProfile);
+
+    // Apply additional filters in memory (reduced for mobile)
+    if (filters.equipmentType) {
+      carriers = carriers.filter(carrier =>
+        carrier.equipment?.some(eq => eq.type === filters.equipmentType)
+      );
+    }
+
+    if (filters.serviceArea) {
+      carriers = carriers.filter(carrier =>
+        carrier.serviceAreas?.some(area => area.state === filters.serviceArea)
+      );
+    }
+
+    if (filters.searchTerm) {
+      const searchLower = filters.searchTerm.toLowerCase();
+      carriers = carriers.filter(carrier =>
+        carrier.companyName?.toLowerCase().includes(searchLower) ||
+        carrier.mcNumber?.toLowerCase().includes(searchLower) ||
+        carrier.dotNumber?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    return {
+      carriers,
+      hasMore: querySnapshot.docs.length === pageSize,
+      lastDoc: querySnapshot.docs[querySnapshot.docs.length - 1]
+    };
+  } catch (error) {
+    console.error('Error searching carriers for mobile:', error);
+    throw error;
+  }
+};
+
+// Real-time updates for mobile (optimized)
+export const subscribeToCarrierUpdates = (
+  carrierId: string,
+  callback: (data: CarrierProfile) => void,
+  errorCallback?: (error: Error) => void
+): Unsubscribe => {
+  const carrierRef = doc(db, CARRIERS_COLLECTION, carrierId);
+  
+  return onSnapshot(
+    carrierRef,
+    (doc) => {
+      if (doc.exists()) {
+        const data = doc.data() as CarrierProfile;
+        // Update cache
+        const cacheKey = `carrier_profile_${carrierId}`;
+        mobileCache.set(cacheKey, { data, timestamp: Date.now() });
+        callback(data);
+      }
+    },
+    (error) => {
+      console.error('Error in carrier subscription:', error);
+      errorCallback?.(error);
+    }
+  );
+};
+
+// Mobile-optimized metrics fetch
+export const getCarrierMetricsMobile = async (carrierId: string): Promise<CarrierMetrics | null> => {
+  const cacheKey = `carrier_metrics_${carrierId}`;
+  const cached = mobileCache.get(cacheKey);
+  
+  if (cached && Date.now() - cached.timestamp < MOBILE_CACHE_DURATION) {
+    return cached.data;
+  }
+
+  try {
+    const metricsRef = doc(db, CARRIER_METRICS_COLLECTION, carrierId);
+    const metricsSnap = await getDoc(metricsRef);
+    
+    if (metricsSnap.exists()) {
+      const data = metricsSnap.data() as CarrierMetrics;
+      mobileCache.set(cacheKey, { data, timestamp: Date.now() });
+      return data;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error fetching carrier metrics for mobile:', error);
+    throw error;
+  }
+};
+
+// Clear mobile cache
+export const clearMobileCache = (): void => {
+  mobileCache.clear();
+};
+
+// Clear specific cache entry
+export const clearCacheEntry = (key: string): void => {
+  mobileCache.delete(key);
 }; 

@@ -6,6 +6,7 @@ import styles from './MyLoads.module.css';
 import { onAuthStateChanged } from 'firebase/auth';
 import { konexialService } from '../../services/konexialService';
 import InvoiceModal from '../../components/carrier/InvoiceModal';
+import { useMobileOptimization } from '../../hooks/useMobileOptimization';
 
 interface Load {
   id: string;
@@ -44,6 +45,19 @@ const MyLoads: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [selectedLoad, setSelectedLoad] = useState<Load | null>(null);
+
+  // Mobile optimization
+  const { 
+    isLowBandwidth, 
+    isLowBattery, 
+    getOptimalPageSize, 
+    shouldFetchData, 
+    measurePerformance 
+  } = useMobileOptimization({
+    enableOfflineMode: true,
+    enableLowBandwidthMode: true,
+    enableBatteryOptimization: true
+  });
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
@@ -199,6 +213,56 @@ const MyLoads: React.FC = () => {
     }
   };
 
+  // Mobile-optimized table row component
+  const MobileTableRow = ({ load }: { load: Load }) => (
+    <div className={styles.mobileTableRow}>
+      <div className={styles.mobileRowHeader}>
+        <div className={styles.mobileRowTitle}>
+          <strong>{load.shipper}</strong>
+          <span className={getStatusColor(load.status)}>{load.status}</span>
+        </div>
+        <div className={styles.mobileRowPo}>
+          PO: {load.poNumber || 'N/A'}
+        </div>
+      </div>
+      
+      <div className={styles.mobileRowDetails}>
+        <div className={styles.mobileRowSection}>
+          <div className={styles.mobileRowItem}>
+            <label>Pickup:</label>
+            <span>{load.pickup?.location || 'N/A'}</span>
+          </div>
+          <div className={styles.mobileRowItem}>
+            <label>Delivery:</label>
+            <span>{load.delivery?.location || 'N/A'}</span>
+          </div>
+        </div>
+        
+        <div className={styles.mobileRowSection}>
+          <div className={styles.mobileRowItem}>
+            <label>Payment:</label>
+            <span>${load.payment}</span>
+          </div>
+        </div>
+      </div>
+      
+      <div className={styles.mobileRowActions}>
+        <button 
+          className={styles.viewButton}
+          onClick={() => navigate(`/carrier/loads/${load.id}`)}
+        >
+          View Details
+        </button>
+        <button
+          className={styles.invoiceButton}
+          onClick={() => { setSelectedLoad(load); setShowInvoiceModal(true); }}
+        >
+          Create Invoice
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className={styles.container}>
       <main className={styles.mainContent}>
@@ -289,46 +353,57 @@ const MyLoads: React.FC = () => {
               <p>No loads found for this tab.</p>
             </div>
           ) : activeTab === 'completed' ? (
+            // Mobile-optimized completed loads view
             <div className={styles.completedTableWrapper}>
-              <table className={styles.completedTable}>
-                <thead>
-                  <tr>
-                    <th>Shipper</th>
-                    <th>PO Number</th>
-                    <th>Pickup</th>
-                    <th>Delivery</th>
-                    <th>Payment</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredLoads.map(load => (
-                    <tr key={load.id}>
-                      <td>{load.shipper}</td>
-                      <td>{load.poNumber}</td>
-                      <td>{load.pickup?.location}</td>
-                      <td>{load.delivery?.location}</td>
-                      <td>${load.payment}</td>
-                      <td><span className={getStatusColor(load.status)}>{load.status}</span></td>
-                      <td>
-                        <button 
-                          className={styles.viewButton}
-                          onClick={() => navigate(`/carrier/loads/${load.id}`)}
-                        >
-                          View Details
-                        </button>
-                        <button
-                          className={styles.invoiceButton}
-                          onClick={() => { setSelectedLoad(load); setShowInvoiceModal(true); }}
-                        >
-                          Create Invoice
-                        </button>
-                      </td>
+              {/* Desktop table view */}
+              <div className={styles.desktopTable}>
+                <table className={styles.completedTable}>
+                  <thead>
+                    <tr>
+                      <th>Shipper</th>
+                      <th>PO Number</th>
+                      <th>Pickup</th>
+                      <th>Delivery</th>
+                      <th>Payment</th>
+                      <th>Status</th>
+                      <th>Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {filteredLoads.map(load => (
+                      <tr key={load.id}>
+                        <td>{load.shipper}</td>
+                        <td>{load.poNumber}</td>
+                        <td>{load.pickup?.location}</td>
+                        <td>{load.delivery?.location}</td>
+                        <td>${load.payment}</td>
+                        <td><span className={getStatusColor(load.status)}>{load.status}</span></td>
+                        <td>
+                          <button 
+                            className={styles.viewButton}
+                            onClick={() => navigate(`/carrier/loads/${load.id}`)}
+                          >
+                            View Details
+                          </button>
+                          <button
+                            className={styles.invoiceButton}
+                            onClick={() => { setSelectedLoad(load); setShowInvoiceModal(true); }}
+                          >
+                            Create Invoice
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              
+              {/* Mobile card view */}
+              <div className={styles.mobileTable}>
+                {filteredLoads.map(load => (
+                  <MobileTableRow key={load.id} load={load} />
+                ))}
+              </div>
             </div>
           ) : (
             filteredLoads.map(load => (
@@ -392,6 +467,15 @@ const MyLoads: React.FC = () => {
           )}
         </div>
       </main>
+      
+      {/* Mobile performance indicator */}
+      {(isLowBandwidth || isLowBattery) && (
+        <div className={styles.performanceIndicator}>
+          {isLowBandwidth && <span>📶 Slow connection - Optimized loading</span>}
+          {isLowBattery && <span>🔋 Low battery - Reduced animations</span>}
+        </div>
+      )}
+      
       {showInvoiceModal && selectedLoad && (
         <InvoiceModal
           isOpen={showInvoiceModal}

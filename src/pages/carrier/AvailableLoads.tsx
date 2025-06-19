@@ -7,9 +7,12 @@ import { db, auth } from '../../config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useAuth } from '../../contexts/AuthContext';
 import LoadRequestCard from '../../components/carrier/LoadRequestCard';
-import { useAvailableLoads } from '../../hooks/useAvailableLoads';
+import { useAvailableLoads, AvailableLoad } from '../../hooks/useAvailableLoads';
 import mapboxgl from 'mapbox-gl';
 import { sendLoadRequestToCarrier, acceptLoadForPO } from '../../services/notificationService';
+import { useMobileOptimization } from '../../hooks/useMobileOptimization';
+import { MobileOptimizedList } from '../../components/common/MobileOptimizedList';
+import NotificationsTray, { useUnreadNotifications } from './NotificationsTray';
 
 interface Load {
   id: string;
@@ -40,7 +43,7 @@ type TabType = keyof typeof TABS;
 
 const DEBUG_COORDS: [number, number] = [-85.7014272, 38.0567552]; // Louisville, KY area
 
-function mapAvailableLoadToLoad(load: import('../../hooks/useAvailableLoads').AvailableLoad): Load | null {
+function mapAvailableLoadToLoad(load: AvailableLoad): Load | null {
   // Defensive: Only map if pickupLocation and position are valid
   if (!load.pickupLocation || !Array.isArray(load.pickupLocation.position)) return null;
   return {
@@ -106,12 +109,12 @@ export async function isValidPartnerRequest(request: any): Promise<boolean> {
 
 const AvailableLoads: React.FC = () => {
   console.log('AvailableLoads component loaded');
-  const [viewType, setViewType] = useState<'map' | 'list'>('map');
-  const [selectedLoad, setSelectedLoad] = useState<Load | null>(null);
+  const [viewType, setViewType] = useState<'map' | 'list'>('list');
+  const [selectedLoad, setSelectedLoad] = useState<AvailableLoad | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navigate = useNavigate();
-  const [carrierLocation, setCarrierLocation] = useState<[number, number] | null>(null);
-  const [radiusMiles, setRadiusMiles] = useState<number>(100);
+  const [userLocation, setUserLocation] = useState<[number, number]>([-87.6298, 41.8781]);
+  const [radiusMiles] = useState<number>(100);
   const [userId, setUserId] = useState<string | null>(null);
   const [eldApiKey, setEldApiKey] = useState<string | null>(null);
   const [eldApiId, setEldApiId] = useState<string | null>(null);
@@ -120,101 +123,84 @@ const AvailableLoads: React.FC = () => {
   const [partnerRequests, setPartnerRequests] = useState<any[]>([]);
   const [partnerLoading, setPartnerLoading] = useState(true);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const unreadCount = useUnreadNotifications();
 
-  const { loads: availableLoads, loading: loadsLoading, error: loadsError } = useAvailableLoads(carrierLocation, radiusMiles);
+  // Mobile optimization
+  const { 
+    isLowBandwidth, 
+    isLowBattery, 
+    getOptimalPageSize, 
+    shouldFetchData, 
+    measurePerformance 
+  } = useMobileOptimization({
+    enableOfflineMode: true,
+    enableLowBandwidthMode: true,
+    enableBatteryOptimization: true
+  });
 
-  const [popupLoad, setPopupLoad] = useState<Load | null>(null);
-  const [accepting, setAccepting] = useState(false);
+  // Get optimal page size based on device conditions
+  const optimalPageSize = getOptimalPageSize(10);
 
-  const mapMarkers = useMemo(() => {
-    const markers = availableLoads
-      .map(l => mapAvailableLoadToLoad(l))
-      .filter((l): l is Load => !!l && Array.isArray(l.position))
-      .map(l => {
-        console.log('Map marker for load:', l.title, 'at', l.position);
-        return {
-          id: l.id,
-          position: l.position,
-          type: 'shipper' as const,
-          icon: 'circle', // Use a colored circle icon
-          onClick: () => setPopupLoad(l)
-        };
-      });
-    return markers;
-  }, [availableLoads, setPopupLoad]);
+  // Mobile-specific state
+  const [isMapFullscreen, setIsMapFullscreen] = useState(false);
+  const [mapZoom, setMapZoom] = useState(10);
 
+  // Use mobile-optimized loads hook
+  const { 
+    loads: availableLoads, 
+    loading: loadsLoading, 
+    error: loadsError, 
+    hasMore, 
+    loadMore 
+  } = useAvailableLoads(userLocation, radiusMiles, optimalPageSize);
+
+  // Performance monitoring
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log('Auth state changed:', user);
-      if (user) {
-        setUserId(user.uid);
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          console.log('User doc data:', JSON.stringify(data, null, 2));
-          if (data.eldApiKey) setEldApiKey(data.eldApiKey);
-          if (data.eldApiId) setEldApiId(data.eldApiId);
-        }
-      }
-    });
-    return () => unsubscribe();
-  }, []);
+    const startTime = performance.now();
+    return () => {
+      measurePerformance('available_loads_page_load', startTime);
+    };
+  }, [measurePerformance]);
 
+  // Check if we should fetch data based on conditions
   useEffect(() => {
-    if (!user) return;
-    // Fetch partner requests (notifications)
-    setPartnerLoading(true);
-    const q = query(
-      collection(db, 'notifications'),
-      where('carrierId', '==', user.uid),
-      orderBy('createdAt', 'desc')
-    );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const requests: any[] = [];
-      snapshot.forEach((doc) => {
-        requests.push({ id: doc.id, ...doc.data() });
-      });
-      setPartnerRequests(requests);
-      setPartnerLoading(false);
-    });
-    return () => unsubscribe();
-  }, [user]);
+    if (!shouldFetchData('loads')) {
+      console.log('Skipping loads fetch due to poor conditions');
+      return;
+    }
+  }, [shouldFetchData]);
 
-  // Prompt for geolocation immediately and block UI if denied
+  // Get user location - optional for carriers
   useEffect(() => {
-    let watchId: number | null = null;
-    function requestLocation() {
-      setLocationError(null);
+    // Only request location if user is authenticated
+    if (!user) {
+      console.log('User not authenticated, skipping location request');
+      return;
+    }
+
     if (navigator.geolocation) {
-      watchId = navigator.geolocation.watchPosition(
+      navigator.geolocation.getCurrentPosition(
         (position) => {
-          setCarrierLocation([position.coords.longitude, position.coords.latitude]);
-            setLocationError(null);
+          setUserLocation([position.coords.longitude, position.coords.latitude]);
+          setLocationError(null);
         },
         (error) => {
-            setLocationError('Location access is required to use this app. Please enable location services and reload.');
+          console.warn('Geolocation error:', error);
+          // Keep default location - don't block the app
+          console.log('Using default location due to geolocation error');
+          setLocationError(null); // Don't show error, just use default
         },
-        { enableHighAccuracy: true }
+        {
+          enableHighAccuracy: true, // High accuracy for carriers
+          timeout: 10000, // 10 second timeout
+          maximumAge: 300000 // 5 minutes cache
+        }
       );
-      } else {
-        setLocationError('Geolocation is not supported by your browser.');
-      }
+    } else {
+      console.log('Geolocation not supported, using default location');
     }
-    requestLocation();
-    return () => {
-      if (watchId !== null && navigator.geolocation.clearWatch) {
-        navigator.geolocation.clearWatch(watchId);
-      }
-    };
-  }, []);
-
-  // Debug logging for geolocation and loads
-  useEffect(() => {
-    console.log('carrierLocation:', carrierLocation);
-  }, [carrierLocation]);
-  useEffect(() => {
-    console.log('availableLoads:', availableLoads);
-  }, [availableLoads]);
+  }, [user]); // Only run when user changes
 
   const handleLogout = () => navigate('/login');
   const handleProfile = () => navigate('/carrier/profile');
@@ -222,7 +208,6 @@ const AvailableLoads: React.FC = () => {
 
   const handleAcceptLoad = async (load: Load) => {
     if (!user || !user.uid) return;
-    setAccepting(true);
     try {
       // Fetch shipperId from the load (assume it's stored in Firestore, or fetch from PO if needed)
       const loadDoc = await getDoc(doc(db, 'loads', load.id));
@@ -241,7 +226,6 @@ const AvailableLoads: React.FC = () => {
       if (!purchaseOrderId) {
         console.error('Purchase Order not found for this load. Cannot send notification.');
         alert('Purchase Order not found for this load. Please try again.');
-        setAccepting(false);
         return;
       }
       // Send notification to shipper with correct purchaseOrderId
@@ -256,82 +240,164 @@ const AvailableLoads: React.FC = () => {
       });
       // --- Ensure backend workflow is triggered for marketplace loads ---
       await acceptLoadForPO(loadData.poNumber, user.uid, false);
-      setPopupLoad(null);
     } catch (err) {
       alert('Failed to accept load: ' + (err as Error).message);
-    } finally {
-      setAccepting(false);
     }
   };
 
-  const renderLoadCard = (load: Load) => (
+  const handleLoadSelect = (load: AvailableLoad) => {
+    setSelectedLoad(load);
+    if (viewType === 'list') {
+      // On mobile, navigate to details page instead of showing sidebar
+      navigate(`/carrier/loads/${load.id}`);
+    }
+  };
+
+  const handleRefresh = async () => {
+    // Force refresh of loads data
+    window.location.reload();
+  };
+
+  // Mobile map controls
+  const handleMapZoomIn = () => {
+    setMapZoom(prev => Math.min(prev + 1, 18));
+  };
+
+  const handleMapZoomOut = () => {
+    setMapZoom(prev => Math.max(prev - 1, 4));
+  };
+
+  const handleMapFullscreen = () => {
+    setIsMapFullscreen(!isMapFullscreen);
+  };
+
+  const handleMapReset = () => {
+    setMapZoom(10);
+    // Reset map to user location if available
+    if (userLocation) {
+      // This will be handled by the MapboxMap component
+    }
+  };
+
+  // Render load item for mobile list
+  const renderLoadItem = (load: AvailableLoad, index: number) => (
     <div 
-      key={load.id} 
+      key={load.id}
       className={`${styles.loadCard} ${selectedLoad?.id === load.id ? styles.selected : ''}`}
-      onClick={() => setSelectedLoad(load)}
+      onClick={() => handleLoadSelect(load)}
     >
-      <h3>{load.title}</h3>
-      <div className={styles.loadDetails}>
-        <p><strong>Pickup:</strong> {load.pickup}</p>
-        <p><strong>Delivery:</strong> {load.delivery}</p>
-        <p><strong>Rate:</strong> ${load.rate.toLocaleString()}</p>
-        <p><strong>Distance:</strong> {load.distance}</p>
-        <p><strong>Weight:</strong> {load.weight}</p>
-        <p><strong>Dimensions:</strong> {load.dimensions}</p>
+      <div className={styles.loadHeader}>
+        <h3>{load.title}</h3>
+        <span className={styles.rate}>${load.rate?.toLocaleString()}</span>
       </div>
-      <button className={styles.detailsButton}>View Details</button>
+      
+      <div className={styles.loadInfo}>
+        <div>
+          <label>Pickup:</label>
+          <span>{load.pickupLocation.address}</span>
+        </div>
+        <div>
+          <label>Delivery:</label>
+          <span>{load.deliveryLocation.address}</span>
+        </div>
+      </div>
+
+      <div className={styles.loadActions}>
+        <button 
+          className={styles.viewButton}
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/carrier/loads/${load.id}`);
+          }}
+        >
+          View Details
+        </button>
+        <button 
+          className={styles.bookButton}
+          onClick={(e) => {
+            e.stopPropagation();
+            // Handle booking logic
+            console.log('Book load:', load.id);
+          }}
+        >
+          Book Load
+        </button>
+      </div>
     </div>
   );
 
-  if (locationError) {
+  // Show loading state
+  if (loadsLoading && availableLoads.length === 0) {
     return (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        width: '100vw',
-        height: '100vh',
-        background: 'rgba(255,255,255,0.98)',
-        zIndex: 9999,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}>
-        <h2>Location Required</h2>
-        <p>{locationError}</p>
-        <button
-          style={{ padding: '12px 24px', fontSize: 18, marginTop: 24 }}
-          onClick={() => window.location.reload()}
-        >
-          Retry
-        </button>
+      <div className={styles.dashboard}>
+        <div className={styles.mainContent}>
+          <div className={styles.loading}>
+            <div className="loading-spinner"></div>
+            <p>Loading available loads...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (loadsError) {
+    return (
+      <div className={styles.dashboard}>
+        <div className={styles.mainContent}>
+          <div className={styles.error}>
+            <h3>Error Loading Loads</h3>
+            <p>{loadsError}</p>
+            <button onClick={handleRefresh}>Try Again</button>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className={styles.container}>
-      <main className={styles.mainContent}>
+    <div className={styles.dashboard}>
+      <div className={styles.mainContent}>
+        {/* Header */}
         <div className={styles.headerCard}>
-          <header className={styles.headerRow}>
+          <div className={styles.headerRow}>
             <div className={styles.headerLeft}>
               <h1>Available Loads</h1>
+              <p>Find loads near your location</p>
             </div>
             <div className={styles.headerRight}>
+              {/* Notification bell */}
               <button
                 className={styles.bellButton}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 22, position: 'relative' }}
-                tabIndex={0}
-                aria-label="Notifications"
+                onClick={() => setShowNotifications(v => !v)}
               >
                 <span role="img" aria-label="Notifications">🔔</span>
+                {unreadCount > 0 && (
+                  <span style={{
+                    position: 'absolute',
+                    top: 0,
+                    right: 0,
+                    background: 'red',
+                    color: 'white',
+                    borderRadius: '50%',
+                    width: 18,
+                    height: 18,
+                    fontSize: 12,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 700,
+                    zIndex: 10
+                  }}>{unreadCount}</span>
+                )}
               </button>
+              {showNotifications && <NotificationsTray onClose={() => setShowNotifications(false)} />}
+              
+              {/* Hamburger menu */}
               <div className={styles.menuContainer}>
                 <button 
                   className={styles.hamburgerButton}
                   onClick={() => setIsMenuOpen(!isMenuOpen)}
-                  aria-label="Menu"
                 >
                   <div className={styles.hamburgerIcon}>
                     <span></span>
@@ -348,140 +414,125 @@ const AvailableLoads: React.FC = () => {
                 )}
               </div>
             </div>
-          </header>
+          </div>
         </div>
-        {/* Tabs for Partner Requests and Marketplace Loads */}
-        <div className={styles.viewToggle} style={{ marginBottom: 16 }}>
-          <button
-            className={`${styles.toggleButton} ${activeTab === 'MARKETPLACE' ? styles.active : ''}`}
-            onClick={() => setActiveTab('MARKETPLACE')}
-          >
-            Marketplace Loads
-          </button>
-          <button
-            className={`${styles.toggleButton} ${activeTab === 'PARTNER' ? styles.active : ''}`}
-            onClick={() => setActiveTab('PARTNER')}
-          >
-            Partner Requests
-          </button>
+
+        {/* View Toggle Controls */}
+        <div className={styles.viewToggleContainer}>
+          <div className={styles.viewToggle}>
+            <button
+              className={`${styles.toggleButton} ${viewType === 'list' ? styles.active : ''}`}
+              onClick={() => setViewType('list')}
+            >
+              List
+            </button>
+            <button
+              className={`${styles.toggleButton} ${viewType === 'map' ? styles.active : ''}`}
+              onClick={() => setViewType('map')}
+            >
+              Map
+            </button>
+          </div>
         </div>
-        {/* Tab Content */}
-        {activeTab === 'MARKETPLACE' ? (
+
+        {/* Content */}
+        {viewType === 'map' ? (
+          // Map view - mobile optimized
           <div className={styles.mapSection}>
-            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              {/* Radius slider */}
-              <div style={{ width: '100%', maxWidth: 400, margin: '0 auto 16px auto', display: 'flex', alignItems: 'center', gap: 12 }}>
-                <label htmlFor="radius-slider" style={{ fontWeight: 500 }}>Radius:</label>
-                <input
-                  id="radius-slider"
-                  type="range"
-                  min={0}
-                  max={400}
-                  step={10}
-                  value={radiusMiles}
-                  onChange={e => setRadiusMiles(Number(e.target.value))}
-                  style={{ flex: 1 }}
-                />
-                <span style={{ minWidth: 48 }}>{radiusMiles} mi</span>
-              </div>
-              <div className={styles.mapContainer} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                <MapboxMap
-                  center={carrierLocation ? carrierLocation : [-98.5795, 39.8283]}
-                  zoom={carrierLocation ? 10 : 4}
-                  eldApiKey={eldApiKey || undefined}
-                  showKonexialVehicles={true}
-                  enableRealtime={true}
-                  markers={mapMarkers}
-                  onMapLoad={map => {
-                    if (map.getLayer('radius')) map.removeLayer('radius');
-                    if (map.getSource('radius')) map.removeSource('radius');
-                    if (carrierLocation && radiusMiles > 0) {
-                      // Create a true geographic circle polygon
-                      const circleGeoJSON = createGeoJSONCircle(carrierLocation, radiusMiles);
-                      map.addSource('radius', {
-                        type: 'geojson',
-                        data: circleGeoJSON
-                      });
-                      map.addLayer({
-                        id: 'radius',
-                        type: 'fill',
-                        source: 'radius',
-                        paint: {
-                          'fill-color': '#4285F4',
-                          'fill-opacity': 0.12
-                        }
-                      });
-                      map.addLayer({
-                        id: 'radius-outline',
-                        type: 'line',
-                        source: 'radius',
-                        paint: {
-                          'line-color': '#4285F4',
-                          'line-width': 2
-                        }
-                      });
-                      // Fit map to the bounds of the circle
-                      const coordinates = circleGeoJSON.geometry.coordinates[0];
-                      // Use first and opposite point for bounds, convert to LngLat
-                      const bounds = new mapboxgl.LngLatBounds(
-                        new mapboxgl.LngLat(coordinates[0][0], coordinates[0][1]),
-                        new mapboxgl.LngLat(coordinates[Math.floor(coordinates.length / 2)][0], coordinates[Math.floor(coordinates.length / 2)][1])
-                      );
-                      coordinates.forEach(coord => bounds.extend(new mapboxgl.LngLat(coord[0], coord[1])));
-                      map.fitBounds(bounds, { padding: 40, maxZoom: 12 });
-                    }
-                  }}
-                />
+            <div className={styles.mapContainer}>
+              <MapboxMap 
+                center={userLocation}
+                zoom={mapZoom}
+                markers={availableLoads.map(load => ({
+                  id: load.id,
+                  position: load.pickupLocation.position,
+                  type: 'shipper' as const,
+                  icon: 'circle',
+                  onClick: () => handleLoadSelect(load)
+                }))}
+              />
+              {/* Mobile map controls */}
+              <div className={styles.mapControls}>
+                <button 
+                  className={styles.mapControlButton}
+                  onClick={handleMapZoomIn}
+                  title="Zoom In"
+                >
+                  +
+                </button>
+                <button 
+                  className={styles.mapControlButton}
+                  onClick={handleMapZoomOut}
+                  title="Zoom Out"
+                >
+                  −
+                </button>
+                <button 
+                  className={styles.mapControlButton}
+                  onClick={handleMapReset}
+                  title="Reset View"
+                >
+                  ⌂
+                </button>
+                <button 
+                  className={styles.mapControlButton}
+                  onClick={handleMapFullscreen}
+                  title="Fullscreen"
+                >
+                  ⛶
+                </button>
               </div>
             </div>
             {selectedLoad && (
               <div className={styles.selectedLoadDetails}>
-                {renderLoadCard(selectedLoad)}
-              </div>
-            )}
-            {popupLoad && (
-              <div style={{
-                position: 'fixed',
-                left: '50%',
-                top: '20%',
-                transform: 'translate(-50%, 0)',
-                zIndex: 2000,
-                background: '#fff',
-                borderRadius: 12,
-                boxShadow: '0 4px 24px rgba(0,0,0,0.18)',
-                padding: 28,
-                minWidth: 340,
-                maxWidth: 400,
-                border: '1px solid #e0e0e0',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'flex-start',
-              }}>
-                <button style={{ position: 'absolute', top: 10, right: 16, background: 'none', border: 'none', fontSize: 22, cursor: 'pointer' }} onClick={() => setPopupLoad(null)}>&times;</button>
-                <h2 style={{ margin: '0 0 8px 0' }}>{popupLoad.title}</h2>
-                <p style={{ margin: 0 }}><strong>Pickup:</strong> {popupLoad.pickup}</p>
-                <p style={{ margin: 0 }}><strong>Delivery:</strong> {popupLoad.delivery}</p>
-                <p style={{ margin: 0 }}><strong>Rate:</strong> {popupLoad.rate ? `$${popupLoad.rate.toLocaleString()}` : '—'}</p>
-                <div style={{ display: 'flex', gap: 12, marginTop: 18 }}>
-                  <button style={{ background: '#4CAF50', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 18px', fontWeight: 600, fontSize: 16, cursor: 'pointer' }} onClick={() => handleAcceptLoad(popupLoad)} disabled={accepting}>{accepting ? 'Accepting...' : 'Accept'}</button>
-                  <button style={{ background: '#F44336', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 18px', fontWeight: 600, fontSize: 16, cursor: 'pointer' }}>Reject</button>
-                  <button style={{ background: '#007bff', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 18px', fontWeight: 600, fontSize: 16, cursor: 'pointer' }}>Make Offer</button>
-                </div>
+                <h3>{selectedLoad.title}</h3>
+                <p><strong>Rate:</strong> ${selectedLoad.rate?.toLocaleString()}</p>
+                <p><strong>Pickup:</strong> {selectedLoad.pickupLocation.address}</p>
+                <p><strong>Delivery:</strong> {selectedLoad.deliveryLocation.address}</p>
+                <button 
+                  className={styles.detailsButton}
+                  onClick={() => navigate(`/carrier/loads/${selectedLoad.id}`)}
+                >
+                  View Full Details
+                </button>
               </div>
             )}
           </div>
         ) : (
+          // List view - mobile optimized
           <div className={styles.listView}>
-            {partnerLoading ? (
-              <div>Loading partner requests...</div>
+            {availableLoads.length === 0 ? (
+              <div className={styles.noLoads}>
+                <h3>No Available Loads</h3>
+                <p>No loads found in your area. Try expanding your search radius or check back later.</p>
+              </div>
             ) : (
-              <React.Suspense fallback={<div>Loading...</div>}>
-                <PartnerRequestsList partnerRequests={partnerRequests} />
-              </React.Suspense>
+              <MobileOptimizedList
+                items={availableLoads}
+                renderItem={renderLoadItem}
+                keyExtractor={(item) => item.id}
+                onLoadMore={loadMore}
+                hasMore={hasMore}
+                loading={loadsLoading}
+                itemHeight={120}
+                containerHeight={window.innerHeight - 200}
+                enableVirtualization={!isLowBandwidth}
+                enablePullToRefresh={true}
+                onRefresh={handleRefresh}
+                className={styles.mobileLoadsList}
+              />
             )}
           </div>
         )}
-      </main>
+
+        {/* Mobile performance indicator */}
+        {(isLowBandwidth || isLowBattery) && (
+          <div className={styles.performanceIndicator}>
+            {isLowBandwidth && <span>📶 Slow connection</span>}
+            {isLowBattery && <span>🔋 Low battery</span>}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

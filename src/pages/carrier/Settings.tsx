@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styles from './Settings.module.css';
+import { useMobileOptimization } from '../../hooks/useMobileOptimization';
 
 interface Profile {
   companyName: string;
@@ -57,7 +58,56 @@ const Settings: React.FC = () => {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteError, setInviteError] = useState('');
   const [inviteSuccess, setInviteSuccess] = useState('');
+  const [isMobile, setIsMobile] = useState(false);
+  const [performanceMetrics, setPerformanceMetrics] = useState<{
+    loadTime: number;
+    renderTime: number;
+  }>({ loadTime: 0, renderTime: 0 });
   const isCompanyAdmin = true; // Set to false for dependent/driver users
+
+  // Mobile optimization hooks
+  const { networkInfo, batteryInfo, isLowBandwidth, isLowBattery } = useMobileOptimization();
+
+  // Mobile detection
+  useEffect(() => {
+    const checkMobile = () => {
+      const userAgent = navigator.userAgent.toLowerCase();
+      const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+      setIsMobile(isMobileDevice || window.innerWidth <= 768);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Performance monitoring
+  useEffect(() => {
+    const startTime = performance.now();
+    
+    const measurePerformance = () => {
+      const loadTime = performance.now() - startTime;
+      setPerformanceMetrics(prev => ({
+        ...prev,
+        loadTime: Math.round(loadTime)
+      }));
+    };
+
+    // Measure initial render
+    const renderTime = performance.now() - startTime;
+    setPerformanceMetrics(prev => ({
+      ...prev,
+      renderTime: Math.round(renderTime)
+    }));
+
+    // Measure full load time
+    window.addEventListener('load', measurePerformance);
+    
+    return () => {
+      window.removeEventListener('load', measurePerformance);
+    };
+  }, []);
 
   const handleProfileUpdate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,6 +147,24 @@ const Settings: React.FC = () => {
 
   return (
     <div className={styles.container}>
+      {/* Mobile Performance Indicator */}
+      {isMobile && (
+        <div style={{
+          position: 'fixed',
+          top: '10px',
+          right: '10px',
+          background: 'rgba(0, 234, 255, 0.9)',
+          color: '#0f2027',
+          padding: '4px 8px',
+          borderRadius: '4px',
+          fontSize: '10px',
+          zIndex: 1000,
+          fontFamily: 'monospace'
+        }}>
+          {performanceMetrics.loadTime}ms | {isLowBandwidth ? 'Slow' : 'Fast'}
+        </div>
+      )}
+
       <div className={styles.headerCard}>
         <header className={styles.headerRow}>
           <div className={styles.headerLeft}>
@@ -134,6 +202,28 @@ const Settings: React.FC = () => {
           </div>
         </header>
       </div>
+
+      {/* Mobile Performance Alert */}
+      {(isLowBandwidth || isLowBattery) && (
+        <div style={{
+          background: '#fff3cd',
+          border: '1px solid #ffeaa7',
+          borderRadius: '8px',
+          padding: '8px 12px',
+          marginBottom: '12px',
+          fontSize: '12px',
+          color: '#856404',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          <span>📱</span>
+          <span>
+            {isLowBandwidth ? 'Slow connection detected - Optimized loading enabled' : ''}
+            {isLowBattery ? 'Low battery detected - Reduced data loading' : ''}
+          </span>
+        </div>
+      )}
 
       <div className={styles.content}>
         <div className={styles.sidebar}>

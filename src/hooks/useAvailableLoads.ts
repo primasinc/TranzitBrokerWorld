@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import { collection, getDocs, query, limit, startAfter, orderBy, where } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
 export interface AvailableLoad {
@@ -18,6 +18,10 @@ export interface AvailableLoad {
   // Add other fields as needed
 }
 
+// Cache for loads data
+const loadsCache = new Map<string, { data: AvailableLoad[], timestamp: number }>();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
 function haversineDistance([lng1, lat1]: [number, number], [lng2, lat2]: [number, number]) {
   const toRad = (x: number) => (x * Math.PI) / 180;
   const R = 6371; // km
@@ -31,87 +35,131 @@ function haversineDistance([lng1, lat1]: [number, number], [lng2, lat2]: [number
   return R * c * 0.621371; // miles
 }
 
-export function useAvailableLoads(carrierLocation: [number, number] | null, radiusMiles: number = 100) {
+export function useAvailableLoads(
+  carrierLocation: [number, number] | null, 
+  radiusMiles: number = 100,
+  pageSize: number = 10
+) {
   const [loads, setLoads] = useState<AvailableLoad[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [lastDoc, setLastDoc] = useState<any>(null);
 
-  useEffect(() => {
-    let isMounted = true;
-    async function fetchLoads() {
+  // Memoize cache key based on location and radius
+  const cacheKey = useMemo(() => {
+    if (!carrierLocation) return 'default';
+    return `${carrierLocation[0]}-${carrierLocation[1]}-${radiusMiles}`;
+  }, [carrierLocation, radiusMiles]);
+
+  // Check cache first
+  const getCachedData = useCallback(() => {
+    const cached = loadsCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+      return cached.data;
+    }
+    return null;
+  }, [cacheKey]);
+
+  // Fetch loads with pagination
+  const fetchLoads = useCallback(async (isInitial: boolean = true) => {
+    if (!isInitial) {
       setLoading(true);
-      setError(null);
-      try {
-        // Try to fetch from Firestore (replace 'loads' with your collection name)
-        const snapshot = await getDocs(collection(db, 'loads'));
-        let allLoads: AvailableLoad[] = [];
-        if (!snapshot.empty) {
-          allLoads = snapshot.docs.map(doc => {
-            const data = doc.data();
-            // Defensive: Only include loads with valid pickupLocation and deliveryLocation
-            if (
-              data.pickupLocation &&
-              typeof data.pickupLocation.address === 'string' &&
-              Array.isArray(data.pickupLocation.position) &&
-              data.pickupLocation.position.length === 2 &&
-              data.deliveryLocation &&
-              typeof data.deliveryLocation.address === 'string' &&
-              Array.isArray(data.deliveryLocation.position) &&
-              data.deliveryLocation.position.length === 2
-            ) {
+    }
+    
+    try {
+      // Check cache first
+      const cachedData = getCachedData();
+      if (cachedData && isInitial) {
+        setLoads(cachedData.slice(0, pageSize));
+        setHasMore(cachedData.length > pageSize);
+        setLoading(false);
+        return;
+      }
+
+      // Build query with pagination
+      let baseQuery = query(
+        collection(db, 'loads'),
+        orderBy('createdAt', 'desc'),
+        limit(pageSize)
+      );
+
+      if (lastDoc && !isInitial) {
+        baseQuery = query(baseQuery, startAfter(lastDoc));
+      }
+
+      const snapshot = await getDocs(baseQuery);
+      let allLoads: AvailableLoad[] = [];
+
+      if (!snapshot.empty) {
+        allLoads = snapshot.docs.map(doc => {
+          const data = doc.data();
+          if (
+            data.pickupLocation &&
+            typeof data.pickupLocation.address === 'string' &&
+            Array.isArray(data.pickupLocation.position) &&
+            data.pickupLocation.position.length === 2 &&
+            data.deliveryLocation &&
+            typeof data.deliveryLocation.address === 'string' &&
+            Array.isArray(data.deliveryLocation.position) &&
+            data.deliveryLocation.position.length === 2
+          ) {
             return {
               id: doc.id,
               title: data.title,
               pickupLocation: data.pickupLocation,
               deliveryLocation: data.deliveryLocation,
-                rate: typeof data.rate === 'number' ? data.rate : 0,
-                poNumber: data.poNumber || '',
+              rate: typeof data.rate === 'number' ? data.rate : 0,
+              poNumber: data.poNumber || '',
             } as AvailableLoad;
-            } else {
-              console.warn('Skipping malformed load:', doc.id, data);
-              return null;
-            }
-          }).filter((l): l is AvailableLoad => l !== null);
-        } else {
-          // Fallback to sample data if Firestore is empty
-          allLoads = [
-            {
-              id: '1',
-              title: 'Chicago to New York',
-              pickupLocation: {
-                address: '123 Main St, Chicago, IL',
-                position: [-87.6298, 41.8781],
-              },
-              deliveryLocation: {
-                address: '456 Oak St, New York, NY',
-                position: [-74.0060, 40.7128],
-              },
-              rate: 3500,
+          } else {
+            console.warn('Skipping malformed load:', doc.id, data);
+            return null;
+          }
+        }).filter((l): l is AvailableLoad => l !== null);
+      } else {
+        // Fallback to sample data if Firestore is empty
+        allLoads = [
+          {
+            id: '1',
+            title: 'Chicago to New York',
+            pickupLocation: {
+              address: '123 Main St, Chicago, IL',
+              position: [-87.6298, 41.8781],
             },
-            {
-              id: '2',
-              title: 'LA to San Francisco',
-              pickupLocation: {
-                address: '123 Main St, Los Angeles, CA',
-                position: [-118.2437, 34.0522],
-              },
-              deliveryLocation: {
-                address: '123 Main St, San Francisco, CA',
-                position: [-122.4194, 37.7749],
-              },
-              rate: 1800,
+            deliveryLocation: {
+              address: '456 Oak St, New York, NY',
+              position: [-74.0060, 40.7128],
             },
-          ];
-        }
-        // Filter by radius if carrierLocation is available
-        let filtered = allLoads;
-        if (carrierLocation) {
-          filtered = allLoads.filter(load => {
-            const dist = haversineDistance(carrierLocation, load.pickupLocation.position);
-            return dist <= radiusMiles;
-          });
-        }
-        // Filter by valid purchase orders
+            rate: 3500,
+          },
+          {
+            id: '2',
+            title: 'LA to San Francisco',
+            pickupLocation: {
+              address: '123 Main St, Los Angeles, CA',
+              position: [-118.2437, 34.0522],
+            },
+            deliveryLocation: {
+              address: '123 Main St, San Francisco, CA',
+              position: [-122.4194, 37.7749],
+            },
+            rate: 1800,
+          },
+        ];
+      }
+
+      // Filter by radius if carrierLocation is available
+      let filtered = allLoads;
+      if (carrierLocation) {
+        filtered = allLoads.filter(load => {
+          const dist = haversineDistance(carrierLocation, load.pickupLocation.position);
+          return dist <= radiusMiles;
+        });
+      }
+
+      // Filter by valid purchase orders (only on initial load)
+      if (isInitial) {
         const poSnapshot = await getDocs(collection(db, 'purchaseOrders'));
         const validPoNumbers = new Set<string>();
         poSnapshot.forEach(poDoc => {
@@ -122,16 +170,53 @@ export function useAvailableLoads(carrierLocation: [number, number] | null, radi
           }
         });
         filtered = filtered.filter(load => load.poNumber && validPoNumbers.has(load.poNumber));
-        if (isMounted) setLoads(filtered);
-      } catch (err: any) {
-        if (isMounted) setError(err.message || 'Failed to fetch loads');
-      } finally {
-        if (isMounted) setLoading(false);
       }
+
+      // Update state
+      if (isInitial) {
+        setLoads(filtered);
+        // Cache the full dataset
+        loadsCache.set(cacheKey, { data: filtered, timestamp: Date.now() });
+      } else {
+        setLoads(prev => [...prev, ...filtered]);
+      }
+
+      setHasMore(snapshot.docs.length === pageSize);
+      setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+      setError(null);
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch loads');
+    } finally {
+      setLoading(false);
     }
-    fetchLoads();
-    return () => { isMounted = false; };
+  }, [carrierLocation, radiusMiles, pageSize, lastDoc, cacheKey, getCachedData]);
+
+  // Load more function for pagination
+  const loadMore = useCallback(() => {
+    if (!loading && hasMore) {
+      fetchLoads(false);
+    }
+  }, [loading, hasMore, fetchLoads]);
+
+  // Initial load
+  useEffect(() => {
+    setLastDoc(null);
+    setHasMore(true);
+    fetchLoads(true);
   }, [carrierLocation, radiusMiles]);
 
-  return { loads, loading, error };
+  // Cleanup cache on unmount
+  useEffect(() => {
+    return () => {
+      // Clean old cache entries
+      const now = Date.now();
+      for (const [key, value] of loadsCache.entries()) {
+        if (now - value.timestamp > CACHE_DURATION) {
+          loadsCache.delete(key);
+        }
+      }
+    };
+  }, []);
+
+  return { loads, loading, error, hasMore, loadMore };
 } 
