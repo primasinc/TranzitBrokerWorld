@@ -128,7 +128,19 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
         map.current.remove();
       }
     };
-  }, [center, zoom, onMapLoad, eldApiKey]);
+  }, [onMapLoad, eldApiKey]);
+
+  // Handle dynamic updates to center and zoom props
+  useEffect(() => {
+    if (map.current && isMapLoaded) {
+      map.current.flyTo({
+        center: center,
+        zoom: zoom,
+        speed: 1.2,
+        essential: true,
+      });
+    }
+  }, [center, zoom, isMapLoaded]);
 
   // NEW: Add a ResizeObserver to handle container resizing reliably
   useEffect(() => {
