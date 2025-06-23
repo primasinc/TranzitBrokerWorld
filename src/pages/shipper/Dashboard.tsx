@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { subscribeToShipperMetrics } from '../../services/shipmentService';
@@ -85,6 +85,14 @@ const ShipperDashboard: React.FC = () => {
   const [searchInput, setSearchInput] = useState('');
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [mapInstance, setMapInstance] = useState<mapboxgl.Map | null>(null);
+  const [isLocationReady, setIsLocationReady] = useState(false);
+  const [isMapFullscreen, setIsMapFullscreen] = useState(false);
+  const [mapZoom, setMapZoom] = useState(10);
+
+  const handleMapLoad = useCallback((map: mapboxgl.Map) => {
+    setMapInstance(map);
+  }, []);
 
   // Mobile optimization
   const { 
@@ -101,8 +109,6 @@ const ShipperDashboard: React.FC = () => {
 
   // Mobile detection
   const [isMobile, setIsMobile] = useState(false);
-  const [isMapFullscreen, setIsMapFullscreen] = useState(false);
-  const [mapZoom, setMapZoom] = useState(10);
 
   // Mobile detection effect
   useEffect(() => {
@@ -342,21 +348,28 @@ const ShipperDashboard: React.FC = () => {
     fetchCarriers();
   }, [showAvailableCarriers]);
 
-  // Get user location - only after authentication
+  // Get user location - runs once on component mount
   useEffect(() => {
-    // Only request location if user is authenticated
     if (!user) {
-      console.log('User not authenticated, skipping location request');
+      // If no user, use default location and proceed.
+      setIsLocationReady(true);
       return;
     }
 
-    let watchId: number | null = null;
-    let didSetLocation = false;
-    async function fetchAndGeocodeProfileAddress() {
+    let locationSet = false;
+
+    const setFinalLocation = (lng: number, lat: number) => {
+      if (!locationSet) {
+        setUserLocation([lng, lat]);
+        setIsLocationReady(true);
+        locationSet = true;
+      }
+    };
+
+    const fetchProfileAddress = async () => {
       try {
-        if (!user?.uid) return;
-        const userDoc = await import('../../firebase').then(m => m.db).then(db => import('firebase/firestore').then(fb => fb.getDoc(fb.doc(db, 'users', user.uid))));
-        const docSnap = await userDoc;
+        const userDocRef = doc(db, 'users', user.uid);
+        const docSnap = await getDoc(userDocRef);
         if (docSnap.exists()) {
           const data = docSnap.data();
           const addressParts = [data.address, data.city, data.state, data.zip].filter(Boolean);
@@ -369,49 +382,87 @@ const ShipperDashboard: React.FC = () => {
             const geoData = await response.json();
             if (geoData.features && geoData.features.length > 0) {
               const [lng, lat] = geoData.features[0].center;
-              setUserLocation([lng, lat]);
-              didSetLocation = true;
+              setFinalLocation(lng, lat);
+              return; // Exit after successful geocoding
             }
           }
         }
       } catch (err) {
-        // Ignore errors, fallback to default
+        console.error("Error geocoding profile address:", err);
       }
-    }
-    function requestLocation() {
-      setLocationError(null);
-      if (navigator.geolocation) {
-        watchId = navigator.geolocation.watchPosition(
-          (position) => {
-            setUserLocation([position.coords.longitude, position.coords.latitude]);
-            setLocationError(null);
-            didSetLocation = true;
-          },
-          async (error) => {
-            // If denied, try to use profile address
-            await fetchAndGeocodeProfileAddress();
-            if (!didSetLocation) {
-              console.warn('Location access denied, using default location');
-              setLocationError(null); // Don't block the app
-            }
-          },
-          { 
-            enableHighAccuracy: false, // Less aggressive
-            timeout: 10000,
-            maximumAge: 300000 // 5 minutes cache
-          }
-        );
-      } else {
-        fetchAndGeocodeProfileAddress();
-      }
-    }
-    requestLocation();
-    return () => {
-      if (watchId !== null && navigator.geolocation.clearWatch) {
-        navigator.geolocation.clearWatch(watchId);
+      
+      // Fallback to default if geocoding fails, no address, or location already set
+      if (!locationSet) {
+        setIsLocationReady(true);
       }
     };
-  }, [user]); // Only run when user changes
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setFinalLocation(position.coords.longitude, position.coords.latitude);
+        },
+        (error) => {
+          console.warn('Geolocation failed. Falling back to profile address.');
+          fetchProfileAddress();
+        },
+        { timeout: 8000, maximumAge: 600000, enableHighAccuracy: false }
+      );
+    } else {
+      console.log('Geolocation not supported. Falling back to profile address.');
+      fetchProfileAddress();
+    }
+  }, [user]);
+
+  // Handle map layers based on view state - separate from map initialization
+  useEffect(() => {
+    if (!mapInstance) return;
+
+    if (!showActiveShipments) {
+      // Add radius circle for available carriers view
+      if (mapInstance.getLayer('radius')) mapInstance.removeLayer('radius');
+      if (mapInstance.getLayer('radius-outline')) mapInstance.removeLayer('radius-outline');
+      if (mapInstance.getSource('radius')) mapInstance.removeSource('radius');
+      
+      const circleGeoJSON = createGeoJSONCircle(userLocation, radiusInMiles);
+      mapInstance.addSource('radius', {
+        type: 'geojson',
+        data: circleGeoJSON
+      });
+      mapInstance.addLayer({
+        id: 'radius',
+        type: 'fill',
+        source: 'radius',
+        paint: {
+          'fill-color': '#4285F4',
+          'fill-opacity': 0.12
+        }
+      });
+      mapInstance.addLayer({
+        id: 'radius-outline',
+        type: 'line',
+        source: 'radius',
+        paint: {
+          'line-color': '#4285F4',
+          'line-width': 2
+        }
+      });
+      
+      // Fit map to the bounds of the circle
+      const coordinates = circleGeoJSON.geometry.coordinates[0];
+      const bounds = new mapboxgl.LngLatBounds(
+        new mapboxgl.LngLat(coordinates[0][0], coordinates[0][1]),
+        new mapboxgl.LngLat(coordinates[Math.floor(coordinates.length / 2)][0], coordinates[Math.floor(coordinates.length / 2)][1])
+      );
+      coordinates.forEach(coord => bounds.extend(new mapboxgl.LngLat(coord[0], coord[1])));
+      mapInstance.fitBounds(bounds, { padding: isMobile ? 20 : 40, maxZoom: isMobile ? 14 : 12 });
+    } else {
+      // Remove radius if present
+      if (mapInstance.getLayer('radius')) mapInstance.removeLayer('radius');
+      if (mapInstance.getLayer('radius-outline')) mapInstance.removeLayer('radius-outline');
+      if (mapInstance.getSource('radius')) mapInstance.removeSource('radius');
+    }
+  }, [mapInstance, showActiveShipments, userLocation, radiusInMiles, isMobile]);
 
   // Function to geocode address using Mapbox
   const handleAddressSearch = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -493,69 +544,34 @@ const ShipperDashboard: React.FC = () => {
           </div>
           
           <div className={`${styles.mapContainer} ${isMapFullscreen ? styles.mapFullscreen : ''}`}>
-            {isMobile && (
-              <button 
-                className={styles.fullscreenToggle}
-                onClick={() => setIsMapFullscreen(!isMapFullscreen)}
-                aria-label={isMapFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-              >
-                {isMapFullscreen ? '✕' : '⛶'}
-              </button>
+            {isLocationReady ? (
+              <>
+                {isMobile && (
+                  <button 
+                    className={styles.fullscreenToggle}
+                    onClick={() => setIsMapFullscreen(!isMapFullscreen)}
+                    aria-label={isMapFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                  >
+                    {isMapFullscreen ? '✕' : '⛶'}
+                  </button>
+                )}
+                <MapboxMap
+                  center={userLocation}
+                  zoom={showActiveShipments ? (isMobile ? 6 : 4) : (isMobile ? 11 : 9)}
+                  markers={showAvailableCarriers ? availableCarriers.map(carrier => ({
+                    id: carrier.id,
+                    position: carrier.position,
+                    type: 'carrier',
+                  })) : getMapMarkers()}
+                  onMapLoad={handleMapLoad}
+                />
+              </>
+            ) : (
+              <div className={styles.mapLoading}>
+                <div className={styles.spinner}></div>
+                <p>Locating...</p>
+              </div>
             )}
-            <MapboxMap
-              center={userLocation}
-              zoom={showActiveShipments ? (isMobile ? 6 : 4) : (isMobile ? 11 : 9)}
-              markers={showAvailableCarriers ? availableCarriers.map(carrier => ({
-                id: carrier.id,
-                position: carrier.position,
-                type: 'carrier',
-              })) : getMapMarkers()}
-              eldApiKey={process.env.REACT_APP_MAPBOX_TOKEN}
-              onMapLoad={(map) => {
-                if (!showActiveShipments) {
-                  // Only show the radius circle for available carriers
-                  if (map.getLayer('radius')) map.removeLayer('radius');
-                  if (map.getLayer('radius-outline')) map.removeLayer('radius-outline');
-                  if (map.getSource('radius')) map.removeSource('radius');
-                  const circleGeoJSON = createGeoJSONCircle(userLocation, radiusInMiles);
-                  map.addSource('radius', {
-                    type: 'geojson',
-                    data: circleGeoJSON
-                  });
-                  map.addLayer({
-                    id: 'radius',
-                    type: 'fill',
-                    source: 'radius',
-                    paint: {
-                      'fill-color': '#4285F4',
-                      'fill-opacity': 0.12
-                    }
-                  });
-                  map.addLayer({
-                    id: 'radius-outline',
-                    type: 'line',
-                    source: 'radius',
-                    paint: {
-                      'line-color': '#4285F4',
-                      'line-width': 2
-                    }
-                  });
-                  // Fit map to the bounds of the circle
-                  const coordinates = circleGeoJSON.geometry.coordinates[0];
-                  const bounds = new mapboxgl.LngLatBounds(
-                    new mapboxgl.LngLat(coordinates[0][0], coordinates[0][1]),
-                    new mapboxgl.LngLat(coordinates[Math.floor(coordinates.length / 2)][0], coordinates[Math.floor(coordinates.length / 2)][1])
-                  );
-                  coordinates.forEach(coord => bounds.extend(new mapboxgl.LngLat(coord[0], coord[1])));
-                  map.fitBounds(bounds, { padding: isMobile ? 20 : 40, maxZoom: isMobile ? 14 : 12 });
-                } else {
-                  // Remove radius if present
-                  if (map.getLayer('radius')) map.removeLayer('radius');
-                  if (map.getLayer('radius-outline')) map.removeLayer('radius-outline');
-                  if (map.getSource('radius')) map.removeSource('radius');
-                }
-              }}
-            />
           </div>
           {/* Controls below the map, outside of .mapContainer */}
           {!showActiveShipments && (

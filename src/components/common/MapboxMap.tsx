@@ -26,11 +26,6 @@ interface MapboxMapProps {
   eldApiKey?: string;
 }
 
-// Helper function to validate Mapbox token format
-const isValidMapboxToken = (token: string): boolean => {
-  return /^[a-z]{2}\.([a-zA-Z0-9-_=]+\.?){3}$/.test(token);
-};
-
 const MapboxMap: React.FC<MapboxMapProps> = ({
   center,
   zoom = 4,
@@ -47,71 +42,27 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
   const markersRef = useRef<{ [key: string]: mapboxgl.Marker }>({});
   const [konexialMarkers, setKonexialMarkers] = useState<MapMarker[]>([]);
   const [mapError, setMapError] = useState<string | null>(null);
-  const [isMapInitializing, setIsMapInitializing] = useState(true);
+  const [isMapLoaded, setIsMapLoaded] = useState(false);
   const updateInterval = useRef<NodeJS.Timeout>();
-
-  // Helper function to check if container has valid dimensions
-  const hasValidDimensions = (container: HTMLElement): boolean => {
-    const rect = container.getBoundingClientRect();
-    return rect.width > 0 && rect.height > 0;
-  };
-
-  // Helper function to wait for container to have valid dimensions
-  const waitForValidDimensions = (container: HTMLElement, maxAttempts = 10): Promise<boolean> => {
-    return new Promise((resolve) => {
-      let attempts = 0;
-      const checkDimensions = () => {
-        attempts++;
-        if (hasValidDimensions(container)) {
-          resolve(true);
-        } else if (attempts < maxAttempts) {
-          setTimeout(checkDimensions, 100);
-        } else {
-          console.warn('Map container failed to get valid dimensions after', maxAttempts, 'attempts');
-          resolve(false);
-        }
-      };
-      checkDimensions();
-    });
-  };
 
   useEffect(() => {
     if (!mapContainer.current) return;
 
-    setIsMapInitializing(true);
     setMapError(null);
 
     const initializeMap = async () => {
       try {
         console.log('[Mapbox] 1. Starting initialization...');
-        // Wait for container to have valid dimensions (especially important on mobile)
-        const hasDimensions = await waitForValidDimensions(mapContainer.current!);
-        if (!hasDimensions) {
-          console.error('[Mapbox] Failed: Container has invalid dimensions.');
-          setMapError('Map container has invalid dimensions');
-          setIsMapInitializing(false);
-          return;
-        }
-
-        console.log('[Mapbox] 2. Container dimensions are valid.');
+        
         const token = eldApiKey || process.env.REACT_APP_MAPBOX_TOKEN || '';
         console.log(`[Mapbox] 3. Using token: ${token ? `pk...${token.slice(-5)}` : 'Not Found'}`);
         
         if (!token) {
           setMapError('Mapbox access token is missing. Please add REACT_APP_MAPBOX_TOKEN to your .env file.');
-          setIsMapInitializing(false);
           console.error('[Mapbox] Failed: Token is missing.');
           return;
         }
 
-        if (!isValidMapboxToken(token)) {
-          setMapError('Mapbox access token is invalid or malformed. Please check your .env file.');
-          setIsMapInitializing(false);
-          console.error('[Mapbox] Failed: Token is invalid or malformed.', token);
-          return;
-        }
-        
-        console.log('[Mapbox] 4. Token format is valid.');
         mapboxgl.accessToken = token;
 
         // Initialize map with center from props or default to US center
@@ -143,6 +94,7 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
         if (onMapLoad && map.current) {
           map.current.on('load', () => {
             console.log('[Mapbox] 7. Map fully loaded.');
+            setIsMapLoaded(true);
             if (map.current && onMapLoad) {
               onMapLoad(map.current);
             }
@@ -155,13 +107,11 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
           setMapError('Map failed to load due to a Mapbox error.');
         });
 
-        setIsMapInitializing(false);
         console.log('[Mapbox] 8. Initialization process complete.');
 
       } catch (error) {
         console.error('[Mapbox] Failed: An unexpected error occurred during initialization.', error);
         setMapError('Failed to initialize map');
-        setIsMapInitializing(false);
       }
     };
 
@@ -174,7 +124,7 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
       Object.values(markersRef.current).forEach(marker => marker.remove());
       markersRef.current = {};
 
-      if (map.current) {
+      if (map.current && map.current.getCanvas() && map.current.getCanvas().parentNode) {
         map.current.remove();
       }
     };
@@ -231,7 +181,7 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
 
   // Handle marker updates
   useEffect(() => {
-    if (!map.current) return;
+    if (!map.current || !isMapLoaded) return;
 
     // Combine prop markers and Konexial markers
     const allMarkers = [...markers, ...konexialMarkers];
@@ -306,7 +256,7 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
         deliveryMarker.remove();
       };
     }
-  }, [markers, konexialMarkers, pickupLocation, deliveryLocation]);
+  }, [markers, konexialMarkers, pickupLocation, deliveryLocation, isMapLoaded]);
 
   // Handle Konexial vehicle updates
   useEffect(() => {
@@ -363,18 +313,6 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
       }
     };
   }, [showKonexialVehicles]);
-
-  // Show loading state
-  if (isMapInitializing) {
-    return (
-      <div className={styles.loadingContainer}>
-        <div style={{ textAlign: 'center' }}>
-          <div className={styles.loadingSpinner}></div>
-          <p className={styles.loadingText}>Loading map...</p>
-        </div>
-      </div>
-    );
-  }
 
   // Show error state
   if (mapError) {

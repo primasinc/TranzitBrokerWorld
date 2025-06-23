@@ -49,21 +49,26 @@
   display: grid;
   grid-template-columns: 2fr 1fr;
   gap: 20px;
+  height: 65vh;
+  min-height: 500px;
 }
 
 .shipmentTracking {
+  display: flex;
+  flex-direction: column;
   background: white;
   padding: 20px;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  height: 100%;
 }
 
 .trackingHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
+  margin-bottom: 1rem;
+  flex-shrink: 0;
 }
 
 .trackingControls {
@@ -172,15 +177,14 @@ input:checked + .toggleSlider:before {
 }
 
 .mapContainer {
-  width: 100%;
-  min-height: 400px;
-  height: 50vh;
-  max-height: 600px;
+  flex-grow: 1;
+  position: relative;
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  position: relative;
-  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  background-color: #f0f2f5;
+  display: flex;
+  min-height: 300px;
 }
 
 .mapFullscreen {
@@ -191,6 +195,7 @@ input:checked + .toggleSlider:before {
   height: 100vh;
   z-index: 9999;
   border-radius: 0;
+  min-height: 100%;
 }
 
 .fullscreenToggle {
@@ -206,6 +211,7 @@ input:checked + .toggleSlider:before {
   cursor: pointer;
   backdrop-filter: blur(10px);
   transition: all 0.2s ease;
+  align-items: center;
 }
 
 .fullscreenToggle:hover {
@@ -214,19 +220,21 @@ input:checked + .toggleSlider:before {
 }
 
 .mobileControls {
+  padding: 1rem;
+  background-color: #ffffff;
+  border-top: 1px solid #e0e0e0;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: 16px;
   margin-top: 16px;
-  padding: 16px;
-  background: #f8f9fa;
-  border-radius: 8px;
 }
 
 .searchForm {
   display: flex;
-  gap: 8px;
+  gap: 0.5rem;
   width: 100%;
+  height: 100%;
 }
 
 .searchInput {
@@ -307,14 +315,12 @@ input:checked + .toggleSlider:before {
 }
 
 .shipmentList {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-  max-height: 500px;
   overflow-y: auto;
+  height: 100%;
 }
 
 .shipmentCard {
+  background-color: #ffffff;
   padding: 15px;
   border: 1px solid #eee;
   border-radius: 8px;
@@ -728,4 +734,38 @@ input:checked + .toggleSlider:before {
 
 .performanceIndicator span {
   font-weight: 500;
+}
+
+.mapLoading {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  color: #666;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+}
+
+.mapLoading p {
+  margin-top: 1rem;
+  font-size: 1rem;
+}
+
+.spinner {
+  border: 4px solid rgba(0, 0, 0, 0.1);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border-left-color: #09f;
+  animation: spin 1s ease infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 } 
