@@ -26,6 +26,11 @@ interface MapboxMapProps {
   eldApiKey?: string;
 }
 
+// Helper function to validate Mapbox token format
+const isValidMapboxToken = (token: string): boolean => {
+  return /^[a-z]{2}\.([a-zA-Z0-9-_=]+\.?){3}$/.test(token);
+};
+
 const MapboxMap: React.FC<MapboxMapProps> = ({
   center,
   zoom = 4,
@@ -78,26 +83,36 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
 
     const initializeMap = async () => {
       try {
+        console.log('[Mapbox] 1. Starting initialization...');
         // Wait for container to have valid dimensions (especially important on mobile)
         const hasDimensions = await waitForValidDimensions(mapContainer.current!);
         if (!hasDimensions) {
+          console.error('[Mapbox] Failed: Container has invalid dimensions.');
           setMapError('Map container has invalid dimensions');
           setIsMapInitializing(false);
           return;
         }
 
-        // Set the Mapbox access token dynamically if eldApiKey is provided
-        if (eldApiKey) {
-          mapboxgl.accessToken = eldApiKey;
-        } else {
-          mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_TOKEN || '';
-        }
-
-        if (!mapboxgl.accessToken) {
-          setMapError('Mapbox access token is missing');
+        console.log('[Mapbox] 2. Container dimensions are valid.');
+        const token = eldApiKey || process.env.REACT_APP_MAPBOX_TOKEN || '';
+        console.log(`[Mapbox] 3. Using token: ${token ? `pk...${token.slice(-5)}` : 'Not Found'}`);
+        
+        if (!token) {
+          setMapError('Mapbox access token is missing. Please add REACT_APP_MAPBOX_TOKEN to your .env file.');
           setIsMapInitializing(false);
+          console.error('[Mapbox] Failed: Token is missing.');
           return;
         }
+
+        if (!isValidMapboxToken(token)) {
+          setMapError('Mapbox access token is invalid or malformed. Please check your .env file.');
+          setIsMapInitializing(false);
+          console.error('[Mapbox] Failed: Token is invalid or malformed.', token);
+          return;
+        }
+        
+        console.log('[Mapbox] 4. Token format is valid.');
+        mapboxgl.accessToken = token;
 
         // Initialize map with center from props or default to US center
         const initialCenter = center || pickupLocation || [-98.5795, 39.8283];
@@ -116,6 +131,7 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
           antialias: false, // Better performance on mobile
         });
 
+        console.log('[Mapbox] 6. Map object created. Adding controls...');
         // Add navigation controls with mobile-friendly positioning
         map.current.addControl(new mapboxgl.NavigationControl({
           showCompass: true,
@@ -126,6 +142,7 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
         // Call onMapLoad callback if provided
         if (onMapLoad && map.current) {
           map.current.on('load', () => {
+            console.log('[Mapbox] 7. Map fully loaded.');
             if (map.current && onMapLoad) {
               onMapLoad(map.current);
             }
@@ -134,15 +151,15 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
 
         // Add error handling
         map.current.on('error', (e) => {
-          console.error('Mapbox error:', e);
-          setMapError('Map failed to load');
+          console.error('[Mapbox] Failed: A Mapbox error occurred.', e);
+          setMapError('Map failed to load due to a Mapbox error.');
         });
 
         setIsMapInitializing(false);
-        console.log('Map initialized successfully');
+        console.log('[Mapbox] 8. Initialization process complete.');
 
       } catch (error) {
-        console.error('Error initializing map:', error);
+        console.error('[Mapbox] Failed: An unexpected error occurred during initialization.', error);
         setMapError('Failed to initialize map');
         setIsMapInitializing(false);
       }
@@ -162,6 +179,21 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
       }
     };
   }, [center, zoom, onMapLoad, eldApiKey]);
+
+  // NEW: Add a ResizeObserver to handle container resizing reliably
+  useEffect(() => {
+    if (!map.current || !mapContainer.current) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      map.current?.resize();
+    });
+
+    resizeObserver.observe(mapContainer.current);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [map.current]); // Rerun this effect if the map instance changes
 
   // Create marker element with status dot
   const createMarkerElement = (marker: MapMarker) => {
@@ -332,37 +364,13 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
     };
   }, [showKonexialVehicles]);
 
-  // Ensure map resizes after mount (fixes blank map on navigation)
-  useEffect(() => {
-    if (!map.current) return;
-    setTimeout(() => {
-      map.current?.resize();
-    }, 150);
-  }, []);
-
   // Show loading state
   if (isMapInitializing) {
     return (
-      <div style={{ 
-        width: '100%', 
-        height: '100%', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        backgroundColor: '#f5f5f5',
-        borderRadius: '8px'
-      }}>
+      <div className={styles.loadingContainer}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ 
-            width: '40px', 
-            height: '40px', 
-            border: '4px solid #f3f3f3', 
-            borderTop: '4px solid #007bff', 
-            borderRadius: '50%', 
-            animation: 'spin 1s linear infinite',
-            margin: '0 auto 10px'
-          }}></div>
-          <p style={{ margin: 0, color: '#666', fontSize: '14px' }}>Loading map...</p>
+          <div className={styles.loadingSpinner}></div>
+          <p className={styles.loadingText}>Loading map...</p>
         </div>
       </div>
     );
@@ -371,32 +379,14 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
   // Show error state
   if (mapError) {
     return (
-      <div style={{ 
-        width: '100%', 
-        height: '100%', 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'center',
-        backgroundColor: '#fff3cd',
-        border: '1px solid #ffeaa7',
-        borderRadius: '8px',
-        padding: '20px'
-      }}>
+      <div className={styles.errorContainer}>
         <div style={{ textAlign: 'center' }}>
-          <p style={{ margin: '0 0 10px 0', color: '#856404', fontSize: '14px' }}>
+          <p className={styles.errorText}>
             ⚠️ {mapError}
           </p>
           <button 
             onClick={() => window.location.reload()} 
-            style={{
-              padding: '8px 16px',
-              backgroundColor: '#007bff',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '14px'
-            }}
+            className={styles.retryButton}
           >
             Retry
           </button>
@@ -405,7 +395,7 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
     );
   }
 
-  return <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />;
+  return <div ref={mapContainer} className={styles.mapContainer} />;
 };
 
 export default MapboxMap; 

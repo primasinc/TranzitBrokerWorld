@@ -6,6 +6,8 @@ import { db, auth } from '../../config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Timestamp } from 'firebase/firestore';
 import MapboxMap from '../../components/common/MapboxMap';
+import { useMobileOptimization } from '../../hooks/useMobileOptimization';
+import { MobileOptimizedList } from '../../components/common/MobileOptimizedList';
 
 interface DriverUpdate {
   driverId: string;
@@ -45,6 +47,43 @@ const DriverUpdates: React.FC = () => {
   const [eldDetails, setEldDetails] = useState<{location: string, coordinates: [number, number], pickup: [number, number], delivery: [number, number]} | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [detailsView, setDetailsView] = useState<'map' | 'location'>('map');
+
+  // Mobile optimization
+  const { 
+    isLowBandwidth, 
+    isLowBattery, 
+    getOptimalPageSize, 
+    shouldFetchData, 
+    measurePerformance 
+  } = useMobileOptimization({
+    enableOfflineMode: true,
+    enableLowBandwidthMode: true,
+    enableBatteryOptimization: true
+  });
+
+  // Mobile detection
+  const [isMobile, setIsMobile] = useState(false);
+  const [viewType, setViewType] = useState<'table' | 'cards'>('table');
+
+  // Mobile detection effect
+  useEffect(() => {
+    const checkMobile = () => {
+      const userAgent = navigator.userAgent.toLowerCase();
+      const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+      const isMobileScreen = window.innerWidth <= 768;
+      setIsMobile(isMobileDevice || isMobileScreen);
+      
+      // Auto-switch to cards view on mobile
+      if (isMobileDevice || isMobileScreen) {
+        setViewType('cards');
+      }
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -172,50 +211,134 @@ const DriverUpdates: React.FC = () => {
     setShowDetailsModal(true);
   };
 
+  // Mobile card component
+  const renderMobileCard = (update: DriverUpdate) => (
+    <div key={update.driverId} className={styles.mobileCard}>
+      <div className={styles.cardHeader}>
+        <h3>{update.driverName}</h3>
+        <span className={`${styles.status} ${styles[update.status.toLowerCase()]}`}>
+          {update.status}
+        </span>
+      </div>
+      <div className={styles.cardContent}>
+        <div className={styles.cardRow}>
+          <label>Location:</label>
+          <span>{update.location}</span>
+        </div>
+        <div className={styles.cardRow}>
+          <label>Last Update:</label>
+          <span>{update.lastUpdate}</span>
+        </div>
+        <div className={styles.cardRow}>
+          <label>ETA:</label>
+          <span>{update.eta}</span>
+        </div>
+        <div className={styles.cardRow}>
+          <label>PO Number:</label>
+          <span>{update.load}</span>
+        </div>
+      </div>
+      <div className={styles.cardActions}>
+        <button 
+          className={styles.mobileActionButton} 
+          onClick={() => handleContactClick(update.carrierId, update.driverName)}
+        >
+          Contact
+        </button>
+        <button 
+          className={styles.mobileActionButton} 
+          onClick={() => handleViewDetailsClick(update.driverId, update.pickupCoords, update.deliveryCoords)}
+        >
+          View Details
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className={styles.container}>
-      <h1>Driver Updates</h1>
+      <div className={styles.header}>
+        <h1>Driver Updates</h1>
+        {!isMobile && (
+          <div className={styles.viewToggle}>
+            <button 
+              className={`${styles.toggleButton} ${viewType === 'table' ? styles.active : ''}`}
+              onClick={() => setViewType('table')}
+            >
+              Table View
+            </button>
+            <button 
+              className={`${styles.toggleButton} ${viewType === 'cards' ? styles.active : ''}`}
+              onClick={() => setViewType('cards')}
+            >
+              Card View
+            </button>
+          </div>
+        )}
+      </div>
+      
       <div className={styles.updatesTable}>
         {loading ? (
-          <div>Loading...</div>
-        ) : (
-        <table>
-          <thead>
-            <tr>
-              <th>Driver</th>
-              <th>Location</th>
-              <th>Status</th>
-              <th>Last Update</th>
-              <th>ETA</th>
+          <div className={styles.loading}>Loading...</div>
+        ) : viewType === 'table' ? (
+          <table>
+            <thead>
+              <tr>
+                <th>Driver</th>
+                <th>Location</th>
+                <th>Status</th>
+                <th>Last Update</th>
+                <th>ETA</th>
                 <th>PO Number</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
               {updates.length === 0 ? (
                 <tr><td colSpan={7} style={{textAlign:'center'}}>No active carrier partners or shipments found.</td></tr>
               ) : (
                 updates.map((update) => (
-              <tr key={update.driverId}>
-                <td>{update.driverName}</td>
-                <td>{update.location}</td>
-                <td>
-                  <span className={`${styles.status} ${styles[update.status.toLowerCase()]}`}>
-                    {update.status}
-                  </span>
-                </td>
-                <td>{update.lastUpdate}</td>
-                <td>{update.eta}</td>
-                <td>{update.load}</td>
-                <td>
+                  <tr key={update.driverId}>
+                    <td>{update.driverName}</td>
+                    <td>{update.location}</td>
+                    <td>
+                      <span className={`${styles.status} ${styles[update.status.toLowerCase()]}`}>
+                        {update.status}
+                      </span>
+                    </td>
+                    <td>{update.lastUpdate}</td>
+                    <td>{update.eta}</td>
+                    <td>{update.load}</td>
+                    <td>
                       <button className={styles.actionButton} onClick={() => handleContactClick(update.carrierId, update.driverName)}>Contact</button>
                       <button className={styles.actionButton} onClick={() => handleViewDetailsClick(update.driverId, update.pickupCoords, update.deliveryCoords)}>View Details</button>
-                </td>
-              </tr>
+                    </td>
+                  </tr>
                 ))
               )}
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        ) : (
+          <div className={styles.mobileCardsContainer}>
+            {updates.length === 0 ? (
+              <div className={styles.noData}>No active carrier partners or shipments found.</div>
+            ) : (
+              <MobileOptimizedList
+                items={updates}
+                renderItem={renderMobileCard}
+                keyExtractor={(update) => update.driverId}
+                itemHeight={180}
+                containerHeight={isMobile ? 400 : 500}
+                enableVirtualization={isMobile}
+                enablePullToRefresh={isMobile}
+                onRefresh={async () => {
+                  // Refresh updates data
+                  await new Promise(resolve => setTimeout(resolve, 1000));
+                }}
+                className={styles.mobileUpdatesList}
+              />
+            )}
+          </div>
         )}
       </div>
 
@@ -235,44 +358,56 @@ const DriverUpdates: React.FC = () => {
       {/* Details Modal */}
       {showDetailsModal && eldDetails && (
         <div className={styles.modalOverlay} onClick={() => setShowDetailsModal(false)}>
-          <div className={styles.contactCard} style={{minWidth: 1100, maxWidth: 1200, minHeight: 700, maxHeight: '90vh'}} onClick={e => e.stopPropagation()}>
+          <div className={`${styles.contactCard} ${isMobile ? styles.mobileModal : ''}`} onClick={e => e.stopPropagation()}>
             <button className={styles.closeButton} onClick={() => setShowDetailsModal(false)} aria-label="Close">×</button>
             <h2>Driver Route Details</h2>
             {/* Location Info and Progress Bar at the top */}
-            <div style={{ marginBottom: 24, width: '100%' }}>
+            <div className={styles.modalContent}>
+              <div className={styles.locationInfo}>
                 <p><strong>Current Location:</strong> {eldDetails.location}</p>
                 <p><strong>Coordinates:</strong> {eldDetails.coordinates[0]}, {eldDetails.coordinates[1]}</p>
-              {/* Modern Progress Bar */}
-              {eldDetails.pickup && eldDetails.delivery && eldDetails.coordinates && (
-                (() => {
-                  const totalMiles = haversineDistance(eldDetails.pickup, eldDetails.delivery);
-                  const remainingMiles = haversineDistance(eldDetails.coordinates, eldDetails.delivery);
-                  const progress = Math.max(0, Math.min(1, 1 - (remainingMiles / totalMiles)));
-                  const percent = Math.round(progress * 100);
-                  return (
-                    <div style={{ marginTop: 12, width: '100%' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <span style={{ fontWeight: 500 }}>Progress</span>
-                        <span style={{ fontWeight: 500 }}>{percent}%</span>
+                {/* Modern Progress Bar */}
+                {eldDetails.pickup && eldDetails.delivery && eldDetails.coordinates && (
+                  (() => {
+                    const totalMiles = haversineDistance(eldDetails.pickup, eldDetails.delivery);
+                    const remainingMiles = haversineDistance(eldDetails.coordinates, eldDetails.delivery);
+                    const progress = Math.max(0, Math.min(1, 1 - (remainingMiles / totalMiles)));
+                    const percent = Math.round(progress * 100);
+                    return (
+                      <div className={styles.progressContainer}>
+                        <div className={styles.progressHeader}>
+                          <span>Progress</span>
+                          <span>{percent}%</span>
+                        </div>
+                        <div className={styles.progressBar}>
+                          <div 
+                            className={styles.progressFill} 
+                            style={{ width: `${percent}%` }}
+                          />
+                        </div>
                       </div>
-                      <div style={{ width: '100%', height: 18, background: '#e9ecef', borderRadius: 10, overflow: 'hidden', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
-                        <div style={{ width: `${percent}%`, height: '100%', background: 'linear-gradient(90deg, #007bff 0%, #00c6ff 100%)', borderRadius: 10, transition: 'width 0.4s' }} />
-                      </div>
+                    );
+                  })()
+                )}
               </div>
-                  );
-                })()
-            )}
-            </div>
-            {/* Large Map below */}
-            <div className={styles.largeMap}>
-              <MapboxMap
-                showKonexialVehicles={true}
-                enableRealtime={true}
-                eldApiKey={process.env.REACT_APP_MAPBOX_TOKEN}
-                // Optionally, pass center/markers if you have them
-              />
+              {/* Large Map below */}
+              <div className={styles.largeMap}>
+                <MapboxMap 
+                  showKonexialVehicles={true}
+                  enableRealtime={true}
+                  eldApiKey={process.env.REACT_APP_MAPBOX_TOKEN}
+                />
+              </div>
             </div>
           </div>
+        </div>
+      )}
+      
+      {/* Mobile performance indicator */}
+      {(isLowBandwidth || isLowBattery) && (
+        <div className={styles.performanceIndicator}>
+          {isLowBandwidth && <span>📶 Slow connection - Optimized loading</span>}
+          {isLowBattery && <span>🔋 Low battery - Reduced animations</span>}
         </div>
       )}
     </div>

@@ -2,6 +2,40 @@
   padding: 20px;
 }
 
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.viewToggle {
+  display: flex;
+  gap: 8px;
+}
+
+.toggleButton {
+  padding: 8px 16px;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.toggleButton.active {
+  background: #007bff;
+  color: white;
+  border-color: #007bff;
+}
+
+.toggleButton:hover:not(.active) {
+  background: #f8f9fa;
+}
+
 .updatesTable {
   background: white;
   border-radius: 8px;
@@ -27,6 +61,103 @@
 .updatesTable th {
   background-color: #f8f9fa;
   font-weight: 600;
+}
+
+/* Mobile Cards Styles */
+.mobileCardsContainer {
+  padding: 16px;
+}
+
+.mobileCard {
+  background: white;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cardHeader h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.cardContent {
+  margin-bottom: 16px;
+}
+
+.cardRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.cardRow:last-child {
+  border-bottom: none;
+}
+
+.cardRow label {
+  font-weight: 500;
+  color: #666;
+  font-size: 14px;
+  min-width: 80px;
+}
+
+.cardRow span {
+  font-size: 14px;
+  color: #333;
+  text-align: right;
+  flex: 1;
+  margin-left: 12px;
+}
+
+.cardActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mobileActionButton {
+  flex: 1;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 6px;
+  background-color: #007bff;
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  min-height: 44px; /* Touch-friendly height */
+  transition: background-color 0.2s;
+}
+
+.mobileActionButton:hover {
+  background-color: #0056b3;
+}
+
+.mobileUpdatesList {
+  max-height: 400px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.loading, .noData {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+  font-size: 16px;
 }
 
 .status {
@@ -75,6 +206,7 @@
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  padding: 16px;
 }
 
 .contactCard {
@@ -93,6 +225,62 @@
   animation: fadeIn 0.2s;
 }
 
+.mobileModal {
+  min-width: auto;
+  max-width: 100%;
+  width: 100%;
+  min-height: auto;
+  max-height: 95vh;
+  padding: 20px 16px;
+  margin: 0;
+}
+
+.modalContent {
+  width: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.locationInfo {
+  margin-bottom: 16px;
+}
+
+.locationInfo p {
+  margin: 8px 0;
+  font-size: 14px;
+}
+
+.progressContainer {
+  margin-top: 16px;
+  width: 100%;
+}
+
+.progressHeader {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.progressBar {
+  width: 100%;
+  height: 18px;
+  background: #e9ecef;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+
+.progressFill {
+  height: 100%;
+  background: linear-gradient(90deg, #007bff 0%, #00c6ff 100%);
+  border-radius: 10px;
+  transition: width 0.4s;
+}
+
 .closeButton {
   position: absolute;
   top: 12px;
@@ -103,7 +291,9 @@
   color: #888;
   cursor: pointer;
   transition: color 0.15s;
+  z-index: 10;
 }
+
 .closeButton:hover {
   color: #222;
 }
@@ -115,8 +305,282 @@
 
 .largeMap {
   width: 100%;
-  height: 550px;
+  min-height: 550px;
+  height: 60vh;
+  max-height: 700px;
   border-radius: 8px;
   overflow: hidden;
   margin-bottom: 16px;
+  flex: 1;
+}
+
+.performanceIndicator {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #856404;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  max-width: 250px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.performanceIndicator span {
+  font-weight: 500;
+}
+
+/* Mobile Responsive Breakpoints */
+@media (max-width: 1024px) {
+  .contactCard {
+    min-width: 800px;
+    max-width: 90vw;
+  }
+  
+  .largeMap {
+    min-height: 450px;
+    height: 55vh;
+    max-height: 600px;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 12px;
+  }
+
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .viewToggle {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .toggleButton {
+    flex: 1;
+    padding: 10px 16px;
+    font-size: 14px;
+  }
+
+  .updatesTable {
+    margin-top: 12px;
+  }
+
+  .updatesTable table {
+    min-width: 500px;
+  }
+
+  .updatesTable th,
+  .updatesTable td {
+    padding: 8px 12px;
+    font-size: 14px;
+  }
+
+  .mobileCard {
+    padding: 12px;
+  }
+
+  .cardHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .cardRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .cardRow label {
+    min-width: auto;
+    font-size: 12px;
+  }
+
+  .cardRow span {
+    text-align: left;
+    margin-left: 0;
+    font-size: 14px;
+  }
+
+  .cardActions {
+    flex-direction: column;
+  }
+
+  .mobileActionButton {
+    width: 100%;
+  }
+
+  .contactCard {
+    min-width: auto;
+    max-width: 95vw;
+    padding: 20px 16px;
+  }
+
+  .largeMap {
+    min-height: 300px;
+    height: 45vh;
+    max-height: 450px;
+  }
+
+  .performanceIndicator {
+    bottom: 10px;
+    right: 10px;
+    left: 10px;
+    max-width: none;
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: 8px;
+  }
+
+  .header h1 {
+    font-size: 24px;
+  }
+
+  .updatesTable table {
+    min-width: 400px;
+  }
+
+  .updatesTable th,
+  .updatesTable td {
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+
+  .mobileCard {
+    padding: 10px;
+  }
+
+  .cardHeader h3 {
+    font-size: 15px;
+  }
+
+  .cardRow label {
+    font-size: 11px;
+  }
+
+  .cardRow span {
+    font-size: 13px;
+  }
+
+  .mobileActionButton {
+    padding: 8px 12px;
+    font-size: 13px;
+    min-height: 40px;
+  }
+
+  .contactCard {
+    padding: 16px 12px;
+    border-radius: 8px;
+  }
+
+  .largeMap {
+    min-height: 250px;
+    height: 40vh;
+    max-height: 350px;
+    border-radius: 6px;
+  }
+
+  .closeButton {
+    top: 8px;
+    right: 12px;
+    font-size: 1.2rem;
+  }
+}
+
+/* iPhone-specific optimizations */
+@media (max-width: 375px) {
+  .updatesTable table {
+    min-width: 350px;
+  }
+
+  .mobileCard {
+    padding: 8px;
+  }
+
+  .cardHeader h3 {
+    font-size: 14px;
+  }
+
+  .cardRow label {
+    font-size: 10px;
+  }
+
+  .cardRow span {
+    font-size: 12px;
+  }
+
+  .largeMap {
+    min-height: 200px;
+    height: 35vh;
+    max-height: 300px;
+  }
+}
+
+/* Landscape orientation on mobile */
+@media (max-width: 900px) and (orientation: landscape) {
+  .largeMap {
+    min-height: 200px;
+    height: 30vh;
+    max-height: 250px;
+  }
+
+  .contactCard {
+    min-width: auto;
+    max-width: 95vw;
+    padding: 16px 12px;
+  }
+}
+
+/* High DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .mobileCard {
+    border-radius: 4px;
+  }
+
+  .mobileActionButton {
+    border-radius: 3px;
+  }
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+  .mobileActionButton,
+  .toggleButton,
+  .progressFill {
+    transition: none;
+  }
+}
+
+/* Touch-friendly improvements */
+@media (hover: none) and (pointer: coarse) {
+  .mobileActionButton {
+    min-height: 48px;
+  }
+
+  .toggleButton {
+    min-height: 44px;
+  }
+
+  .closeButton {
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
 } 

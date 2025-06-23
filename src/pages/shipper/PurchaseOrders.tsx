@@ -34,6 +34,7 @@ const PurchaseOrders: React.FC = () => {
   const [viewingPO, setViewingPO] = useState<PurchaseOrder | null>(null);
   const [editingPO, setEditingPO] = useState<PurchaseOrder | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -48,6 +49,18 @@ const PurchaseOrders: React.FC = () => {
       setOrders(ordersData);
     };
     fetchOrders();
+  }, []);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const userAgent = navigator.userAgent.toLowerCase();
+      const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+      const isMobileScreen = window.innerWidth <= 768;
+      setIsMobile(isMobileDevice || isMobileScreen);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   const filteredOrders = orders.filter(order => {
@@ -104,6 +117,41 @@ const PurchaseOrders: React.FC = () => {
   };
   const cancelDelete = () => setConfirmDeleteId(null);
 
+  // Mobile card renderer
+  const renderMobileCard = (order: PurchaseOrder) => (
+    <div key={order.id || order.poNumber} className={styles.mobileCard}>
+      <div className={styles.cardHeader}>
+        <div className={styles.poSection}>
+          <h3>PO: {order.poNumber}</h3>
+          <div className={styles.date}>{order.date}</div>
+        </div>
+        <div className={styles.statusSection}>
+          <span className={`${styles.status} ${styles[order.status.toLowerCase()]}`}>{order.status}</span>
+        </div>
+      </div>
+      <div className={styles.cardContent}>
+        <div className={styles.infoRow}><span className={styles.label}>Vendor:</span> <span className={styles.value}>{order.vendorInfo?.name || '-'}</span></div>
+        <div className={styles.infoRow}><span className={styles.label}>Company:</span> <span className={styles.value}>{order.companyInfo?.name || '-'}</span></div>
+        <div className={styles.infoRow}><span className={styles.label}>Ship To:</span> <span className={styles.value}>{order.shipTo?.name || '-'}</span></div>
+        <div className={styles.infoRow}><span className={styles.label}>Amount:</span> <span className={styles.value}>${(order.rate ? order.rate : 0).toFixed(2)}</span></div>
+        <div className={styles.infoRow}><span className={styles.label}>Items:</span> <span className={styles.value}>{order.items?.length ?? 0}</span></div>
+        <div className={styles.infoRow}><span className={styles.label}>Delivery Date:</span> <span className={styles.value}>{order.date}</span></div>
+      </div>
+      <div className={styles.cardActions}>
+        <button className={styles.actionButton} onClick={() => handleView(order)}>View</button>
+        <button className={styles.actionButton} onClick={() => handleEdit(order)}>Edit</button>
+        <button className={`${styles.actionButton} ${styles.deleteButton}`} onClick={() => handleDelete(order.id!)}>Delete</button>
+        {confirmDeleteId === order.id && (
+          <div className={styles.confirmDialog}>
+            <span>Are you sure you want to delete this PO?</span>
+            <button className={styles.actionButton} onClick={() => confirmDelete(order.id!)}>Yes</button>
+            <button className={styles.actionButton} onClick={cancelDelete}>No</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className={styles.container}>
       <div className={styles.header}>
@@ -140,55 +188,65 @@ const PurchaseOrders: React.FC = () => {
       </div>
 
       <div className={styles.ordersTable}>
-        <table>
-          <thead>
-            <tr>
-              <th>PO Number</th>
-              <th>Date</th>
-              <th>Vendor</th>
-              <th>Company</th>
-              <th>Ship To</th>
-              <th>Amount</th>
-              <th>Status</th>
-              <th>Items</th>
-              <th>Delivery Date</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredOrders.map((order) => (
-              <tr key={order.poNumber}>
-                <td>{order.poNumber}</td>
-                <td>{order.date}</td>
-                <td>{order.vendorInfo?.name}</td>
-                <td>{order.companyInfo?.name}</td>
-                <td>{order.shipTo?.name}</td>
-                <td>${(order.rate ? order.rate : 0).toFixed(2)}</td>
-                <td>
-                  <span className={`${styles.status} ${styles[order.status.toLowerCase()]}`}>
-                    {order.status}
-                  </span>
-                </td>
-                <td>{order.items?.length ?? 0}</td>
-                <td>{order.date}</td>
-                <td>
-                  <div className={styles.actions}>
-                    <button className={styles.actionButton} onClick={() => handleView(order)}>View</button>
-                    <button className={styles.actionButton} onClick={() => handleEdit(order)}>Edit</button>
-                    <button className={`${styles.actionButton} ${styles.deleteButton}`} onClick={() => handleDelete(order.id!)}>Delete</button>
-                    {confirmDeleteId === order.id && (
-                      <div className={styles.confirmDialog}>
-                        <span>Are you sure you want to delete this PO?</span>
-                        <button className={styles.actionButton} onClick={() => confirmDelete(order.id!)}>Yes</button>
-                        <button className={styles.actionButton} onClick={cancelDelete}>No</button>
-                      </div>
-                    )}
-                  </div>
-                </td>
+        {isMobile ? (
+          <div className={styles.mobileCardsContainer}>
+            {filteredOrders.length === 0 ? (
+              <div className={styles.noData}>No purchase orders found.</div>
+            ) : (
+              filteredOrders.map(renderMobileCard)
+            )}
+          </div>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>PO Number</th>
+                <th>Date</th>
+                <th>Vendor</th>
+                <th>Company</th>
+                <th>Ship To</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Items</th>
+                <th>Delivery Date</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filteredOrders.map((order) => (
+                <tr key={order.poNumber}>
+                  <td>{order.poNumber}</td>
+                  <td>{order.date}</td>
+                  <td>{order.vendorInfo?.name}</td>
+                  <td>{order.companyInfo?.name}</td>
+                  <td>{order.shipTo?.name}</td>
+                  <td>${(order.rate ? order.rate : 0).toFixed(2)}</td>
+                  <td>
+                    <span className={`${styles.status} ${styles[order.status.toLowerCase()]}`}>
+                      {order.status}
+                    </span>
+                  </td>
+                  <td>{order.items?.length ?? 0}</td>
+                  <td>{order.date}</td>
+                  <td>
+                    <div className={styles.actions}>
+                      <button className={styles.actionButton} onClick={() => handleView(order)}>View</button>
+                      <button className={styles.actionButton} onClick={() => handleEdit(order)}>Edit</button>
+                      <button className={`${styles.actionButton} ${styles.deleteButton}`} onClick={() => handleDelete(order.id!)}>Delete</button>
+                      {confirmDeleteId === order.id && (
+                        <div className={styles.confirmDialog}>
+                          <span>Are you sure you want to delete this PO?</span>
+                          <button className={styles.actionButton} onClick={() => confirmDelete(order.id!)}>Yes</button>
+                          <button className={styles.actionButton} onClick={cancelDelete}>No</button>
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {viewingPO && (

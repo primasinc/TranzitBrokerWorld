@@ -1,4 +1,4 @@
-import React, { useState, useRef, ChangeEvent } from 'react';
+import React, { useState, useRef, ChangeEvent, useEffect } from 'react';
 import styles from './PurchaseOrderForm.module.css';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../../../firebase'; // Adjust path if needed
@@ -32,6 +32,8 @@ interface PurchaseOrderItem {
   quantity: number;
   price: number;
   total: number;
+  dimensions?: string;
+  weight?: number;
 }
 
 interface PurchaseOrderFormProps {
@@ -47,6 +49,20 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
   initialData,
   readOnly = false
 }) => {
+  // Mobile detection
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const checkMobile = () => {
+      const userAgent = navigator.userAgent.toLowerCase();
+      const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+      const isMobileScreen = window.innerWidth <= 768;
+      setIsMobile(isMobileDevice || isMobileScreen);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   const [selectedOption, setSelectedOption] = useState<'carrier' | 'marketplace' | null>(initialData?.carrierOption || null);
   const [carrierRate, setCarrierRate] = useState<string>(initialData?.rate ? String(initialData.rate) : '');
   const [date, setDate] = useState<string>(initialData?.date || new Date().toISOString().split('T')[0]);
@@ -76,7 +92,9 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
       description: '',
       quantity: 0,
       price: 0,
-      total: 0
+      total: 0,
+      dimensions: '',
+      weight: 0
     }]
   );
   const [comments, setComments] = useState<string>(initialData?.comments || '');
@@ -170,8 +188,96 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
   };
 
   const addItem = () => {
-    setItems([...items, { itemNumber: '', description: '', quantity: 0, price: 0, total: 0 }]);
+    setItems([...items, { itemNumber: '', description: '', quantity: 0, price: 0, total: 0, dimensions: '', weight: 0 }]);
   };
+
+  // Mobile item renderer
+  const renderMobileItems = () => (
+    <div className={styles.mobileItemsContainer}>
+      <div className={styles.mobileItemsHeader}>
+        <h3>Items</h3>
+        <button type="button" className={styles.addItemButton} onClick={addItem} disabled={readOnly}>
+          Add Item
+        </button>
+      </div>
+      {items.map((item, index) => (
+        <div key={index} className={styles.mobileItemCard}>
+          <div className={styles.mobileItemHeader}>
+            <span className={styles.itemNumber}>Item {index + 1}</span>
+            <button 
+              type="button" 
+              className={styles.removeItemButton}
+              onClick={() => handleItemChange(index, 'quantity', 0)} 
+              disabled={readOnly}
+            >
+              ×
+            </button>
+          </div>
+          <div className={styles.mobileItemFields}>
+            <div className={styles.mobileField}>
+              <label>Description</label>
+              <input
+                type="text"
+                value={item.description}
+                onChange={(e) => handleItemChange(index, 'description', e.target.value)}
+                placeholder="Item description"
+                disabled={readOnly}
+              />
+            </div>
+            <div className={styles.mobileFieldRow}>
+              <div className={styles.mobileField}>
+                <label>Quantity</label>
+                <input
+                  type="number"
+                  value={item.quantity}
+                  onChange={(e) => handleItemChange(index, 'quantity', Number(e.target.value))}
+                  placeholder="0"
+                  disabled={readOnly}
+                />
+              </div>
+              <div className={styles.mobileField}>
+                <label>Unit Price</label>
+                <input
+                  type="number"
+                  value={item.price}
+                  onChange={(e) => handleItemChange(index, 'price', Number(e.target.value))}
+                  placeholder="0.00"
+                  step="0.01"
+                  disabled={readOnly}
+                />
+              </div>
+            </div>
+            <div className={styles.mobileFieldRow}>
+              <div className={styles.mobileField}>
+                <label>Dimensions (L×W×H)</label>
+                <input
+                  type="text"
+                  value={item.dimensions || ''}
+                  onChange={(e) => handleItemChange(index, 'dimensions', e.target.value)}
+                  placeholder="e.g., 12×8×6 inches"
+                  disabled={readOnly}
+                />
+              </div>
+              <div className={styles.mobileField}>
+                <label>Weight (lbs)</label>
+                <input
+                  type="number"
+                  value={item.weight || ''}
+                  onChange={(e) => handleItemChange(index, 'weight', Number(e.target.value))}
+                  placeholder="0"
+                  step="0.1"
+                  disabled={readOnly}
+                />
+              </div>
+            </div>
+            <div className={styles.mobileItemTotal}>
+              <span>Total: ${(item.quantity * item.price).toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 
   return (
     <form onSubmit={handleSubmit} className={styles.form}>
@@ -309,55 +415,80 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
         </div>
       </div>
 
-      <table className={styles.itemsTable}>
-        <thead>
-          <tr>
-            <th>Item Description</th>
-            <th>Quantity</th>
-            <th>Unit Price</th>
-            <th>Total</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item, index) => (
-            <tr key={index}>
-              <td>
-                <input
-                  type="text"
-                  value={item.description}
-                  onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                  disabled={readOnly}
-                />
-              </td>
-              <td>
-                <input
-                  type="number"
-                  value={item.quantity}
-                  onChange={(e) => handleItemChange(index, 'quantity', Number(e.target.value))}
-                  disabled={readOnly}
-                />
-              </td>
-              <td>
-                <input
-                  type="number"
-                  value={item.price}
-                  onChange={(e) => handleItemChange(index, 'price', Number(e.target.value))}
-                  disabled={readOnly}
-                />
-              </td>
-              <td>${(item.quantity * item.price).toFixed(2)}</td>
-              <td>
-                <button type="button" onClick={() => handleItemChange(index, 'quantity', 0)} disabled={readOnly}>×</button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      {isMobile ? renderMobileItems() : (
+        <>
+          <table className={styles.itemsTable}>
+            <thead>
+              <tr>
+                <th>Item Description</th>
+                <th>Quantity</th>
+                <th>Unit Price</th>
+                <th>Dimensions</th>
+                <th>Weight (lbs)</th>
+                <th>Total</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item, index) => (
+                <tr key={index}>
+                  <td>
+                    <input
+                      type="text"
+                      value={item.description}
+                      onChange={(e) => handleItemChange(index, 'description', e.target.value)}
+                      disabled={readOnly}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      value={item.quantity}
+                      onChange={(e) => handleItemChange(index, 'quantity', Number(e.target.value))}
+                      disabled={readOnly}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      value={item.price}
+                      onChange={(e) => handleItemChange(index, 'price', Number(e.target.value))}
+                      disabled={readOnly}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="text"
+                      value={item.dimensions || ''}
+                      onChange={(e) => handleItemChange(index, 'dimensions', e.target.value)}
+                      placeholder="L×W×H"
+                      disabled={readOnly}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      value={item.weight || ''}
+                      onChange={(e) => handleItemChange(index, 'weight', Number(e.target.value))}
+                      placeholder="0"
+                      step="0.1"
+                      disabled={readOnly}
+                    />
+                  </td>
+                  <td>${(item.quantity * item.price).toFixed(2)}</td>
+                  <td>
+                    <button type="button" onClick={() => handleItemChange(index, 'quantity', 0)} disabled={readOnly}>×</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
 
-      <button type="button" className={styles.addItemButton} onClick={addItem} disabled={readOnly}>
-        Add Item
-      </button>
+          <button type="button" className={styles.addItemButton} onClick={addItem} disabled={readOnly}>
+            Add Item
+          </button>
+        </>
+      )}
 
       <div className={styles.footer}>
         <div className={styles.comments}>

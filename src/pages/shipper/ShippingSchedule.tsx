@@ -6,6 +6,8 @@ import { collection, getDocs, doc, updateDoc, getDoc, addDoc, serverTimestamp, q
 import { useShipments } from '../../context/ShipmentsContext';
 import CarrierProfileCard from '../../components/carrier/CarrierProfileCard';
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay, format, parse } from 'date-fns';
+import { useMobileOptimization } from '../../hooks/useMobileOptimization';
+import { MobileOptimizedList } from '../../components/common/MobileOptimizedList';
 
 interface LocationState {
   filter?: 'active' | 'delayed';
@@ -42,6 +44,37 @@ const ShippingSchedule: React.FC = () => {
   const [reviewCarrierId, setReviewCarrierId] = useState<string | null>(null);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+
+  // Mobile optimization
+  const { 
+    isLowBandwidth, 
+    isLowBattery, 
+    getOptimalPageSize, 
+    shouldFetchData, 
+    measurePerformance 
+  } = useMobileOptimization({
+    enableOfflineMode: true,
+    enableLowBandwidthMode: true,
+    enableBatteryOptimization: true
+  });
+
+  // Mobile detection
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Mobile detection effect
+  useEffect(() => {
+    const checkMobile = () => {
+      const userAgent = navigator.userAgent.toLowerCase();
+      const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+      const isMobileScreen = window.innerWidth <= 768;
+      setIsMobile(isMobileDevice || isMobileScreen);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Get filter from navigation state
   useEffect(() => {
@@ -278,6 +311,108 @@ const ShippingSchedule: React.FC = () => {
     );
   };
 
+  // Mobile card component
+  const renderMobileCard = (schedule: any) => {
+    return (
+      <div key={schedule.id} className={styles.mobileCard}>
+        {/* Header - PO and Status */}
+        <div className={styles.cardHeader}>
+          <div className={styles.poSection}>
+            <h3>PO: {schedule.poNumber || 'N/A'}</h3>
+            <div className={styles.dateTime}>
+              {editingId === schedule.id ? (
+                <input 
+                  type="date" 
+                  value={editDate} 
+                  onChange={e => setEditDate(e.target.value)}
+                  className={styles.mobileDateInput}
+                />
+              ) : (
+                <span>{schedule.date || 'N/A'}</span>
+              )}
+              {schedule.time && <span className={styles.time}> • {schedule.time}</span>}
+            </div>
+          </div>
+          <div className={styles.statusSection}>
+            <span className={styles[schedule.status?.toLowerCase().replace(/\s+/g, '') || 'pending']}>
+              {schedule.status || 'Unknown'}
+            </span>
+          </div>
+        </div>
+        
+        {/* Route Information */}
+        <div className={styles.routeSection}>
+          <div className={styles.routeItem}>
+            <div className={styles.routeLabel}>Pickup:</div>
+            <div className={styles.routeValue}>{schedule.pickup || schedule.vendorInfo?.streetAddress || 'N/A'}</div>
+          </div>
+          <div className={styles.routeItem}>
+            <div className={styles.routeLabel}>Destination:</div>
+            <div className={styles.routeValue}>{schedule.destination || schedule.shipTo?.streetAddress || 'N/A'}</div>
+          </div>
+        </div>
+        
+        {/* Details Section - Matching Desktop Table Columns */}
+        <div className={styles.detailsSection}>
+          <div className={styles.detailRow}>
+            <span className={styles.detailLabel}>Carrier:</span>
+            <span className={styles.detailValue}>{
+              schedule.carrier 
+                ? (typeof schedule.carrier === 'object'
+                    ? schedule.carrier.companyName || schedule.carrier.id || 'TBD'
+                    : schedule.carrier)
+                : schedule.approvedCarrier?.companyName || 'TBD'
+            }</span>
+          </div>
+          <div className={styles.detailRow}>
+            <span className={styles.detailLabel}>Type:</span>
+            <span className={styles.detailValue}>{schedule.type || 'Standard'}</span>
+          </div>
+          <div className={styles.detailRow}>
+            <span className={styles.detailLabel}>Ship To:</span>
+            <span className={styles.detailValue}>{schedule.shipTo || schedule.shipTo?.companyName || 'N/A'}</span>
+          </div>
+        </div>
+        
+        {/* Action Buttons */}
+        <div className={styles.actionSection}>
+          {editingId === schedule.id ? (
+            <div className={styles.buttonRow}>
+              <button className={styles.saveButton} onClick={() => handleEditSave(schedule.id)}>Save</button>
+              <button className={styles.cancelButton} onClick={handleEditCancel}>Cancel</button>
+            </div>
+          ) : (
+            <div className={styles.buttonRow}>
+              <button className={styles.editButton} onClick={() => handleEdit(schedule)}>Edit</button>
+              <button className={styles.cancelButton} onClick={() => handleCancel(schedule.id)}>Cancel</button>
+            </div>
+          )}
+          
+          {schedule.status === 'Carrier Pending' && (schedule.carrier === 'Marketplace' || !schedule.carrier) && (
+            <button
+              className={styles.reviewButton}
+              onClick={() => handleCarrierReview(schedule)}
+              disabled={reviewLoading}
+            >
+              Review Carrier
+            </button>
+          )}
+        </div>
+        
+        {/* Confirmation Dialog */}
+        {confirmCancelId === schedule.id && (
+          <div className={styles.confirmDialog}>
+            <div className={styles.confirmMessage}>Are you sure you want to cancel this shipment?</div>
+            <div className={styles.confirmButtons}>
+              <button className={styles.confirmYes} onClick={() => confirmCancel(schedule.id)}>Yes</button>
+              <button className={styles.confirmNo} onClick={cancelCancel}>No</button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.header}>
@@ -332,123 +467,171 @@ const ShippingSchedule: React.FC = () => {
               {getLoadsForDate(selectedDate).length === 0 ? (
                 <div>No loads scheduled for this day.</div>
               ) : (
-                <table className={styles.loadsTable}>
-                  <thead>
-                    <tr>
-                      <th>PO Number</th>
-                      <th>Pickup</th>
-                      <th>Destination</th>
-                      <th>Carrier</th>
-                      <th>Status</th>
-                      <th>Type</th>
-                      <th>Ship To</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {getLoadsForDate(selectedDate).map(load => (
-                      <tr key={load.id}>
-                        <td>{load.poNumber}</td>
-                        <td>{load.pickup || ''}</td>
-                        <td>{load.destination}</td>
-                        <td>{typeof load.carrier === 'object' ? (load.carrier as any).companyName || (load.carrier as any).id || 'TBD' : load.carrier}</td>
-                        <td>
+                <div className={styles.mobileCardsContainer}>
+                  {getLoadsForDate(selectedDate).map(load => (
+                    <div key={load.id} className={styles.mobileCard}>
+                      <div className={styles.cardHeader}>
+                        <div className={styles.poSection}>
+                          <h3>PO: {load.poNumber}</h3>
+                        </div>
+                        <div className={styles.statusSection}>
                           <span className={styles[load.status.toLowerCase().replace(/\s+/g, '')]}>
                             {load.status}
                           </span>
-                        </td>
-                        <td>{load.type}</td>
-                        <td>{load.shipTo}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </div>
+                      </div>
+                      <div className={styles.routeSection}>
+                        <div className={styles.routeItem}>
+                          <div className={styles.routeLabel}>Pickup:</div>
+                          <div className={styles.routeValue}>{load.pickup || 'N/A'}</div>
+                        </div>
+                        <div className={styles.routeItem}>
+                          <div className={styles.routeLabel}>Destination:</div>
+                          <div className={styles.routeValue}>{load.destination}</div>
+                        </div>
+                      </div>
+                      <div className={styles.detailsSection}>
+                        <div className={styles.detailRow}>
+                          <span className={styles.detailLabel}>Carrier:</span>
+                          <span className={styles.detailValue}>{
+                            typeof load.carrier === 'object'
+                              ? (load.carrier as any).companyName || (load.carrier as any).id || 'TBD'
+                              : load.carrier
+                          }</span>
+                        </div>
+                        <div className={styles.detailRow}>
+                          <span className={styles.detailLabel}>Type:</span>
+                          <span className={styles.detailValue}>{load.type}</span>
+                        </div>
+                        <div className={styles.detailRow}>
+                          <span className={styles.detailLabel}>Ship To:</span>
+                          <span className={styles.detailValue}>{load.shipTo}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           )}
         </div>
       ) : (
         <div className={styles.listView}>
-          <table>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>PO Number</th>
-                <th>Pickup</th>
-                <th>Destination</th>
-                <th>Carrier</th>
-                <th>Status</th>
-                <th>Type</th>
-                <th>Ship To</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredSchedules.map((schedule) => (
-                <tr key={schedule.id}>
-                  <td>{editingId === schedule.id ? (
-                    <input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} />
-                  ) : schedule.date}</td>
-                  <td>{schedule.poNumber}</td>
-                  <td>{schedule.pickup || ''}</td>
-                  <td>{schedule.destination}</td>
-                  <td>{
-                    typeof schedule.carrier === 'object'
-                      ? (schedule.carrier as any).companyName || (schedule.carrier as any).id || 'TBD'
-                      : schedule.carrier
-                  }</td>
-                  <td>
-                    <span className={styles[schedule.status.toLowerCase().replace(/\s+/g, '')]}> 
-                      {schedule.status}
-                    </span>
-                  </td>
-                  <td>{schedule.type}</td>
-                  <td>{schedule.shipTo}</td>
-                  <td>
-                    {editingId === schedule.id ? (
-                      <>
-                        <button className={styles.actionButton} onClick={() => handleEditSave(schedule.id)}>Save</button>
-                        <button className={styles.actionButton} onClick={handleEditCancel}>Cancel</button>
-                      </>
-                    ) : (
-                      <>
-                        <button className={styles.actionButton} onClick={() => handleEdit(schedule)}>Edit</button>
-                        <button className={styles.actionButton} onClick={() => handleCancel(schedule.id)}>Cancel</button>
-                      </>
-                    )}
-                    {confirmCancelId === schedule.id && (
-                      <div className={styles.confirmDialog}>
-                        <span>Are you sure you want to cancel this shipment?</span>
-                        <button className={styles.actionButton} onClick={() => confirmCancel(schedule.id)}>Yes</button>
-                        <button className={styles.actionButton} onClick={cancelCancel}>No</button>
-                      </div>
-                    )}
-                    {/* Carrier Review button only for marketplace loads in Carrier Pending status */}
-                    {schedule.status === 'Carrier Pending' && schedule.carrier === 'Marketplace' && (
-                      <button
-                        className={styles.carrierReviewButton}
-                        onClick={() => handleCarrierReview(schedule)}
-                        disabled={reviewLoading}
-                      >
-                        Carrier Review
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {isMobile ? (
+            <div className={styles.mobileCardsContainer}>
+              {filteredSchedules.length === 0 ? (
+                <div className={styles.noData}>No shipments found.</div>
+              ) : (
+                <MobileOptimizedList
+                  items={filteredSchedules}
+                  renderItem={renderMobileCard}
+                  keyExtractor={(schedule) => schedule.id}
+                  itemHeight={320}
+                  containerHeight={isMobile ? 400 : 500}
+                  enableVirtualization={isMobile}
+                  enablePullToRefresh={isMobile}
+                  onRefresh={async () => {
+                    // Refresh shipments data
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    refreshShipments();
+                  }}
+                  className={styles.mobileSchedulesList}
+                />
+              )}
+            </div>
+          ) : (
+            <div className={styles.tableContainer}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>PO Number</th>
+                    <th>Pickup</th>
+                    <th>Destination</th>
+                    <th>Carrier</th>
+                    <th>Status</th>
+                    <th>Type</th>
+                    <th>Ship To</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredSchedules.map((schedule) => (
+                    <tr key={schedule.id}>
+                      <td>{editingId === schedule.id ? (
+                        <input type="date" value={editDate} onChange={e => setEditDate(e.target.value)} />
+                      ) : schedule.date}</td>
+                      <td>{schedule.poNumber}</td>
+                      <td>{schedule.pickup || ''}</td>
+                      <td>{schedule.destination}</td>
+                      <td>{
+                        typeof schedule.carrier === 'object'
+                          ? (schedule.carrier as any).companyName || (schedule.carrier as any).id || 'TBD'
+                          : schedule.carrier
+                      }</td>
+                      <td>
+                        <span className={styles[schedule.status.toLowerCase().replace(/\s+/g, '')]}> 
+                          {schedule.status}
+                        </span>
+                      </td>
+                      <td>{schedule.type}</td>
+                      <td>{schedule.shipTo}</td>
+                      <td>
+                        {editingId === schedule.id ? (
+                          <>
+                            <button className={styles.actionButton} onClick={() => handleEditSave(schedule.id)}>Save</button>
+                            <button className={styles.actionButton} onClick={handleEditCancel}>Cancel</button>
+                          </>
+                        ) : (
+                          <>
+                            <button className={styles.actionButton} onClick={() => handleEdit(schedule)}>Edit</button>
+                            <button className={styles.actionButton} onClick={() => handleCancel(schedule.id)}>Cancel</button>
+                          </>
+                        )}
+                        {confirmCancelId === schedule.id && (
+                          <div className={styles.confirmDialog}>
+                            <span>Are you sure you want to cancel this shipment?</span>
+                            <button className={styles.actionButton} onClick={() => confirmCancel(schedule.id)}>Yes</button>
+                            <button className={styles.actionButton} onClick={cancelCancel}>No</button>
+                          </div>
+                        )}
+                        {/* Carrier Review button only for marketplace loads in Carrier Pending status */}
+                        {schedule.status === 'Carrier Pending' && schedule.carrier === 'Marketplace' && (
+                          <button
+                            className={styles.carrierReviewButton}
+                            onClick={() => handleCarrierReview(schedule)}
+                            disabled={reviewLoading}
+                          >
+                            Carrier Review
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
       {showCarrierReview && reviewCarrierProfile && (
         <div className={styles.modalOverlay} onClick={() => setShowCarrierReview(false)}>
-          <div className={styles.modal} onClick={e => e.stopPropagation()}>
+          <div className={`${styles.modal} ${isMobile ? styles.mobileModal : ''}`} onClick={e => e.stopPropagation()}>
             <CarrierProfileCard carrier={{ ...reviewCarrierProfile, complianceStatus: 'compliant' }} />
-            <div style={{ display: 'flex', gap: 16, marginTop: 24 }}>
+            <div className={styles.modalActions}>
               <button className={styles.actionButton} style={{ background: '#28a745' }} onClick={handleApproveCarrier}>Accept</button>
               <button className={styles.actionButton} style={{ background: '#dc3545' }} onClick={handleRejectCarrier}>Reject</button>
             </div>
           </div>
+        </div>
+      )}
+      
+      {/* Mobile performance indicator */}
+      {(isLowBandwidth || isLowBattery) && (
+        <div className={styles.performanceIndicator}>
+          {isLowBandwidth && <span>📶 Slow connection - Optimized loading</span>}
+          {isLowBattery && <span>🔋 Low battery - Reduced animations</span>}
         </div>
       )}
     </div>

@@ -4,7 +4,8 @@ import styles from './ShipperLayout.module.css';
 import NotificationsTray, { useUnreadNotifications } from '../pages/carrier/NotificationsTray';
 
 const ShipperLayout: React.FC = () => {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const navigate = useNavigate();
   const unreadCount = useUnreadNotifications();
@@ -18,10 +19,10 @@ const ShipperLayout: React.FC = () => {
       {/* Mobile menu button */}
       <button 
         className={styles.mobileMenuButton}
-        onClick={() => setIsMenuOpen(!isMenuOpen)}
+        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
         aria-label="Toggle menu"
       >
-        {isMenuOpen ? (
+        {isSidebarOpen ? (
           <svg width="24" height="24" viewBox="0 0 24 24">
             <line x1="18" y1="6" x2="6" y2="18" stroke="white" strokeWidth="2"/>
             <line x1="6" y1="6" x2="18" y2="18" stroke="white" strokeWidth="2"/>
@@ -35,64 +36,64 @@ const ShipperLayout: React.FC = () => {
         )}
       </button>
       {/* Sidebar overlay for mobile */}
-      {isMenuOpen && <div className={styles.sidebarOverlay} onClick={() => setIsMenuOpen(false)} />}
-      <nav className={`${styles.sidebar} ${isMenuOpen ? styles.sidebarOpen : ''}`}>
+      {isSidebarOpen && <div className={styles.sidebarOverlay} onClick={() => setIsSidebarOpen(false)} />}
+      <nav className={`${styles.sidebar} ${isSidebarOpen ? styles.sidebarOpen : ''}`}>
         <div className={styles.logo}>
           <h2>Shipper Portal</h2>
         </div>
         <NavLink 
           to="/shipper/dashboard" 
           className={({ isActive }) => isActive ? styles.activeLink : styles.link}
-          onClick={() => setIsMenuOpen(false)}
+          onClick={() => setIsSidebarOpen(false)}
         >
           Dashboard
         </NavLink>
         <NavLink 
           to="/shipper/updates" 
           className={({ isActive }) => isActive ? styles.activeLink : styles.link}
-          onClick={() => setIsMenuOpen(false)}
+          onClick={() => setIsSidebarOpen(false)}
         >
           Driver Updates
         </NavLink>
         <NavLink 
           to="/shipper/schedule" 
           className={({ isActive }) => isActive ? styles.activeLink : styles.link}
-          onClick={() => setIsMenuOpen(false)}
+          onClick={() => setIsSidebarOpen(false)}
         >
           Shipping Schedule
         </NavLink>
         <NavLink 
           to="/shipper/orders" 
           className={({ isActive }) => isActive ? styles.activeLink : styles.link}
-          onClick={() => setIsMenuOpen(false)}
+          onClick={() => setIsSidebarOpen(false)}
         >
           Purchase Orders
         </NavLink>
         <NavLink 
           to="/shipper/partners" 
           className={({ isActive }) => isActive ? styles.activeLink : styles.link}
-          onClick={() => setIsMenuOpen(false)}
+          onClick={() => setIsSidebarOpen(false)}
         >
           Carrier Partners
         </NavLink>
         <NavLink 
           to="/shipper/invoices" 
           className={({ isActive }) => isActive ? styles.activeLink : styles.link}
-          onClick={() => setIsMenuOpen(false)}
+          onClick={() => setIsSidebarOpen(false)}
         >
           Pay Invoices
         </NavLink>
         <NavLink 
           to="/shipper/archive" 
           className={({ isActive }) => isActive ? styles.activeLink : styles.link}
-          onClick={() => setIsMenuOpen(false)}
+          onClick={() => setIsSidebarOpen(false)}
         >
           Shipment Archive
         </NavLink>
         <NavLink 
           to="/shipper/directory" 
           className={({ isActive }) => isActive ? styles.activeLink : styles.link}
-          onClick={() => setIsMenuOpen(false)}
+          onClick={() => setIsSidebarOpen(false)}
         >
           Carrier Directory
         </NavLink>
@@ -130,7 +131,7 @@ const ShipperLayout: React.FC = () => {
             <div className={styles.menuContainer}>
               <button 
                 className={styles.hamburgerButton}
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)}
               >
                 <div className={styles.hamburgerIcon}>
                   <span></span>
@@ -138,7 +139,7 @@ const ShipperLayout: React.FC = () => {
                   <span></span>
                 </div>
               </button>
-              {isMenuOpen && (
+              {isAccountMenuOpen && (
                 <div className={styles.dropdownMenu}>
                   <button onClick={() => navigate('/shipper/profile')}>Account</button>
                   <button onClick={() => navigate('/shipper/settings')}>Settings</button>

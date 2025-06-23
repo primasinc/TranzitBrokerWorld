@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import styles from './PayInvoices.module.css';
+import { useMobileOptimization } from '../../hooks/useMobileOptimization';
 
 interface Invoice {
   id: string;
@@ -17,6 +18,22 @@ const PayInvoices: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'pending' | 'paid' | 'all'>('all');
   const [dateFilter, setDateFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Mobile optimization
+  const { 
+    isLowBandwidth, 
+    isLowBattery, 
+    getOptimalPageSize, 
+    shouldFetchData, 
+    measurePerformance 
+  } = useMobileOptimization({
+    enableOfflineMode: true,
+    enableLowBandwidthMode: true,
+    enableBatteryOptimization: true
+  });
+
+  // Device detection for mobile layout
+  const isMobile = window.innerWidth <= 768;
 
   const invoices: Invoice[] = [
     {
@@ -58,6 +75,49 @@ const PayInvoices: React.FC = () => {
   const totalPending = invoices
     .filter(inv => inv.status === 'Pending')
     .reduce((sum, inv) => sum + inv.amount, 0);
+
+  // Mobile card component for invoices
+  const renderMobileInvoiceCard = (invoice: Invoice) => (
+    <div key={invoice.id} className={styles.mobileInvoiceCard}>
+      <div className={styles.cardHeader}>
+        <div className={styles.invoiceNumber}>{invoice.invoiceNumber}</div>
+        <span className={`${styles.status} ${styles[invoice.status.toLowerCase()]}`}>
+          {invoice.status}
+        </span>
+      </div>
+      
+      <div className={styles.cardContent}>
+        <div className={styles.cardRow}>
+          <span className={styles.label}>Carrier:</span>
+          <span className={styles.value}>{invoice.carrier}</span>
+        </div>
+        <div className={styles.cardRow}>
+          <span className={styles.label}>Amount:</span>
+          <span className={styles.value}>${invoice.amount.toFixed(2)}</span>
+        </div>
+        <div className={styles.cardRow}>
+          <span className={styles.label}>PO Number:</span>
+          <span className={styles.value}>{invoice.poNumber}</span>
+        </div>
+        <div className={styles.cardRow}>
+          <span className={styles.label}>Issue Date:</span>
+          <span className={styles.value}>{invoice.issueDate}</span>
+        </div>
+        <div className={styles.cardRow}>
+          <span className={styles.label}>Due Date:</span>
+          <span className={styles.value}>{invoice.dueDate}</span>
+        </div>
+      </div>
+      
+      <div className={styles.cardActions}>
+        <button className={styles.viewButton}>View</button>
+        {invoice.status === 'Pending' && (
+          <button className={styles.payButton}>Pay Now</button>
+        )}
+        <button className={styles.downloadButton}>Download</button>
+      </div>
+    </div>
+  );
 
   return (
     <div className={styles.container}>
@@ -110,48 +170,70 @@ const PayInvoices: React.FC = () => {
         </div>
       </div>
 
-      <div className={styles.invoicesTable}>
-        <table>
-          <thead>
-            <tr>
-              <th>Invoice Number</th>
-              <th>Carrier</th>
-              <th>Amount</th>
-              <th>Issue Date</th>
-              <th>Due Date</th>
-              <th>Status</th>
-              <th>PO Number</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredInvoices.map((invoice) => (
-              <tr key={invoice.id}>
-                <td>{invoice.invoiceNumber}</td>
-                <td>{invoice.carrier}</td>
-                <td>${invoice.amount.toFixed(2)}</td>
-                <td>{invoice.issueDate}</td>
-                <td>{invoice.dueDate}</td>
-                <td>
-                  <span className={`${styles.status} ${styles[invoice.status.toLowerCase()]}`}>
-                    {invoice.status}
-                  </span>
-                </td>
-                <td>{invoice.poNumber}</td>
-                <td>
-                  <div className={styles.actions}>
-                    <button className={styles.viewButton}>View</button>
-                    {invoice.status === 'Pending' && (
-                      <button className={styles.payButton}>Pay Now</button>
-                    )}
-                    <button className={styles.downloadButton}>Download</button>
-                  </div>
-                </td>
+      {/* Mobile Cards View */}
+      {isMobile ? (
+        <div className={styles.mobileInvoicesGrid}>
+          {filteredInvoices.length > 0 ? (
+            filteredInvoices.map(renderMobileInvoiceCard)
+          ) : (
+            <div className={styles.noInvoices}>
+              <p>No invoices match your filters.</p>
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Desktop Table View */
+        <div className={styles.invoicesTable}>
+          <table>
+            <thead>
+              <tr>
+                <th>Invoice Number</th>
+                <th>Carrier</th>
+                <th>Amount</th>
+                <th>Issue Date</th>
+                <th>Due Date</th>
+                <th>Status</th>
+                <th>PO Number</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {filteredInvoices.map((invoice) => (
+                <tr key={invoice.id}>
+                  <td>{invoice.invoiceNumber}</td>
+                  <td>{invoice.carrier}</td>
+                  <td>${invoice.amount.toFixed(2)}</td>
+                  <td>{invoice.issueDate}</td>
+                  <td>{invoice.dueDate}</td>
+                  <td>
+                    <span className={`${styles.status} ${styles[invoice.status.toLowerCase()]}`}>
+                      {invoice.status}
+                    </span>
+                  </td>
+                  <td>{invoice.poNumber}</td>
+                  <td>
+                    <div className={styles.actions}>
+                      <button className={styles.viewButton}>View</button>
+                      {invoice.status === 'Pending' && (
+                        <button className={styles.payButton}>Pay Now</button>
+                      )}
+                      <button className={styles.downloadButton}>Download</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Mobile performance indicator */}
+      {(isLowBandwidth || isLowBattery) && (
+        <div className={styles.performanceIndicator}>
+          {isLowBandwidth && <span>📶 Slow connection - Optimized loading</span>}
+          {isLowBattery && <span>🔋 Low battery - Reduced animations</span>}
+        </div>
+      )}
     </div>
   );
 };

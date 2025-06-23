@@ -498,7 +498,15 @@ const CarrierDetails: React.FC = () => {
       {eldApiKey && (
         <div style={{ marginTop: 32 }}>
           <h2>Carrier Map (using ELD API Key)</h2>
-          <div style={{ width: '100%', height: 400 }}>
+          <div style={{ 
+            width: '100%', 
+            minHeight: '400px',
+            height: '50vh',
+            maxHeight: '600px',
+            borderRadius: '8px',
+            overflow: 'hidden',
+            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+          }}>
             <MapboxMap eldApiKey={eldApiKey} />
           </div>
         </div>

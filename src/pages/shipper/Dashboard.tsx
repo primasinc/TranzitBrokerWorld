@@ -9,6 +9,8 @@ import { db } from '../../firebase';
 import { collection, getDocs, getDoc, doc } from 'firebase/firestore';
 import { useShipments } from '../../context/ShipmentsContext';
 import mapboxgl from 'mapbox-gl';
+import { useMobileOptimization } from '../../hooks/useMobileOptimization';
+import { MobileOptimizedList } from '../../components/common/MobileOptimizedList';
 
 interface Shipment {
   id: string;
@@ -83,6 +85,38 @@ const ShipperDashboard: React.FC = () => {
   const [searchInput, setSearchInput] = useState('');
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+
+  // Mobile optimization
+  const { 
+    isLowBandwidth, 
+    isLowBattery, 
+    getOptimalPageSize, 
+    shouldFetchData, 
+    measurePerformance 
+  } = useMobileOptimization({
+    enableOfflineMode: true,
+    enableLowBandwidthMode: true,
+    enableBatteryOptimization: true
+  });
+
+  // Mobile detection
+  const [isMobile, setIsMobile] = useState(false);
+  const [isMapFullscreen, setIsMapFullscreen] = useState(false);
+  const [mapZoom, setMapZoom] = useState(10);
+
+  // Mobile detection effect
+  useEffect(() => {
+    const checkMobile = () => {
+      const userAgent = navigator.userAgent.toLowerCase();
+      const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+      setIsMobile(isMobileDevice || window.innerWidth <= 768);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Mock shipments data
   const mockShipments: Shipment[] = [
@@ -458,15 +492,25 @@ const ShipperDashboard: React.FC = () => {
             </div>
           </div>
           
-          <div className={styles.mapContainer}>
+          <div className={`${styles.mapContainer} ${isMapFullscreen ? styles.mapFullscreen : ''}`}>
+            {isMobile && (
+              <button 
+                className={styles.fullscreenToggle}
+                onClick={() => setIsMapFullscreen(!isMapFullscreen)}
+                aria-label={isMapFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+              >
+                {isMapFullscreen ? '✕' : '⛶'}
+              </button>
+            )}
             <MapboxMap
               center={userLocation}
-              zoom={showActiveShipments ? 4 : 9}
+              zoom={showActiveShipments ? (isMobile ? 6 : 4) : (isMobile ? 11 : 9)}
               markers={showAvailableCarriers ? availableCarriers.map(carrier => ({
                 id: carrier.id,
                 position: carrier.position,
                 type: 'carrier',
               })) : getMapMarkers()}
+              eldApiKey={process.env.REACT_APP_MAPBOX_TOKEN}
               onMapLoad={(map) => {
                 if (!showActiveShipments) {
                   // Only show the radius circle for available carriers
@@ -503,7 +547,7 @@ const ShipperDashboard: React.FC = () => {
                     new mapboxgl.LngLat(coordinates[Math.floor(coordinates.length / 2)][0], coordinates[Math.floor(coordinates.length / 2)][1])
                   );
                   coordinates.forEach(coord => bounds.extend(new mapboxgl.LngLat(coord[0], coord[1])));
-                  map.fitBounds(bounds, { padding: 40, maxZoom: 12 });
+                  map.fitBounds(bounds, { padding: isMobile ? 20 : 40, maxZoom: isMobile ? 14 : 12 });
                 } else {
                   // Remove radius if present
                   if (map.getLayer('radius')) map.removeLayer('radius');
@@ -515,17 +559,17 @@ const ShipperDashboard: React.FC = () => {
           </div>
           {/* Controls below the map, outside of .mapContainer */}
           {!showActiveShipments && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 16 }}>
-              <form onSubmit={handleAddressSearch} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className={styles.mobileControls}>
+              <form onSubmit={handleAddressSearch} className={styles.searchForm}>
                 <input
                   type="text"
                   placeholder="Search address or city..."
                   value={searchInput}
                   onChange={e => setSearchInput(e.target.value)}
-                  style={{ padding: 8, borderRadius: 4, border: '1px solid #ccc', minWidth: 220 }}
+                  className={styles.searchInput}
                   disabled={isGeocoding}
                 />
-                <button type="submit" style={{ padding: '8px 16px', borderRadius: 4, border: 'none', background: '#1976d2', color: 'white', fontWeight: 500 }} disabled={isGeocoding}>
+                <button type="submit" className={styles.searchButton} disabled={isGeocoding}>
                   {isGeocoding ? 'Searching...' : 'Search'}
                 </button>
               </form>
@@ -539,7 +583,7 @@ const ShipperDashboard: React.FC = () => {
                   step="5"
                   value={radiusInMiles}
                   onChange={handleRadiusChange}
-                  style={{ marginLeft: 8, verticalAlign: 'middle' }}
+                  className={styles.radiusSlider}
                 />
               </div>
             </div>
@@ -603,34 +647,55 @@ const ShipperDashboard: React.FC = () => {
                   </div>
                 ))
             ) : (
-              // Show available carriers list
-              availableCarriers.map(carrier => (
-                <div key={carrier.id} className={styles.carrierCard}>
-                  <div className={styles.carrierHeader}>
-                    <h3>{carrier.name}</h3>
-                    <span className={styles.distance}>{carrier.distance} miles away</span>
-                  </div>
-                  <div className={styles.carrierRating}>
-                    <span className={styles.stars}>{renderStars(carrier.rating)}</span>
-                    <span>{carrier.rating.toFixed(1)}</span>
-                  </div>
-                  <div className={styles.carrierDetails}>
-                    <div>
-                      <label>Equipment:</label>
-                      <span>{carrier.equipmentType}</span>
+              // Show available carriers list with mobile optimization
+              <MobileOptimizedList
+                items={availableCarriers}
+                renderItem={(carrier) => (
+                  <div className={styles.carrierCard}>
+                    <div className={styles.carrierHeader}>
+                      <h3>{carrier.name}</h3>
+                      <span className={styles.distance}>{carrier.distance} miles away</span>
                     </div>
-                    <div>
-                      <label>Available:</label>
-                      <span>{carrier.availableDate}</span>
+                    <div className={styles.carrierRating}>
+                      <span className={styles.stars}>{renderStars(carrier.rating)}</span>
+                      <span>{carrier.rating.toFixed(1)}</span>
                     </div>
+                    <div className={styles.carrierDetails}>
+                      <div>
+                        <label>Equipment:</label>
+                        <span>{carrier.equipmentType}</span>
+                      </div>
+                      <div>
+                        <label>Available:</label>
+                        <span>{carrier.availableDate}</span>
+                      </div>
+                    </div>
+                    <button className={styles.contactButton}>Contact Carrier</button>
                   </div>
-                  <button className={styles.contactButton}>Contact Carrier</button>
-                </div>
-              ))
+                )}
+                keyExtractor={(carrier) => carrier.id}
+                itemHeight={120}
+                containerHeight={isMobile ? 300 : 400}
+                enableVirtualization={isMobile}
+                enablePullToRefresh={isMobile}
+                onRefresh={async () => {
+                  // Refresh carriers data
+                  await new Promise(resolve => setTimeout(resolve, 1000));
+                }}
+                className={styles.mobileCarriersList}
+              />
             )}
           </div>
         </div>
       </div>
+      
+      {/* Mobile performance indicator */}
+      {(isLowBandwidth || isLowBattery) && (
+        <div className={styles.performanceIndicator}>
+          {isLowBandwidth && <span>📶 Slow connection - Optimized loading</span>}
+          {isLowBattery && <span>🔋 Low battery - Reduced animations</span>}
+        </div>
+      )}
     </div>
   );
 };
