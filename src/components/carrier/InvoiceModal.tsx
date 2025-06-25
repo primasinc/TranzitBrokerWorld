@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { db } from '../../../src/config/firebase';
-import { collection, addDoc, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, doc, getDocs, getDoc, updateDoc, query, where } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 
 interface InvoiceModalProps {
@@ -80,6 +80,41 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ isOpen, onClose, load, user
     }
   };
 
+  // Add Shipper Pay logic
+  const handleShipperPay = async () => {
+    if (!form.poNumber) {
+      alert('PO Number is required to send to shipper.');
+      return;
+    }
+    try {
+      // Look up the PO by poNumber
+      const poQuery = query(collection(db, 'purchaseOrders'), where('poNumber', '==', form.poNumber));
+      const poSnap = await getDocs(poQuery);
+      if (poSnap.empty) {
+        alert('No purchase order found for this PO Number.');
+        return;
+      }
+      const poData = poSnap.docs[0].data();
+      const shipperId = poData.userId;
+      if (!shipperId) {
+        alert('No shipperId found on the purchase order.');
+        return;
+      }
+      // Find the invoice by invoiceNumber and poNumber
+      const invQuery = query(collection(db, 'invoices'), where('invoiceNumber', '==', form.invoiceNumber), where('poNumber', '==', form.poNumber));
+      const invSnap = await getDocs(invQuery);
+      if (invSnap.empty) {
+        alert('Invoice not found. Please create the invoice first.');
+        return;
+      }
+      const invDocRef = doc(db, 'invoices', invSnap.docs[0].id);
+      await updateDoc(invDocRef, { shipperId });
+      alert('Invoice sent to shipper successfully!');
+    } catch (err) {
+      alert('Failed to send invoice to shipper.');
+    }
+  };
+
   if (!isOpen) return null;
 
   const inputStyle = {
@@ -142,6 +177,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ isOpen, onClose, load, user
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 8 }}>
             <button type="button" onClick={onClose} style={{ padding: '10px 28px', background: '#eee', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 500, fontSize: 16 }}>Cancel</button>
             <button type="submit" disabled={submitting} style={{ padding: '10px 28px', background: '#28a745', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 16, boxShadow: '0 2px 8px rgba(40,167,69,0.08)' }}>{submitting ? 'Submitting...' : 'Submit'}</button>
+            <button type="button" onClick={handleShipperPay} style={{ padding: '10px 28px', background: '#007bff', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 16, boxShadow: '0 2px 8px rgba(0,123,255,0.08)' }}>Shipper Pay</button>
           </div>
         </form>
       </div>

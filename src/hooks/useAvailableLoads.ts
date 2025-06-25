@@ -15,6 +15,7 @@ export interface AvailableLoad {
   };
   rate?: number;
   poNumber?: string;
+  isMarketplace?: boolean;
   // Add other fields as needed
 }
 
@@ -111,6 +112,7 @@ export function useAvailableLoads(
               deliveryLocation: data.deliveryLocation,
               rate: typeof data.rate === 'number' ? data.rate : 0,
               poNumber: data.poNumber || '',
+              isMarketplace: data.isMarketplace || true,
             } as AvailableLoad;
           } else {
             console.warn('Skipping malformed load:', doc.id, data);
@@ -132,6 +134,7 @@ export function useAvailableLoads(
               position: [-74.0060, 40.7128],
             },
             rate: 3500,
+            isMarketplace: true,
           },
           {
             id: '2',
@@ -145,6 +148,7 @@ export function useAvailableLoads(
               position: [-122.4194, 37.7749],
             },
             rate: 1800,
+            isMarketplace: true,
           },
         ];
       }
@@ -171,6 +175,8 @@ export function useAvailableLoads(
         });
         filtered = filtered.filter(load => load.poNumber && validPoNumbers.has(load.poNumber));
       }
+      // Filter out partner loads (only show marketplace loads)
+      filtered = filtered.filter(load => load.isMarketplace !== false);
 
       // Update state
       if (isInitial) {

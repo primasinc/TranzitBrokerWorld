@@ -10,11 +10,12 @@ import PaymentReportsModal from '../../components/PaymentReportsModal';
 import PaymentAnalyticsModal from '../../components/PaymentAnalyticsModal';
 import PaymentSettingsModal, { PaymentSettings } from '../../components/PaymentSettingsModal';
 import AdvancedSearchModal, { SearchCriteria, SavedSearch } from '../../components/AdvancedSearchModal';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, query, where } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import InvoiceViewModal from '../../components/carrier/InvoiceViewModal';
 import { useMobileOptimization } from '../../hooks/useMobileOptimization';
 import NotificationsTray, { useUnreadNotifications } from './NotificationsTray';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 interface Payment {
   id: string;
@@ -614,6 +615,63 @@ const Payments: React.FC = () => {
     navigate('/login');
   };
 
+  // Add Shipper Pay logic for table
+  const handleShipperPay = async (invoice: any) => {
+    if (!invoice.poNumber) {
+      alert('PO Number is required to send to shipper.');
+      return;
+    }
+    try {
+      // Always query poNumber as a string
+      const poNumberStr = String(invoice.poNumber);
+      // Look up the PO by poNumber in purchaseOrders
+      let poSnap = await getDocs(query(collection(db, 'purchaseOrders'), where('poNumber', '==', poNumberStr)));
+      // If not found, check poArchive
+      if (poSnap.empty) {
+        poSnap = await getDocs(query(collection(db, 'poArchive'), where('poNumber', '==', poNumberStr)));
+      }
+      if (poSnap.empty) {
+        alert('No purchase order found for this PO Number.');
+        return;
+      }
+      const poData = poSnap.docs[0].data();
+      const shipperId = poData.userId;
+      if (!shipperId) {
+        alert('No shipperId found on the purchase order.');
+        return;
+      }
+      // Upload attachments if present
+      let attachmentUrls: string[] = [];
+      if (invoice.files && invoice.files.length > 0) {
+        const storage = getStorage();
+        const uploadPromises = invoice.files.map(async (file: File) => {
+          const storageRef = ref(storage, `invoices/${invoice.id}/${file.name}`);
+          await uploadBytes(storageRef, file);
+          return await getDownloadURL(storageRef);
+        });
+        attachmentUrls = await Promise.all(uploadPromises);
+      }
+      // Debug logs
+      console.log('Current user UID:', (window as any).user?.uid);
+      console.log('Invoice userId:', invoice.userId);
+      console.log('shipperId to set:', shipperId);
+      console.log('attachmentUrls:', attachmentUrls);
+      // Prepare update object, only updating intended fields
+      const updateObj: any = { attachmentUrls };
+      // Only set shipperId if not already present
+      if (!invoice.shipperId) {
+        updateObj.shipperId = shipperId;
+      }
+      // Update the invoice with merge semantics to avoid removing fields
+      const invDocRef = doc(db, 'invoices', invoice.id);
+      await updateDoc(invDocRef, updateObj);
+      alert('Invoice and attachments sent to shipper successfully!');
+    } catch (err) {
+      console.error('Shipper Pay error:', err);
+      alert('Failed to send invoice to shipper.');
+    }
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.headerCard}>
@@ -830,6 +888,7 @@ const Payments: React.FC = () => {
             <thead>
               <tr>
                 <th>Invoice #</th>
+                <th>PO Number</th>
                 <th>Customer</th>
                 <th>Issue Date</th>
                 <th>Amount</th>
@@ -842,6 +901,7 @@ const Payments: React.FC = () => {
                 invoices.map((invoice) => (
                   <tr key={invoice.id}>
                     <td>{invoice.invoiceNumber || invoice.id}</td>
+                    <td>{invoice.poNumber || '-'}</td>
                     <td>{invoice.customer || '-'}</td>
                     <td>{invoice.issueDate || '-'}</td>
                     <td>{typeof invoice.amount === 'number' ? `$${invoice.amount.toFixed(2)}` : '-'}</td>
@@ -852,7 +912,7 @@ const Payments: React.FC = () => {
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       <div className={styles.payActionButtons}>
-                        <button className={styles.payActionButton}>Shipper Pay</button>
+                        <button className={styles.payActionButton} onClick={() => handleShipperPay(invoice)}>Shipper Pay</button>
                         <button className={styles.payActionButton}>Factor Pay</button>
                       </div>
                     </td>
@@ -860,7 +920,7 @@ const Payments: React.FC = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className={styles.noResults}>
+                  <td colSpan={7} className={styles.noResults}>
                     No payments match your filters. <button onClick={clearFilters}>Clear filters</button>
                   </td>
                 </tr>

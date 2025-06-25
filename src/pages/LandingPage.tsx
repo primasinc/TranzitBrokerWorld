@@ -140,6 +140,7 @@ const LandingPage: React.FC = () => {
             onChange={e => setEmail(e.target.value)}
             className={styles.emailInput}
             disabled={subscribed}
+            style={{ color: '#222' }}
           />
           <button type="submit" className={styles.subscribeButton} disabled={subscribed}>
             {subscribed ? 'Subscribed!' : 'Subscribe'}

@@ -82,10 +82,12 @@ export const updateLoadRequestStatus = async (
     };
   }
 
+  console.log('[updateLoadRequestStatus] Updating notification:', notificationId, 'to status:', status);
   await updateDoc(notificationRef, updateData);
 
   const notificationDoc = await getDoc(notificationRef);
   const notifData = notificationDoc.data() as LoadRequestNotification;
+  console.log('[updateLoadRequestStatus] Notification after update:', notifData);
 
   if (status === 'accepted') {
     // Determine if this is a partnered carrier or marketplace
@@ -94,6 +96,7 @@ export const updateLoadRequestStatus = async (
       isPartnered = notifData.loadDetails.carrierOption === 'carrier';
     }
     try {
+      console.log('[updateLoadRequestStatus] Calling acceptLoadForPO with:', poNumber, notifData.carrierId, isPartnered);
       await acceptLoadForPO(poNumber, notifData.carrierId, isPartnered);
     } catch (err) {
       console.error('[updateLoadRequestStatus] Error in acceptLoadForPO:', err);
@@ -132,6 +135,8 @@ export const updateLoadRequestStatus = async (
         } else {
           console.error('[updateLoadRequestStatus] Missing required fields for shipment:', shipmentData);
         }
+      } else {
+        console.log('[updateLoadRequestStatus] Shipment already exists for shipperId and poNumber.');
       }
     } else {
       console.error('[updateLoadRequestStatus] Missing shipperId or poNumber for shipment creation:', { shipperId: notifData?.shipperId, poNumber });
@@ -179,13 +184,20 @@ export const updateLoadRequestStatus = async (
         status: 'accepted',
         type: 'carrier_accept',
         message: 'Carrier has accepted your load request.',
-        loadDetails: notifData.loadDetails,
+        loadDetails: {
+          ...notifData.loadDetails,
+          carrierOption: notifData.loadDetails?.carrierOption || (notifData.carrierId ? 'carrier' : undefined)
+        },
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
     }
     // Notify the carrier if this is a response to a counter offer
     if (notifData?.carrierId) {
+      let carrierAcceptMessage = 'Shipper assigned you this load.';
+      if (notifData.status === 'counter_offer') {
+        carrierAcceptMessage = 'Shipper accepted your counter offer.';
+      }
       const carrierNotificationRef = collection(db, 'notifications');
       await addDoc(carrierNotificationRef, {
         carrierId: notifData.carrierId,
@@ -193,8 +205,8 @@ export const updateLoadRequestStatus = async (
         shipperId: notifData.shipperId,
         poNumber: poNumber,
         status: 'accepted',
-        type: 'shipper_accept_counter',
-        message: 'Shipper accepted your counter offer.',
+        type: notifData.status === 'counter_offer' ? 'shipper_accept_counter' : 'shipper_assign',
+        message: carrierAcceptMessage,
         loadDetails: notifData.loadDetails,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
@@ -211,10 +223,10 @@ export const updateLoadRequestStatus = async (
     }
     if (openRef) {
       try {
-        await updateDoc(openRef, { status: 'Open', shippingScheduleStatus: 'Open' });
-        console.log('[updateLoadRequestStatus] Set PO to Open for poNumber:', poNumber);
+        await updateDoc(openRef, { status: 'Active', shippingScheduleStatus: 'Open' });
+        console.log('[updateLoadRequestStatus] Set PO to Active and Shipping Schedule to Open for poNumber:', poNumber);
       } catch (err) {
-        console.error('[updateLoadRequestStatus] Error setting PO to Open:', err);
+        console.error('[updateLoadRequestStatus] Error setting PO to Active and Shipping Schedule to Open:', err);
       }
     }
     // Notify the shipper of rejection
@@ -236,15 +248,19 @@ export const updateLoadRequestStatus = async (
     }
     // Notify the carrier if this is a response to a counter offer
     if (notifData?.carrierId) {
+      let carrierAcceptMessage = 'Shipper assigned you this load.';
+      if (notifData.status === 'counter_offer') {
+        carrierAcceptMessage = 'Shipper accepted your counter offer.';
+      }
       const carrierNotificationRef = collection(db, 'notifications');
       await addDoc(carrierNotificationRef, {
         carrierId: notifData.carrierId,
         recipientId: notifData.carrierId,
         shipperId: notifData.shipperId,
         poNumber: poNumber,
-        status: 'rejected',
-        type: 'shipper_reject_counter',
-        message: 'Shipper rejected your counter offer.',
+        status: 'accepted',
+        type: notifData.status === 'counter_offer' ? 'shipper_accept_counter' : 'shipper_assign',
+        message: carrierAcceptMessage,
         loadDetails: notifData.loadDetails,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
@@ -319,13 +335,37 @@ export const acceptLoadForPO = async (
 
   // 5. Update PO summary fields
   try {
+    // Use selectedCarrier.id to determine if this is a partnered carrier request
+    const poSelectedCarrier = poDoc.data().selectedCarrier;
+    const isPartneredFinal = isPartnered || (poSelectedCarrier && poSelectedCarrier.id === carrierId);
     await updateDoc(doc(db, 'purchaseOrders', poId), {
-      shippingScheduleStatus: isPartnered ? 'Active' : 'Carrier Review',
+      shippingScheduleStatus: isPartneredFinal ? 'Active' : 'Carrier Review',
       status: 'Active',
-      [isPartnered ? 'approvedCarrier' : 'pendingCarrier']: carrierInfo
+      [isPartneredFinal ? 'approvedCarrier' : 'pendingCarrier']: carrierInfo
     });
     console.log('[acceptLoadForPO] Updated PO with carrier info and status.');
   } catch (err) {
     console.error('[acceptLoadForPO] Error updating PO:', err);
+  }
+
+  // 6. Update the corresponding load in 'loads' collection to set carrierId
+  try {
+    if (poDoc.data().poNumber) {
+      const loadsQuery = query(
+        collection(db, 'loads'),
+        where('poNumber', '==', poDoc.data().poNumber)
+      );
+      const loadsSnap = await getDocs(loadsQuery);
+      if (!loadsSnap.empty) {
+        const loadDocRef = doc(db, 'loads', loadsSnap.docs[0].id);
+        await updateDoc(loadDocRef, {
+          carrierId: carrierId,
+          updatedAt: serverTimestamp()
+        });
+        console.log('[acceptLoadForPO] Updated load with carrierId for permissions.');
+      }
+    }
+  } catch (err) {
+    console.error('[acceptLoadForPO] Error updating load with carrierId:', err);
   }
 }; 

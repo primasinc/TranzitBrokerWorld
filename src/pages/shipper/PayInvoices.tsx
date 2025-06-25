@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styles from './PayInvoices.module.css';
 import { useMobileOptimization } from '../../hooks/useMobileOptimization';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '../../firebase';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface Invoice {
   id: string;
@@ -18,6 +21,8 @@ const PayInvoices: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'pending' | 'paid' | 'all'>('all');
   const [dateFilter, setDateFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const { user } = useAuth();
 
   // Mobile optimization
   const { 
@@ -35,31 +40,29 @@ const PayInvoices: React.FC = () => {
   // Device detection for mobile layout
   const isMobile = window.innerWidth <= 768;
 
-  const invoices: Invoice[] = [
-    {
-      id: "INV001",
-      invoiceNumber: "INV-2024-001",
-      carrier: "ABC Trucking",
-      amount: 2500.00,
-      dueDate: "2024-03-15",
-      status: "Pending",
-      poNumber: "PO-12345",
-      issueDate: "2024-02-15",
-      deliveryDate: "2024-02-20"
-    },
-    {
-      id: "INV002",
-      invoiceNumber: "INV-2024-002",
-      carrier: "XYZ Logistics",
-      amount: 3750.00,
-      dueDate: "2024-03-01",
-      status: "Paid",
-      poNumber: "PO-12346",
-      issueDate: "2024-02-01",
-      deliveryDate: "2024-02-05"
-    },
-    // Add more invoices as needed
-  ];
+  useEffect(() => {
+    const fetchInvoices = async () => {
+      if (!user) return;
+      const q = query(collection(db, 'invoices'), where('shipperId', '==', user.uid));
+      const snapshot = await getDocs(q);
+      const data = snapshot.docs.map(doc => {
+        const d = doc.data();
+        return {
+          id: doc.id,
+          invoiceNumber: d.invoiceNumber || '',
+          carrier: d.carrierName || d.carrier || '',
+          amount: d.amount || 0,
+          dueDate: d.dueDate || '',
+          status: (d.status || 'Pending').charAt(0).toUpperCase() + (d.status || 'Pending').slice(1),
+          poNumber: d.poNumber || '',
+          issueDate: d.issueDate || '',
+          deliveryDate: d.deliveryDate || ''
+        };
+      });
+      setInvoices(data);
+    };
+    fetchInvoices();
+  }, [user]);
 
   const filteredInvoices = invoices.filter(invoice => {
     const matchesTab = activeTab === 'all' || invoice.status.toLowerCase() === activeTab;

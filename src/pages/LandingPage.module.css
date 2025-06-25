@@ -2,8 +2,9 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(135deg, #0f2027 0%, #2c5364 100%);
-  font-family: 'Inter', Arial, sans-serif;
+  background: #e9eef5;
+  font-family: 'Montserrat', Arial, sans-serif;
+  color: #222;
   overflow-x: hidden;
   width: 100%;
   box-sizing: border-box;
@@ -14,7 +15,8 @@
   justify-content: space-between;
   align-items: center;
   padding: 2rem 3rem 1rem 3rem;
-  background: transparent;
+  background: linear-gradient(135deg, #0f2027 0%, #2c5364 100%) !important;
+  color: #fff;
 }
 
 .logo {
@@ -40,9 +42,13 @@
   gap: 1rem;
 }
 
+.navButton, .menuLink {
+  color: #1a2238;
+}
+
 .navButton {
   background: linear-gradient(90deg, #00eaff 60%, #2563eb 100%);
-  color: #0f2027;
+  color: #fff;
   border: none;
   border-radius: 6px;
   padding: 0.6rem 1.4rem;
@@ -68,7 +74,10 @@
   justify-content: center;
   text-align: center;
   padding: 4rem 2rem 2rem 2rem;
-  background: linear-gradient(120deg, #232526 0%, #0f2027 100%);
+  background: #fff;
+  color: #222;
+  box-shadow: 0 2px 12px #2c536410;
+  margin-bottom: 0;
 }
 
 .heroContent {
@@ -79,21 +88,21 @@
 .heroSection h1 {
   font-size: 3.2rem;
   font-weight: 900;
-  color: #00eaff;
+  color: #1a2238;
   margin-bottom: 1.2rem;
   letter-spacing: -1px;
-  text-shadow: 0 2px 16px #00eaff44;
+  text-shadow: 0 2px 16px #00eaff22;
 }
 
 .heroSection p {
   font-size: 1.35rem;
-  color: #e0e7ef;
+  color: #222;
   margin-bottom: 2.2rem;
 }
 
 .ctaButton {
   background: linear-gradient(90deg, #00eaff 60%, #2563eb 100%);
-  color: #0f2027;
+  color: #fff;
   border: none;
   border-radius: 8px;
   padding: 1.1rem 2.7rem;
@@ -112,10 +121,13 @@
 }
 
 .pointsSection {
-  background: #10151a;
-  padding: 3.5rem 2rem 2.5rem 2rem;
+  background: #e9eef5;
+  padding: 4rem 2rem 3rem 2rem;
   border-radius: 32px 32px 0 0;
-  box-shadow: 0 -2px 24px #00eaff22;
+  box-shadow: 0 -2px 24px #00eaff11;
+  border-top: 1px solid #e0e7ef;
+  color: #222;
+  margin-bottom: 0;
 }
 
 .pointsHeaderRow {
@@ -129,55 +141,58 @@
 }
 
 .pointBlock {
-  background: #18222b;
-  color: #fff;
+  background: #fff;
+  color: #222;
   border-radius: 18px;
   padding: 2.5rem 2rem 2rem 2rem;
   min-width: 260px;
   max-width: 340px;
   flex: 1 1 300px;
-  box-shadow: 0 2px 16px #00eaff22;
+  box-shadow: 0 4px 24px #0001, 0 2px 16px #00eaff11;
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
-  border: 1.5px solid #00eaff33;
+  border: 1.5px solid #e0e7ef;
   box-sizing: border-box;
   word-wrap: break-word;
   overflow-wrap: break-word;
+  margin: 1.5rem 0;
 }
 
 .pointBlock h3 {
-  color: #00eaff;
+  color: #1a2238;
   font-size: 1.3rem;
   margin: 1.2rem 0 0.7rem 0;
   font-weight: 700;
-  text-shadow: 0 1px 8px #00eaff44;
+  text-shadow: 0 1px 8px #00eaff22;
 }
 
 .pointBlock p {
-  color: #e0e7ef;
+  color: #222;
   font-size: 1.05rem;
   margin: 0;
 }
 
 .subscribeSection {
   background: #fff;
-  padding: 3rem 2rem 2rem 2rem;
+  padding: 4rem 2rem 3rem 2rem;
   border-radius: 0 0 32px 32px;
-  box-shadow: 0 2px 24px #00eaff22;
+  box-shadow: 0 2px 24px #00eaff11;
   text-align: center;
   margin-bottom: 2rem;
+  color: #222;
+  border-bottom: 1px solid #e0e7ef;
 }
 
 .subscribeSection h2 {
-  color: #2563eb;
+  color: #1a2238;
   font-size: 2rem;
   margin-bottom: 0.5rem;
 }
 
 .subscribeSection p {
-  color: #334155;
+  color: #222;
   font-size: 1.1rem;
   margin-bottom: 1.5rem;
 }
@@ -247,12 +262,11 @@
 }
 
 .footer {
-  text-align: center;
+  background: linear-gradient(135deg, #0f2027 0%, #2c5364 100%) !important;
+  color: #fff;
   padding: 2rem 1rem 1rem 1rem;
-  color: #64748b;
-  font-size: 1rem;
-  background: transparent;
-  border-top: 1px solid #18222b;
+  text-align: center;
+  border-top: 1px solid #2c5364;
 }
 
 .footerLinks {
@@ -265,12 +279,19 @@
 .footerLinks a {
   color: #00eaff;
   text-decoration: none;
-  font-weight: 500;
+  font-weight: 600;
   font-size: 1rem;
-  transition: color 0.2s;
+  margin-right: 0.5rem;
+  padding: 0.6rem 1.1rem;
+  border-radius: 6px;
+  transition: background 0.2s, color 0.2s;
+  letter-spacing: 0.5px;
+  display: inline-block;
+  background: none;
 }
 
 .footerLinks a:hover {
+  background: #00eaff22;
   color: #2563eb;
   text-decoration: underline;
 }
@@ -302,11 +323,12 @@
     padding: 0 1rem;
   }
   .pointBlock {
-    min-width: 220px;
+    min-width: 200px;
     max-width: 100%;
     padding: 2rem 1rem 1.5rem 1rem;
-    width: 100%;
-    box-sizing: border-box;
+  }
+  .subscribeSection {
+    padding: 2.5rem 1rem 2rem 1rem;
   }
 }
 

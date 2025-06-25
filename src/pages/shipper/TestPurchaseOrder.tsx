@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { PurchaseOrderForm } from '../../components/shipper/forms/PurchaseOrderForm';
 import { db } from '../../firebase';
@@ -12,7 +12,12 @@ export const TestPurchaseOrder: React.FC = () => {
   const { user } = useAuth();
 
   const handleSubmit = async (data: any) => {
+    console.log('DEBUG: TestPurchaseOrder handleSubmit called', data);
     try {
+      if (!user?.uid) {
+        alert('User ID not found. Please make sure you are logged in.');
+        return;
+      }
       // Geocode vendor (pickup) address
       let pickupPosition: [number, number] = [0, 0];
       let pickupAddress = '';
@@ -47,170 +52,158 @@ export const TestPurchaseOrder: React.FC = () => {
       } catch (err) {
         console.warn('Geocoding failed for delivery address:', deliveryAddress, err);
       }
+      // Prepare PO data
+      const poData = {
+        ...data,
+        vendorInfo: {
+          ...data.vendorInfo,
+          position: pickupPosition
+        },
+        pickupLocation: {
+          address: pickupAddress,
+          position: pickupPosition
+        },
+        deliveryLocation: {
+          address: deliveryAddress,
+          position: deliveryPosition
+        },
+        updatedAt: new Date().toISOString(),
+        userId: user?.uid || ''
+      };
+      // --- EDITING EXISTING PO ---
       if (isEditing && editingPO?.id) {
-        // Editing existing PO: always update by Firestore ID
         const poRef = doc(db, 'purchaseOrders', editingPO.id);
-        await updateDoc(poRef, {
-          ...data,
-          updatedAt: new Date().toISOString()
-        });
-        // Update the corresponding load (by poNumber)
-        const loadsSnapshot = await getDocs(collection(db, 'loads'));
-        let found = false;
-        loadsSnapshot.forEach(async loadDocSnap => {
-          const loadData = loadDocSnap.data();
-          if (loadData.poNumber === editingPO.poNumber) {
-            found = true;
-            await updateDoc(doc(db, 'loads', loadDocSnap.id), {
-              title: `${data.vendorInfo?.name || 'Pickup'} to ${data.shipTo?.name || 'Delivery'}`,
-              pickupLocation: {
-                address: data.vendorInfo?.streetAddress || '',
-                position: data.vendorInfo?.position || [0,0]
-              },
-              deliveryLocation: {
-                address: data.shipTo?.streetAddress || '',
-                position: data.shipTo?.position || [0,0]
-              },
-              rate: data.rate || 0,
-              status: data.status || 'open',
-              updatedAt: new Date().toISOString(),
-              shipperId: user?.uid || '',
-            });
-          }
-        });
-        // If PO number changed, create new PO and load, and remove old ones
-        if (data.poNumber && data.poNumber !== editingPO.poNumber) {
-          // Create new PO
-          const newOrder = {
-            ...data,
-            poNumber: data.poNumber,
-            updatedAt: new Date().toISOString()
-          };
-          await addDoc(collection(db, 'purchaseOrders'), newOrder);
-          // Create new load
-          const newLoad = {
+        await updateDoc(poRef, poData);
+        // Update corresponding load
+        const loadsSnapshot = await getDocs(query(collection(db, 'loads'), where('poNumber', '==', editingPO.poNumber)));
+        for (const loadDocSnap of loadsSnapshot.docs) {
+          await updateDoc(doc(db, 'loads', loadDocSnap.id), {
+            ...poData,
             title: `${data.vendorInfo?.name || 'Pickup'} to ${data.shipTo?.name || 'Delivery'}`,
-            pickupLocation: {
-              address: data.vendorInfo?.streetAddress || '',
-              position: data.vendorInfo?.position || [0,0]
-            },
-            deliveryLocation: {
-              address: data.shipTo?.streetAddress || '',
-              position: data.shipTo?.position || [0,0]
-            },
-            rate: data.rate || 0,
-            poNumber: data.poNumber,
             status: data.status || 'open',
-            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
             shipperId: user?.uid || '',
-          };
-          await addDoc(collection(db, 'loads'), newLoad);
-          // Remove old PO and load
-          await updateDoc(poRef, { status: 'cancelled' });
-          loadsSnapshot.forEach(async loadDocSnap => {
-            const loadData = loadDocSnap.data();
-            if (loadData.poNumber === editingPO.poNumber) {
-              await updateDoc(doc(db, 'loads', loadDocSnap.id), { status: 'cancelled' });
-            }
           });
         }
-      } else {
-        // Not editing: check for existing non-cancelled PO with same poNumber
-        const poNumber = data.poNumber || `PO-${Math.floor(Math.random() * 100000)}`;
-        const existingPOSnapshot = await getDocs(query(collection(db, 'purchaseOrders'), where('poNumber', '==', poNumber)));
-        let poId = null;
-        let foundActive = false;
-        existingPOSnapshot.forEach(docSnap => {
-          const poData = docSnap.data();
-          if ((poData.status || '').toLowerCase() !== 'cancelled') {
-            poId = docSnap.id;
-            foundActive = true;
+        // If PO number changed, create new PO and load, and cancel old ones
+        if (data.poNumber && data.poNumber !== editingPO.poNumber) {
+          // Cancel old PO and loads
+          await updateDoc(poRef, { status: 'cancelled' });
+          for (const loadDocSnap of loadsSnapshot.docs) {
+            await updateDoc(doc(db, 'loads', loadDocSnap.id), { status: 'cancelled' });
           }
-        });
-        if (foundActive && poId) {
-          // Update the existing active PO
-          const poRef = doc(db, 'purchaseOrders', poId);
-          await updateDoc(poRef, {
-            ...data,
-            poNumber,
-          updatedAt: new Date().toISOString()
-        });
+          // Create new PO and load
+          const newOrder = { ...poData, poNumber: data.poNumber };
+          const newPOSnap = await addDoc(collection(db, 'purchaseOrders'), newOrder);
+          const newLoad = {
+            ...poData,
+            title: `${data.vendorInfo?.name || 'Pickup'} to ${data.shipTo?.name || 'Delivery'}`,
+            poNumber: data.poNumber,
+            status: 'open',
+            createdAt: new Date().toISOString(),
+            shipperId: user?.uid || '',
+            isMarketplace: !(data.carrierOption === 'carrier' && data.selectedCarrier && data.selectedCarrier.id)
+          };
+          await addDoc(collection(db, 'loads'), newLoad);
+        }
+        alert('Purchase order updated successfully.');
+        navigate('/shipper/orders');
+        return;
+      }
+      // --- CREATING NEW PO OR UPDATING EXISTING (DUPLICATE PREVENTION) ---
+      const poNumber = data.poNumber || `PO-${Math.floor(Math.random() * 100000)}`;
+      const existingPOSnapshot = await getDocs(query(collection(db, 'purchaseOrders'), where('poNumber', '==', poNumber)));
+      let poId = null;
+      let foundActive = false;
+      let foundCompleted = false;
+      existingPOSnapshot.forEach(docSnap => {
+        const poData = docSnap.data();
+        const status = (poData.status || '').toLowerCase();
+        if (status !== 'cancelled' && status !== 'completed') {
+          poId = docSnap.id;
+          foundActive = true;
+        }
+        if (status === 'completed') {
+          foundCompleted = true;
+        }
+      });
+      if (foundActive && poId) {
+        // Update the existing active PO
+        const poRef = doc(db, 'purchaseOrders', poId);
+        await updateDoc(poRef, { ...poData, poNumber, updatedAt: new Date().toISOString() });
+        // Update corresponding load
+        const loadsSnapshot = await getDocs(query(collection(db, 'loads'), where('poNumber', '==', poNumber)));
+        for (const loadDocSnap of loadsSnapshot.docs) {
+          await updateDoc(doc(db, 'loads', loadDocSnap.id), {
+            ...poData,
+            title: `${data.vendorInfo?.name || 'Pickup'} to ${data.shipTo?.name || 'Delivery'}`,
+            status: data.status || 'open',
+            updatedAt: new Date().toISOString(),
+            shipperId: user?.uid || '',
+          });
+        }
+        alert('Purchase order updated successfully.');
+        navigate('/shipper/orders');
+        return;
+      } else if (foundCompleted) {
+        alert('A completed PO with this number already exists. Please use a different PO number.');
+        return;
       } else {
         // Create new PO
         const newOrder = {
-            poNumber,
+          ...poData,
+          poNumber,
           date: data.date || new Date().toISOString().split('T')[0],
           vendor: data.vendorInfo?.name || '',
           amount: data.total || 0,
-            rate: data.rate || 0,
+          rate: data.rate || 0,
           items: data.items?.length || 0,
           deliveryDate: data.shipTo?.deliveryDate || '',
-            ...data,
-            status: data.carrierOption ? 'Active' : 'Processing',
-            shippingScheduleStatus: data.carrierOption ? 'Active' : 'Open',
-            vendorInfo: {
-              ...data.vendorInfo,
-              position: pickupPosition
-            },
-            pickupLocation: {
-              address: pickupAddress,
-              position: pickupPosition
-            },
-            deliveryLocation: {
-              address: deliveryAddress,
-              position: deliveryPosition
-            }
-          };
-          const poDocRef = await addDoc(collection(db, 'purchaseOrders'), newOrder);
-          poId = poDocRef.id;
-        }
-        // Also create or update a load in the 'loads' collection for carrier visibility
-        if (!user?.uid) {
-          alert('User ID not found. Please make sure you are logged in.');
-          return;
-        }
-        const loadsSnapshot = await getDocs(query(collection(db, 'loads'), where('poNumber', '==', poNumber)));
-        if (!loadsSnapshot.empty) {
-          // Update the existing load
-          const loadDocRef = doc(db, 'loads', loadsSnapshot.docs[0].id);
-          await updateDoc(loadDocRef, {
-            title: `${data.vendorInfo?.name || 'Pickup'} to ${data.shipTo?.name || 'Delivery'}`,
-            pickupLocation: {
-              address: pickupAddress,
-              position: pickupPosition
-            },
-            deliveryLocation: {
-              address: deliveryAddress,
-              position: deliveryPosition
-            },
-            rate: data.rate || 0,
-            poNumber,
-            status: 'open',
-            updatedAt: new Date().toISOString(),
-            shipperId: user.uid,
-          });
+          status: data.carrierOption ? 'Active' : 'Processing',
+          shippingScheduleStatus: data.carrierOption ? 'Carrier Pending' : 'Open',
+          vendorInfo: {
+            ...data.vendorInfo,
+            position: pickupPosition
+          },
+          pickupLocation: {
+            address: pickupAddress,
+            position: pickupPosition
+          },
+          deliveryLocation: {
+            address: deliveryAddress,
+            position: deliveryPosition
+          },
+          userId: user?.uid || ''
+        };
+        const poDocRef = await addDoc(collection(db, 'purchaseOrders'), newOrder);
+        // Create new load
+        const newLoad = {
+          ...poData,
+          title: `${data.vendorInfo?.name || 'Pickup'} to ${data.shipTo?.name || 'Delivery'}`,
+          pickupLocation: {
+            address: pickupAddress,
+            position: pickupPosition
+          },
+          deliveryLocation: {
+            address: deliveryAddress,
+            position: deliveryPosition
+          },
+          rate: data.rate || 0,
+          poNumber,
+          status: 'open',
+          createdAt: new Date().toISOString(),
+          shipperId: user.uid,
+          isMarketplace: !(data.carrierOption === 'carrier' && data.selectedCarrier && data.selectedCarrier.id)
+        };
+        await addDoc(collection(db, 'loads'), newLoad);
+        alert('Purchase order created successfully.');
+        if (data.carrierOption === 'carrier') {
+          navigate('/shipper/partners', { state: { poData: newOrder } });
         } else {
-          // Create new load
-          const loadDoc = {
-            title: `${data.vendorInfo?.name || 'Pickup'} to ${data.shipTo?.name || 'Delivery'}`,
-            pickupLocation: {
-              address: pickupAddress,
-              position: pickupPosition
-            },
-            deliveryLocation: {
-              address: deliveryAddress,
-              position: deliveryPosition
-            },
-            rate: data.rate || 0,
-            poNumber,
-            status: 'open',
-            createdAt: new Date().toISOString(),
-            shipperId: user.uid,
-          };
-          await addDoc(collection(db, 'loads'), loadDoc);
+          navigate('/shipper/orders');
         }
+        return;
       }
-      navigate('/shipper/orders');
     } catch (error) {
       console.error('Error saving PO:', error);
       alert('Failed to save purchase order. Please try again.');

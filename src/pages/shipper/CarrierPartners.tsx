@@ -41,6 +41,8 @@ const CarrierPartners: React.FC = () => {
   // Check if we came from PO creation
   const locationState = location.state as LocationState;
   const isFromPO = Boolean(locationState?.poData);
+  console.log('DEBUG CarrierPartners location.state:', location.state);
+  console.log('DEBUG CarrierPartners isFromPO:', isFromPO);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -186,7 +188,9 @@ const CarrierPartners: React.FC = () => {
           // Map dimensions and weight
           const cargoDetails = orderData.cargoDetails || po.cargoDetails || {};
           const dimensions = cargoDetails.dimensions || po.dimensions || { length: 0, width: 0, height: 0 };
-          const weight = cargoDetails.weight || po.items?.reduce((sum: number, item: any) => sum + (item.weight || 0), 0) || 0;
+          // Defensive: ensure po.items is always an array
+          const items = Array.isArray(po.items) ? po.items : [];
+          const weight = cargoDetails.weight || items.reduce((sum: number, item: any) => sum + (item.weight || 0), 0) || 0;
           const rate = orderData.carrierRate || po.rate || 0;
           await sendLoadRequestToCarrier(
             carrier.id,

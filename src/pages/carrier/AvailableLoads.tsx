@@ -237,6 +237,26 @@ const AvailableLoads: React.FC = () => {
     }
   }, [user]); // Only run when user changes
 
+  // Fetch partner requests for the logged-in carrier
+  useEffect(() => {
+    if (!user) return;
+    setPartnerLoading(true);
+    const q = query(
+      collection(db, 'notifications'),
+      where('carrierId', '==', user.uid),
+      orderBy('createdAt', 'desc')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const requests: any[] = [];
+      snapshot.forEach((doc) => {
+        requests.push({ id: doc.id, ...doc.data() });
+      });
+      setPartnerRequests(requests);
+      setPartnerLoading(false);
+    });
+    return () => unsubscribe();
+  }, [user]);
+
   const handleLogout = () => navigate('/login');
   const handleProfile = () => navigate('/carrier/profile');
   const handleSettings = () => navigate('/carrier/settings');
@@ -452,118 +472,142 @@ const AvailableLoads: React.FC = () => {
           </div>
         </div>
 
-        {/* View Toggle Controls */}
-        <div className={styles.viewToggleContainer}>
+        {/* Tab Switcher Controls */}
+        <div className={styles.viewToggleContainer} style={{ marginBottom: 16 }}>
           <div className={styles.viewToggle}>
             <button
-              className={`${styles.toggleButton} ${viewType === 'list' ? styles.active : ''}`}
-              onClick={() => setViewType('list')}
+              className={`${styles.toggleButton} ${activeTab === 'MARKETPLACE' ? styles.active : ''}`}
+              onClick={() => setActiveTab('MARKETPLACE')}
             >
-              List
+              Marketplace Loads
             </button>
             <button
-              className={`${styles.toggleButton} ${viewType === 'map' ? styles.active : ''}`}
-              onClick={() => setViewType('map')}
+              className={`${styles.toggleButton} ${activeTab === 'PARTNER' ? styles.active : ''}`}
+              onClick={() => setActiveTab('PARTNER')}
             >
-              Map
+              Partner Requests
             </button>
           </div>
         </div>
 
-        {/* Content */}
-        {viewType === 'map' ? (
-          // Map view - mobile optimized
-          <div className={styles.mapSection}>
-            <div className={styles.mapContainer}>
-              <MapboxMap 
-                center={userLocation}
-                zoom={mapZoom}
-                markers={availableLoads.map(load => ({
-                  id: load.id,
-                  position: load.pickupLocation.position,
-                  type: 'shipper' as const,
-                  icon: 'circle',
-                  onClick: () => handleLoadSelect(load)
-                }))}
-                onMapLoad={(map) => {
-                  console.log('Map loaded successfully on AvailableLoads page');
-                  console.log('Map container dimensions:', map.getContainer().getBoundingClientRect());
-                  console.log('Map center:', map.getCenter());
-                  console.log('Map zoom:', map.getZoom());
-                }}
-              />
-              {/* Mobile map controls */}
-              <div className={styles.mapControls}>
-                <button 
-                  className={styles.mapControlButton}
-                  onClick={handleMapZoomIn}
-                  title="Zoom In"
+        {/* Content for each tab */}
+        {activeTab === 'MARKETPLACE' ? (
+          <>
+            {/* View Toggle Controls */}
+            <div className={styles.viewToggleContainer}>
+              <div className={styles.viewToggle}>
+                <button
+                  className={`${styles.toggleButton} ${viewType === 'list' ? styles.active : ''}`}
+                  onClick={() => setViewType('list')}
                 >
-                  +
+                  List
                 </button>
-                <button 
-                  className={styles.mapControlButton}
-                  onClick={handleMapZoomOut}
-                  title="Zoom Out"
+                <button
+                  className={`${styles.toggleButton} ${viewType === 'map' ? styles.active : ''}`}
+                  onClick={() => setViewType('map')}
                 >
-                  −
-                </button>
-                <button 
-                  className={styles.mapControlButton}
-                  onClick={handleMapReset}
-                  title="Reset View"
-                >
-                  ⌂
-                </button>
-                <button 
-                  className={styles.mapControlButton}
-                  onClick={handleMapFullscreen}
-                  title="Fullscreen"
-                >
-                  ⛶
+                  Map
                 </button>
               </div>
             </div>
-            {selectedLoad && (
-              <div className={styles.selectedLoadDetails}>
-                <h3>{selectedLoad.title}</h3>
-                <p><strong>Rate:</strong> ${selectedLoad.rate?.toLocaleString()}</p>
-                <p><strong>Pickup:</strong> {selectedLoad.pickupLocation.address}</p>
-                <p><strong>Delivery:</strong> {selectedLoad.deliveryLocation.address}</p>
-                <button 
-                  className={styles.detailsButton}
-                  onClick={() => navigate(`/carrier/loads/${selectedLoad.id}`)}
-                >
-                  View Full Details
-                </button>
-              </div>
-            )}
-          </div>
-        ) : (
-          // List view - mobile optimized
-          <div className={styles.listView}>
-            {availableLoads.length === 0 ? (
-              <div className={styles.noLoads}>
-                <h3>No Available Loads</h3>
-                <p>No loads found in your area. Try expanding your search radius or check back later.</p>
+            {/* Content */}
+            {viewType === 'map' ? (
+              // Map view - mobile optimized
+              <div className={styles.mapSection}>
+                <div className={styles.mapContainer}>
+                  <MapboxMap 
+                    center={userLocation}
+                    zoom={mapZoom}
+                    markers={availableLoads.map(load => ({
+                      id: load.id,
+                      position: load.pickupLocation.position,
+                      type: 'shipper' as const,
+                      icon: 'circle',
+                      onClick: () => handleLoadSelect(load)
+                    }))}
+                    onMapLoad={(map) => {
+                      console.log('Map loaded successfully on AvailableLoads page');
+                      console.log('Map container dimensions:', map.getContainer().getBoundingClientRect());
+                      console.log('Map center:', map.getCenter());
+                      console.log('Map zoom:', map.getZoom());
+                    }}
+                  />
+                  {/* Mobile map controls */}
+                  <div className={styles.mapControls}>
+                    <button 
+                      className={styles.mapControlButton}
+                      onClick={handleMapZoomIn}
+                      title="Zoom In"
+                    >
+                      +
+                    </button>
+                    <button 
+                      className={styles.mapControlButton}
+                      onClick={handleMapZoomOut}
+                      title="Zoom Out"
+                    >
+                      −
+                    </button>
+                    <button 
+                      className={styles.mapControlButton}
+                      onClick={handleMapReset}
+                      title="Reset View"
+                    >
+                      ⌂
+                    </button>
+                    <button 
+                      className={styles.mapControlButton}
+                      onClick={handleMapFullscreen}
+                      title="Fullscreen"
+                    >
+                      ⛶
+                    </button>
+                  </div>
+                </div>
+                {selectedLoad && (
+                  <div className={styles.selectedLoadDetails}>
+                    <h3>{selectedLoad.title}</h3>
+                    <p><strong>Rate:</strong> ${selectedLoad.rate?.toLocaleString()}</p>
+                    <p><strong>Pickup:</strong> {selectedLoad.pickupLocation.address}</p>
+                    <p><strong>Delivery:</strong> {selectedLoad.deliveryLocation.address}</p>
+                    <button 
+                      className={styles.detailsButton}
+                      onClick={() => navigate(`/carrier/loads/${selectedLoad.id}`)}
+                    >
+                      View Full Details
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
-              <MobileOptimizedList
-                items={availableLoads}
-                renderItem={renderLoadItem}
-                keyExtractor={(item) => item.id}
-                onLoadMore={loadMore}
-                hasMore={hasMore}
-                loading={loadsLoading}
-                itemHeight={120}
-                containerHeight={window.innerHeight - 200}
-                enableVirtualization={!isLowBandwidth}
-                enablePullToRefresh={true}
-                onRefresh={handleRefresh}
-                className={styles.mobileLoadsList}
-              />
+              // List view - mobile optimized
+              <div className={styles.listView}>
+                {availableLoads.length === 0 ? (
+                  <div className={styles.noLoads}>
+                    <h3>No Available Loads</h3>
+                    <p>No loads found in your area. Try expanding your search radius or check back later.</p>
+                  </div>
+                ) : (
+                  <MobileOptimizedList
+                    items={availableLoads}
+                    renderItem={renderLoadItem}
+                    keyExtractor={(item) => item.id}
+                    onLoadMore={loadMore}
+                    hasMore={hasMore}
+                    loading={loadsLoading}
+                    itemHeight={120}
+                    containerHeight={window.innerHeight - 200}
+                    enableVirtualization={!isLowBandwidth}
+                    enablePullToRefresh={true}
+                    onRefresh={handleRefresh}
+                    className={styles.mobileLoadsList}
+                  />
+                )}
+              </div>
             )}
-          </div>
+          </>
+        ) : (
+          <PartnerRequestsList partnerRequests={partnerRequests} />
         )}
 
         {/* Mobile performance indicator */}

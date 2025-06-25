@@ -4,10 +4,12 @@ import { getShipperShipments, ShipmentFilters, PaginationParams } from '../../se
 import { ShipmentData } from '../../types/shipment';
 import styles from './ShipmentArchive.module.css';
 import { useMobileOptimization } from '../../hooks/useMobileOptimization';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '../../firebase';
 
 const ShipmentArchive: React.FC = () => {
   const { user } = useAuth();
-  const [shipments, setShipments] = useState<ShipmentData[]>([]);
+  const [archivedPOs, setArchivedPOs] = useState<any[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,42 +41,38 @@ const ShipmentArchive: React.FC = () => {
   // Device detection for mobile layout
   const isMobile = window.innerWidth <= 768;
 
-  const loadShipments = async () => {
+  const loadArchivedPOs = async () => {
     if (!user) return;
-
     setLoading(true);
     setError(null);
-
     try {
-      const filters: ShipmentFilters = {
-        searchTerm: searchTerm || undefined,
-        status: status || undefined,
-        startDate: startDate ? new Date(startDate) : undefined,
-        endDate: endDate ? new Date(endDate) : undefined
-      };
-
-      const pagination: PaginationParams = {
-        page: currentPage,
-        limit: ITEMS_PER_PAGE
-      };
-
-      const userId = (user as any)?.uid || (user as any)?.email || '';
-      const result = await getShipperShipments(userId, filters, pagination);
-      
-      setShipments(result.shipments);
-      setTotalCount(result.totalCount);
-      setHasMore(result.hasMore);
+      const userId = user.uid;
+      const q = query(collection(db, 'poArchive'), where('userId', '==', userId));
+      const snapshot = await getDocs(q);
+      let pos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // Optional: filter/search logic
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        pos = pos.filter((po: any) =>
+          (po.poNumber || '').toLowerCase().includes(searchLower) ||
+          (po.vendorInfo?.name || '').toLowerCase().includes(searchLower) ||
+          (po.companyInfo?.name || '').toLowerCase().includes(searchLower) ||
+          (po.shipTo?.name || '').toLowerCase().includes(searchLower)
+        );
+      }
+      setArchivedPOs(pos);
+      setTotalCount(pos.length);
     } catch (err) {
-      setError('Failed to load shipments. Please try again.');
-      console.error('Error loading shipments:', err);
+      setError('Failed to load archived POs. Please try again.');
+      console.error('Error loading archived POs:', err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadShipments();
-  }, [user, searchTerm, startDate, endDate, status, currentPage]);
+    loadArchivedPOs();
+  }, [user, searchTerm]);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
@@ -153,8 +151,8 @@ const ShipmentArchive: React.FC = () => {
     </div>
   );
 
-  if (loading && !shipments.length) {
-    return <div className={styles.loading}>Loading shipments...</div>;
+  if (loading && !archivedPOs.length) {
+    return <div className={styles.loading}>Loading archived POs...</div>;
   }
 
   if (error) {
@@ -219,26 +217,26 @@ const ShipmentArchive: React.FC = () => {
 
       <div className={styles.statsCards}>
         <div className={styles.statCard}>
-          <h3>Total Shipments</h3>
+          <h3>Total Archived POs</h3>
           <p>{totalCount}</p>
         </div>
         <div className={styles.statCard}>
-          <h3>Filtered Shipments</h3>
-          <p>{shipments.length}</p>
+          <h3>Filtered Archived POs</h3>
+          <p>{archivedPOs.length}</p>
         </div>
         <div className={styles.statCard}>
           <h3>Total Cost</h3>
-          <p>{formatCurrency(shipments.reduce((sum, s) => sum + s.cost, 0))}</p>
+          <p>{formatCurrency(archivedPOs.reduce((sum, s) => sum + s.cost, 0))}</p>
         </div>
       </div>
 
       {/* Mobile Cards View */}
       {isMobile ? (
         <div className={styles.mobileShipmentsGrid}>
-          {shipments.length > 0 ? (
-            shipments.map(renderMobileShipmentCard)
+          {archivedPOs.length > 0 ? (
+            archivedPOs.map(renderMobileShipmentCard)
           ) : (
-            <div className={styles.noResults}>No shipments found matching your criteria.</div>
+            <div className={styles.noResults}>No archived POs found matching your criteria.</div>
           )}
         </div>
       ) : (
@@ -259,20 +257,20 @@ const ShipmentArchive: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {shipments.map(shipment => (
-                <tr key={shipment.id}>
-                  <td>{shipment.poNumber}</td>
-                  <td>{shipment.carrier.name}</td>
-                  <td>{shipment.origin}</td>
-                  <td>{shipment.destination}</td>
-                  <td>{formatDate(shipment.scheduledPickup)}</td>
-                  <td>{formatDate(shipment.scheduledDelivery)}</td>
+              {archivedPOs.map(po => (
+                <tr key={po.id}>
+                  <td>{po.poNumber}</td>
+                  <td>{po.carrier?.name}</td>
+                  <td>{po.origin}</td>
+                  <td>{po.destination}</td>
+                  <td>{formatDate(po.scheduledPickup)}</td>
+                  <td>{formatDate(po.scheduledDelivery)}</td>
                   <td>
-                    <span className={`${styles.status} ${getStatusClass(shipment.status)}`}>
-                      {shipment.status}
+                    <span className={`${styles.status} ${getStatusClass(po.status)}`}>
+                      {po.status}
                     </span>
                   </td>
-                  <td>{formatCurrency(shipment.cost)}</td>
+                  <td>{formatCurrency(po.cost)}</td>
                   <td className={styles.actions}>
                     <button className={styles.viewButton}>View</button>
                     <button className={styles.downloadButton}>Download</button>
@@ -284,8 +282,8 @@ const ShipmentArchive: React.FC = () => {
         </div>
       )}
 
-      {shipments.length === 0 && !loading && !isMobile && (
-        <div className={styles.noResults}>No shipments found matching your criteria.</div>
+      {archivedPOs.length === 0 && !loading && !isMobile && (
+        <div className={styles.noResults}>No archived POs found matching your criteria.</div>
       )}
 
       {hasMore && (

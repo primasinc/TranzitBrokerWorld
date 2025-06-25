@@ -44,6 +44,7 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
   const [mapError, setMapError] = useState<string | null>(null);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
   const updateInterval = useRef<NodeJS.Timeout>();
+  const [routeGeoJson, setRouteGeoJson] = useState<any>(null);
 
   useEffect(() => {
     if (!mapContainer.current) return;
@@ -325,6 +326,66 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
       }
     };
   }, [showKonexialVehicles]);
+
+  // Fetch and display route line when pickup and delivery are present
+  useEffect(() => {
+    const fetchRoute = async () => {
+      if (!pickupLocation || !deliveryLocation) return;
+      const accessToken = process.env.REACT_APP_MAPBOX_TOKEN;
+      const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${pickupLocation[0]},${pickupLocation[1]};${deliveryLocation[0]},${deliveryLocation[1]}?geometries=geojson&access_token=${accessToken}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      if (data.routes && data.routes.length > 0) {
+        setRouteGeoJson(data.routes[0].geometry);
+      }
+    };
+    fetchRoute();
+  }, [pickupLocation, deliveryLocation]);
+
+  // Add route line to map when available
+  useEffect(() => {
+    if (!map.current || !routeGeoJson) return;
+    if (map.current.getSource('route')) {
+      map.current.removeLayer('route');
+      map.current.removeSource('route');
+    }
+    map.current.addSource('route', {
+      type: 'geojson',
+      data: {
+        type: 'Feature',
+        properties: {},
+        geometry: routeGeoJson
+      }
+    });
+    map.current.addLayer({
+      id: 'route',
+      type: 'line',
+      source: 'route',
+      layout: {
+        'line-join': 'round',
+        'line-cap': 'round'
+      },
+      paint: {
+        'line-color': '#007bff',
+        'line-width': 4
+      }
+    });
+    // Fit bounds to route
+    const coords = routeGeoJson.coordinates;
+    const bounds = coords.reduce((b: any, coord: any) => b.extend(coord), new mapboxgl.LngLatBounds(coords[0], coords[0]));
+    map.current.fitBounds(bounds, { padding: 50, maxZoom: 10 });
+    return () => {
+      if (
+        map.current &&
+        typeof map.current.getSource === 'function' &&
+        typeof map.current.getLayer === 'function' &&
+        map.current.getSource('route')
+      ) {
+        if (map.current.getLayer('route')) map.current.removeLayer('route');
+        map.current.removeSource('route');
+      }
+    };
+  }, [routeGeoJson]);
 
   // Show error state
   if (mapError) {

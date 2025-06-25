@@ -210,6 +210,21 @@ const MyLoads: React.FC = () => {
         'delivery.status': 'delivered',
         updatedAt: new Date()
       });
+      // Also update the corresponding purchase order status to Completed
+      const loadDoc = await getDoc(loadRef);
+      const loadData = loadDoc.data();
+      if (loadData && loadData.poNumber) {
+        const poQuery = query(collection(db, 'purchaseOrders'), where('poNumber', '==', loadData.poNumber));
+        const poSnap = await getDocs(poQuery);
+        if (!poSnap.empty) {
+          const poRef = doc(db, 'purchaseOrders', poSnap.docs[0].id);
+          await updateDoc(poRef, {
+            status: 'Completed',
+            shippingScheduleStatus: 'Completed',
+            updatedAt: new Date()
+          });
+        }
+      }
     } catch (error) {
       console.error('Error completing load:', error);
       setError('Failed to complete load. Please try again.');

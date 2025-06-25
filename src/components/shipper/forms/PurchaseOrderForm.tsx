@@ -1,8 +1,7 @@
 import React, { useState, useRef, ChangeEvent, useEffect } from 'react';
 import styles from './PurchaseOrderForm.module.css';
 import { useNavigate } from 'react-router-dom';
-import { db } from '../../../firebase'; // Adjust path if needed
-import { collection, addDoc } from 'firebase/firestore';
+import { useAuth } from '../../../contexts/AuthContext';
 
 interface CompanyInfo {
   name: string;
@@ -102,16 +101,16 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
   const [discount, setDiscount] = useState<number>(initialData?.discount || 0);
   const [tax, setTax] = useState<number>(initialData?.tax || 0);
   const [total, setTotal] = useState<number>(initialData?.total || 0);
-  const navigate = useNavigate();
+  const { user } = useAuth();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('DEBUG: PurchaseOrderForm handleSubmit called');
     // Validate that an option is selected
     if (!selectedOption) {
       alert('Please select either a partnered carrier or marketplace option');
       return;
     }
-
     // Get form data from the state hooks
     const formData = {
       companyInfo,
@@ -126,38 +125,14 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
       carrierOption: selectedOption,
       rate: parseFloat(carrierRate) || 0,
       status: selectedOption ? 'Active' : 'Processing',
-      shippingScheduleStatus: selectedOption ? 'Active' : 'Open',
+      shippingScheduleStatus: selectedOption === 'carrier' ? 'Carrier Pending' : 'Open',
       createdAt: new Date().toISOString(),
       date,
-      poNumber: poNumber || ''
+      poNumber: poNumber || '',
+      userId: user?.uid || ''
     };
-
-    // Save to Firestore
-    try {
-      await addDoc(collection(db, 'purchaseOrders'), formData);
-    } catch (error) {
-      console.error('Error saving PO:', error);
-      alert('Failed to save purchase order.');
-      return;
-    }
-
-    // Handle form submission based on selected option
-    if (selectedOption === 'carrier') {
-      // Navigate to carrier partners with PO data
-      navigate('/shipper/partners', { 
-        state: { 
-          poData: formData,
-          rate: carrierRate 
-        } 
-      });
-    } else {
-      // Submit to marketplace and create shipping schedule, then go to dashboard
-      onSubmit({
-        ...formData,
-        shippingScheduleStatus: 'Open'
-      });
-      navigate('/shipper/orders');
-    }
+    console.log('DEBUG: PurchaseOrderForm formData', formData);
+    onSubmit(formData);
   };
 
   const calculateTotal = (quantity: number, price: number) => {
@@ -564,21 +539,19 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
           </button>
         </div>
 
-        {selectedOption && (
-          <div className={styles.rateInput}>
-            <label htmlFor="carrierRate">
-              {selectedOption === 'carrier' ? 'Proposed Rate ($)' : 'Job Rate ($)'}
-            </label>
+        {selectedOption === 'carrier' && (
+          <div className={styles.carrierRateSection}>
+            <label htmlFor="carrierRate">Carrier Rate ($):</label>
             <input
-              type="number"
               id="carrierRate"
+              type="number"
               value={carrierRate}
               onChange={(e) => setCarrierRate(e.target.value)}
-              placeholder={selectedOption === 'carrier' ? "Enter proposed rate" : "Enter fixed rate for this job"}
-              required
-              min="0"
+              placeholder="Enter rate"
               step="0.01"
+              min="0"
               disabled={readOnly}
+              required
             />
           </div>
         )}
@@ -603,6 +576,7 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
           type="submit"
           className={styles.submitButton}
           disabled={!selectedOption || !carrierRate || readOnly}
+          onClick={() => { console.log('DEBUG: Submit button clicked'); }}
         >
           {selectedOption === 'carrier' ? 'Continue to Carrier Selection' : 'Post Job to Marketplace'}
         </button>

@@ -40,7 +40,7 @@ interface ShippingScheduleFormData {
     specialRequirements: string;
   }[];
   additionalRequirements: string;
-  status: 'open' | 'pending' | 'Carrier Pending' | 'assigned' | 'active' | 'delayed' | 'completed';
+  status: 'Open' | 'Carrier Pending' | 'Active' | 'Completed';
   carrier?: {
     id: string;
     name: string;
@@ -108,7 +108,7 @@ const ShippingScheduleForm: React.FC = () => {
       },
       equipmentRequirements: [],
       additionalRequirements: '',
-      status: 'pending' as 'pending'
+      status: 'Completed' as 'Completed'
     };
   }, [locationState]);
 
@@ -143,7 +143,7 @@ const ShippingScheduleForm: React.FC = () => {
       },
       equipmentRequirements: [],
       additionalRequirements: '',
-      status: 'pending'
+      status: 'Completed'
     }
   });
 
@@ -156,7 +156,7 @@ const ShippingScheduleForm: React.FC = () => {
     try {
       // Set initial status based on the selected option
       if (selectedOption === 'marketplace') {
-        data.status = 'open';
+        data.status = 'Open';
       } else if (selectedOption === 'carrier' && locationState?.selectedCarrier) {
         data.status = 'Carrier Pending';
         // Add carrier information to the shipping schedule
@@ -228,9 +228,12 @@ const ShippingScheduleForm: React.FC = () => {
         const q = query(collection(db, 'purchaseOrders'), where('poNumber', '==', locationState.poData.poNumber));
         const snapshot = await getDocs(q);
         snapshot.forEach(async (poDoc) => {
-          // If marketplace, set to 'Processing', else 'Active'
-          const newStatus = selectedOption === 'marketplace' ? 'Processing' : 'Active';
-          await updateDoc(doc(db, 'purchaseOrders', poDoc.id), { status: newStatus });
+          // If marketplace, set to 'Processing' and 'Open'; else 'Active' and 'Carrier Pending'
+          if (selectedOption === 'marketplace') {
+            await updateDoc(doc(db, 'purchaseOrders', poDoc.id), { status: 'Processing', shippingScheduleStatus: 'Open' });
+          } else {
+            await updateDoc(doc(db, 'purchaseOrders', poDoc.id), { status: 'Active', shippingScheduleStatus: 'Carrier Pending' });
+          }
         });
       }
 

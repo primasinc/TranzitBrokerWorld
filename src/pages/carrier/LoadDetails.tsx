@@ -6,6 +6,8 @@ import { loadService } from '../../services/loadService';
 import { LoadDetailsSkeleton } from '../../components/LoadingSkeleton';
 import mapboxgl from 'mapbox-gl';
 import styles from './LoadDetails.module.css';
+import { collection, getDocs, doc, getDoc, query, where } from 'firebase/firestore';
+import { db } from '../../firebase';
 
 interface LoadStatus {
   timestamp: string;
@@ -86,9 +88,12 @@ const LoadDetails: React.FC = () => {
     dimensions: '',
     items: []
   });
-  const [load, setLoad] = useState<LoadDetails | null>(null);
+  const [load, setLoad] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [poData, setPoData] = useState<any>(null);
+  const [pickupCoords, setPickupCoords] = useState<[number, number] | null>(null);
+  const [deliveryCoords, setDeliveryCoords] = useState<[number, number] | null>(null);
 
   useEffect(() => {
     const fetchLoadDetails = async () => {
@@ -133,20 +138,50 @@ const LoadDetails: React.FC = () => {
   }, [id]);
 
   useEffect(() => {
-    // Load data from your service
-    const fetchLoad = async () => {
+    const fetchLoadAndPO = async () => {
+      if (!id) return;
+      setLoading(true);
       try {
-        // Replace with your actual data fetching logic
-        const loadData = await loadService.getLoadById(id!);
-        setLoad(loadData);
+        // Fetch load
+        const loadDoc = await getDoc(doc(db, 'loads', id));
+        if (!loadDoc.exists()) throw new Error('Load not found');
+        const load = loadDoc.data();
+        setLoad(load as any);
+        // Fetch PO by poNumber
+        if (load.poNumber) {
+          const poQuery = query(collection(db, 'purchaseOrders'), where('poNumber', '==', load.poNumber));
+          const poSnap = await getDocs(poQuery);
+          if (!poSnap.empty) {
+            setPoData(poSnap.docs[0].data());
+          }
+        }
+        // Geocode pickup and delivery addresses
+        const geocode = async (address: string) => {
+          const accessToken = process.env.REACT_APP_MAPBOX_TOKEN;
+          const response = await fetch(
+            `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(address)}.json?access_token=${accessToken}`
+          );
+          const geoData = await response.json();
+          if (geoData.features && geoData.features.length > 0) {
+            return geoData.features[0].center;
+          }
+          return null;
+        };
+        if (poData?.vendorInfo?.streetAddress && poData?.vendorInfo?.cityStateZip) {
+          const pickupAddress = `${poData.vendorInfo.streetAddress}, ${poData.vendorInfo.cityStateZip}`;
+          setPickupCoords(await geocode(pickupAddress));
+        }
+        if (poData?.shipTo?.streetAddress && poData?.shipTo?.cityStateZip) {
+          const deliveryAddress = `${poData.shipTo.streetAddress}, ${poData.shipTo.cityStateZip}`;
+          setDeliveryCoords(await geocode(deliveryAddress));
+        }
       } catch (err) {
         setError('Failed to load load details');
       } finally {
         setLoading(false);
       }
     };
-
-    fetchLoad();
+    fetchLoadAndPO();
   }, [id]);
 
   if (loading) return <div>Loading...</div>;
@@ -204,8 +239,8 @@ const LoadDetails: React.FC = () => {
   return (
     <div className={styles.container}>
       <header className={styles.header}>
-        <h1>{loadData.title}</h1>
-        <span className={styles[loadData.status]}>{loadData.status}</span>
+        <h1>{poData?.title || load?.['title'] || 'Shipment Details'}</h1>
+        <span className={styles[load?.['status'] || '']}>{load?.['status']}</span>
       </header>
 
       <div className={styles.content}>
@@ -215,19 +250,19 @@ const LoadDetails: React.FC = () => {
             <div className={styles.details}>
               <div className={styles.detail}>
                 <label>Shipper:</label>
-                <span>{loadData.shipper}</span>
+                <span>{poData?.companyInfo?.name || load?.['shipper']}</span>
               </div>
               <div className={styles.detail}>
                 <label>Payment:</label>
-                <span>${loadData.payment}</span>
+                <span>${poData?.rate || load?.['payment']}</span>
               </div>
               <div className={styles.detail}>
                 <label>Weight:</label>
-                <span>{loadData.weight}</span>
+                <span>{poData?.items?.reduce((sum: number, item: any) => sum + (item.weight || 0), 0) || load?.['weight']}</span>
               </div>
               <div className={styles.detail}>
                 <label>Dimensions:</label>
-                <span>{loadData.dimensions}</span>
+                <span>{load?.['dimensions']}</span>
               </div>
             </div>
           </div>
@@ -235,18 +270,16 @@ const LoadDetails: React.FC = () => {
           <div className={styles.locationCard}>
             <div className={styles.location}>
               <h3>Pickup</h3>
-              <p>{loadData.pickup.location}</p>
-              <p>{loadData.pickup.time}</p>
-              <span className={styles[loadData.pickup.status]}>
-                {loadData.pickup.status}
+              <p>{poData?.vendorInfo?.streetAddress}, {poData?.vendorInfo?.cityStateZip}</p>
+              <span className={styles[load?.['pickup']?.status || '']}>
+                {load?.['pickup']?.status}
               </span>
             </div>
             <div className={styles.location}>
               <h3>Delivery</h3>
-              <p>{loadData.delivery.location}</p>
-              <p>{loadData.delivery.time}</p>
-              <span className={styles[loadData.delivery.status]}>
-                {loadData.delivery.status}
+              <p>{poData?.shipTo?.streetAddress}, {poData?.shipTo?.cityStateZip}</p>
+              <span className={styles[load?.['delivery']?.status || '']}>
+                {load?.['delivery']?.status}
               </span>
             </div>
           </div>
@@ -256,32 +289,8 @@ const LoadDetails: React.FC = () => {
           <h2>Route Map</h2>
           <div className={styles.mapContainer}>
             <MapboxMap
-              center={load.pickupLocation.position}
-              zoom={10}
-              markers={[
-                {
-                  id: 'pickup',
-                  position: load.pickupLocation.position,
-                  type: 'shipper',
-                  onClick: () => {
-                    console.log('Pickup location clicked:', load.pickupLocation);
-                  }
-                },
-                {
-                  id: 'delivery',
-                  position: load.deliveryLocation.position,
-                  type: 'shipper',
-                  onClick: () => {
-                    console.log('Delivery location clicked:', load.deliveryLocation);
-                  }
-                }
-              ]}
-              onMapLoad={(map) => {
-                const bounds = new mapboxgl.LngLatBounds();
-                bounds.extend(load.pickupLocation.position);
-                bounds.extend(load.deliveryLocation.position);
-                map.fitBounds(bounds, { padding: 50 });
-              }}
+              pickupLocation={pickupCoords || undefined}
+              deliveryLocation={deliveryCoords || undefined}
             />
           </div>
         </section>

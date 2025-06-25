@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styles from './PurchaseOrders.module.css';
 import { db } from '../../firebase';
-import { collection, getDocs, doc, updateDoc, deleteDoc, query, where } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, deleteDoc, query, where, getDoc, setDoc } from 'firebase/firestore';
 import { PurchaseOrderForm } from '../../components/shipper/forms/PurchaseOrderForm';
 
 enum PurchaseOrderStatus {
@@ -84,8 +84,8 @@ const PurchaseOrders: React.FC = () => {
   const handleEditSave = async (data: any) => {
     if (!editingPO) return;
     const poRef = doc(db, 'purchaseOrders', editingPO.id!);
-    await updateDoc(poRef, data);
-    setOrders(orders => orders.map(o => o.id === editingPO.id ? { ...o, ...data } : o));
+    await updateDoc(poRef, { ...data, userId: editingPO.userId });
+    setOrders(orders => orders.map(o => o.id === editingPO.id ? { ...o, ...data, userId: editingPO.userId } : o));
     setEditingPO(null);
   };
   const handleDelete = (id: string) => setConfirmDeleteId(id);
@@ -112,10 +112,36 @@ const PurchaseOrders: React.FC = () => {
       loadDeletes.push(deleteDoc(doc(db, 'loads', loadDoc.id)));
     });
     await Promise.all(loadDeletes);
+    // Delete related notifications (partner requests)
+    const notificationsSnapshot = await getDocs(query(collection(db, 'notifications'), where('poNumber', '==', poNumber)));
+    const notificationDeletes: Promise<any>[] = [];
+    notificationsSnapshot.forEach(notificationDoc => {
+      notificationDeletes.push(deleteDoc(doc(db, 'notifications', notificationDoc.id)));
+    });
+    await Promise.all(notificationDeletes);
     setOrders(orders => orders.filter(o => o.id !== id && o.poNumber !== poNumber));
     setConfirmDeleteId(null);
   };
   const cancelDelete = () => setConfirmDeleteId(null);
+
+  const handleCompletePO = async (order: any) => {
+    try {
+      // Move the PO to the 'poArchive' collection
+      const poRef = doc(db, 'purchaseOrders', order.id);
+      const poSnap = await getDoc(poRef);
+      if (poSnap.exists()) {
+        const poData = poSnap.data();
+        const archiveRef = doc(collection(db, 'poArchive'));
+        await setDoc(archiveRef, { ...poData, archivedAt: new Date().toISOString() });
+        await deleteDoc(poRef);
+        // Refresh the list (fallback: reload page if no refresh function)
+        window.location.reload();
+      }
+    } catch (err) {
+      console.error('Error archiving PO:', err);
+      alert('Failed to archive PO.');
+    }
+  };
 
   // Mobile card renderer
   const renderMobileCard = (order: PurchaseOrder) => (
@@ -140,13 +166,16 @@ const PurchaseOrders: React.FC = () => {
       <div className={styles.cardActions}>
         <button className={styles.actionButton} onClick={() => handleView(order)}>View</button>
         <button className={styles.actionButton} onClick={() => handleEdit(order)}>Edit</button>
-        <button className={`${styles.actionButton} ${styles.deleteButton}`} onClick={() => handleDelete(order.id!)}>Delete</button>
-        {confirmDeleteId === order.id && (
-          <div className={styles.confirmDialog}>
-            <span>Are you sure you want to delete this PO?</span>
-            <button className={styles.actionButton} onClick={() => confirmDelete(order.id!)}>Yes</button>
-            <button className={styles.actionButton} onClick={cancelDelete}>No</button>
-          </div>
+        {order.status === 'Completed' ? (
+          <button
+            className={styles.completeButton}
+            style={{ backgroundColor: '#28a745', color: 'white' }}
+            onClick={() => handleCompletePO(order)}
+          >
+            Complete PO
+          </button>
+        ) : (
+          <button className={styles.deleteButton} onClick={() => handleDelete(order.id!)}>Delete</button>
         )}
       </div>
     </div>
@@ -232,13 +261,16 @@ const PurchaseOrders: React.FC = () => {
                     <div className={styles.actions}>
                       <button className={styles.actionButton} onClick={() => handleView(order)}>View</button>
                       <button className={styles.actionButton} onClick={() => handleEdit(order)}>Edit</button>
-                      <button className={`${styles.actionButton} ${styles.deleteButton}`} onClick={() => handleDelete(order.id!)}>Delete</button>
-                      {confirmDeleteId === order.id && (
-                        <div className={styles.confirmDialog}>
-                          <span>Are you sure you want to delete this PO?</span>
-                          <button className={styles.actionButton} onClick={() => confirmDelete(order.id!)}>Yes</button>
-                          <button className={styles.actionButton} onClick={cancelDelete}>No</button>
-                        </div>
+                      {order.status === 'Completed' ? (
+                        <button
+                          className={styles.completeButton}
+                          style={{ backgroundColor: '#28a745', color: 'white' }}
+                          onClick={() => handleCompletePO(order)}
+                        >
+                          Complete PO
+                        </button>
+                      ) : (
+                        <button className={styles.deleteButton} onClick={() => handleDelete(order.id!)}>Delete</button>
                       )}
                     </div>
                   </td>
@@ -283,6 +315,17 @@ const PurchaseOrders: React.FC = () => {
               onCancel={() => setEditingPO(null)}
               initialData={editingPO}
             />
+          </div>
+        </div>
+      )}
+      {confirmDeleteId && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modalContent}>
+            <div className={styles.modalMessage}>Are you sure you want to delete this PO?</div>
+            <div className={styles.modalActions}>
+              <button className={styles.confirmButton} onClick={() => confirmDelete(confirmDeleteId)}>Yes</button>
+              <button className={styles.confirmButton} onClick={cancelDelete}>No</button>
+            </div>
           </div>
         </div>
       )}
