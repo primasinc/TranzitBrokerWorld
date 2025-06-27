@@ -166,12 +166,23 @@ export const updateLoadRequestStatus = async (
       updatedAt: serverTimestamp(),
       poNumber: poNumber || '',
     };
+    
+    // Validate that carrierId is not the same as shipperId
+    if (loadData.carrierId === loadData.shipperId) {
+      console.error('[updateLoadRequestStatus] carrierId cannot be the same as shipperId:', { 
+        carrierId: loadData.carrierId, 
+        shipperId: loadData.shipperId 
+      });
+      throw new Error('Invalid carrier assignment: carrierId matches shipperId');
+    }
+    
     console.log('[updateLoadRequestStatus] Creating load for carrier:', loadData);
     if (loadData.carrierId && loadData.shipperId && loadData.poNumber) {
       await addDoc(loadsRef, loadData);
-      console.log('[updateLoadRequestStatus] Load successfully created for carrier.');
+      console.log('[updateLoadRequestStatus] Load successfully created for carrier with carrierId:', loadData.carrierId);
     } else {
       console.error('[updateLoadRequestStatus] Missing required fields for load:', loadData);
+      throw new Error('Missing required fields for load creation');
     }
     // Notify the shipper
     if (notifData?.shipperId) {
@@ -296,6 +307,13 @@ export const acceptLoadForPO = async (
   isPartnered: boolean
 ) => {
   console.log('[acceptLoadForPO] Called with:', { poNumber, carrierId, isPartnered });
+  
+  // Validate inputs
+  if (!poNumber || !carrierId) {
+    console.error('[acceptLoadForPO] Missing required parameters:', { poNumber, carrierId });
+    throw new Error('Missing required parameters');
+  }
+
   // 1. Find PO by poNumber
   const poSnapshot = await getDocs(query(collection(db, 'purchaseOrders'), where('poNumber', '==', poNumber)));
   if (poSnapshot.empty) {
@@ -304,6 +322,13 @@ export const acceptLoadForPO = async (
   }
   const poDoc = poSnapshot.docs[0];
   const poId = poDoc.id;
+  const poData = poDoc.data();
+
+  // Validate that carrierId is not the same as the shipper's userId
+  if (poData.userId === carrierId) {
+    console.error('[acceptLoadForPO] carrierId cannot be the same as shipper userId:', { carrierId, shipperUserId: poData.userId });
+    throw new Error('Invalid carrier assignment: carrierId matches shipper userId');
+  }
 
   // 2. Fetch carrier profile
   let carrierProfile: Record<string, any> = {};
@@ -336,7 +361,7 @@ export const acceptLoadForPO = async (
   // 5. Update PO summary fields
   try {
     // Use selectedCarrier.id to determine if this is a partnered carrier request
-    const poSelectedCarrier = poDoc.data().selectedCarrier;
+    const poSelectedCarrier = poData.selectedCarrier;
     const isPartneredFinal = isPartnered || (poSelectedCarrier && poSelectedCarrier.id === carrierId);
     await updateDoc(doc(db, 'purchaseOrders', poId), {
       shippingScheduleStatus: isPartneredFinal ? 'Active' : 'Carrier Review',
@@ -350,22 +375,36 @@ export const acceptLoadForPO = async (
 
   // 6. Update the corresponding load in 'loads' collection to set carrierId
   try {
-    if (poDoc.data().poNumber) {
+    if (poData.poNumber) {
       const loadsQuery = query(
         collection(db, 'loads'),
-        where('poNumber', '==', poDoc.data().poNumber)
+        where('poNumber', '==', poData.poNumber)
       );
       const loadsSnap = await getDocs(loadsQuery);
       if (!loadsSnap.empty) {
         const loadDocRef = doc(db, 'loads', loadsSnap.docs[0].id);
+        const loadData = loadsSnap.docs[0].data();
+        
+        // Validate that we're not overwriting with the wrong carrierId
+        if (loadData.carrierId && loadData.carrierId !== carrierId) {
+          console.warn('[acceptLoadForPO] Load already has different carrierId:', { 
+            existing: loadData.carrierId, 
+            new: carrierId 
+          });
+        }
+        
         await updateDoc(loadDocRef, {
           carrierId: carrierId,
+          shippingScheduleStatus: 'Active',
           updatedAt: serverTimestamp()
         });
-        console.log('[acceptLoadForPO] Updated load with carrierId for permissions.');
+        console.log('[acceptLoadForPO] Updated load with carrierId and status for permissions:', carrierId);
+      } else {
+        console.warn('[acceptLoadForPO] No load found for poNumber:', poData.poNumber);
       }
     }
   } catch (err) {
     console.error('[acceptLoadForPO] Error updating load with carrierId:', err);
+    throw new Error('Failed to update load with carrier assignment');
   }
 }; 

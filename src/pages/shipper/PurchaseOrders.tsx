@@ -94,52 +94,104 @@ const PurchaseOrders: React.FC = () => {
     const poToDelete = orders.find(o => o.id === id);
     if (!poToDelete) return;
     const poNumber = poToDelete.poNumber;
-    // Delete from purchaseOrders
-    await deleteDoc(doc(db, 'purchaseOrders', id));
-    // Delete from shipping schedule (purchaseOrders collection, matching poNumber)
-    const schedulesSnapshot = await getDocs(query(collection(db, 'purchaseOrders'), where('poNumber', '==', poNumber)));
-    const batchDeletes: Promise<any>[] = [];
-    schedulesSnapshot.forEach(docSnap => {
-      if (docSnap.id !== id) { // Don't double-delete the same doc
-        batchDeletes.push(deleteDoc(doc(db, 'purchaseOrders', docSnap.id)));
-      }
-    });
-    await Promise.all(batchDeletes);
-    // Delete from loads collection (cleanup orphaned loads)
-    const loadsSnapshot = await getDocs(query(collection(db, 'loads'), where('poNumber', '==', poNumber)));
-    const loadDeletes: Promise<any>[] = [];
-    loadsSnapshot.forEach(loadDoc => {
-      loadDeletes.push(deleteDoc(doc(db, 'loads', loadDoc.id)));
-    });
-    await Promise.all(loadDeletes);
-    // Delete related notifications (partner requests)
-    const notificationsSnapshot = await getDocs(query(collection(db, 'notifications'), where('poNumber', '==', poNumber)));
-    const notificationDeletes: Promise<any>[] = [];
-    notificationsSnapshot.forEach(notificationDoc => {
-      notificationDeletes.push(deleteDoc(doc(db, 'notifications', notificationDoc.id)));
-    });
-    await Promise.all(notificationDeletes);
-    setOrders(orders => orders.filter(o => o.id !== id && o.poNumber !== poNumber));
-    setConfirmDeleteId(null);
+    
+    try {
+      // Mark the PO as cancelled instead of deleting it
+      const poRef = doc(db, 'purchaseOrders', id);
+      await updateDoc(poRef, {
+        status: 'Cancelled',
+        shippingScheduleStatus: 'Cancelled',
+        cancelledAt: new Date().toISOString(),
+      });
+      
+      // Mark related POs with the same poNumber as cancelled
+      const schedulesSnapshot = await getDocs(query(collection(db, 'purchaseOrders'), where('poNumber', '==', poNumber)));
+      const batchUpdates: Promise<any>[] = [];
+      schedulesSnapshot.forEach(docSnap => {
+        if (docSnap.id !== id) { // Don't double-update the same doc
+          batchUpdates.push(updateDoc(doc(db, 'purchaseOrders', docSnap.id), {
+            status: 'Cancelled',
+            shippingScheduleStatus: 'Cancelled',
+            cancelledAt: new Date().toISOString(),
+          }));
+        }
+      });
+      await Promise.all(batchUpdates);
+      
+      // Mark related loads as cancelled
+      const loadsSnapshot = await getDocs(query(collection(db, 'loads'), where('poNumber', '==', poNumber)));
+      const loadUpdates: Promise<any>[] = [];
+      loadsSnapshot.forEach(loadDoc => {
+        loadUpdates.push(updateDoc(doc(db, 'loads', loadDoc.id), {
+          status: 'cancelled',
+          cancelledAt: new Date().toISOString(),
+        }));
+      });
+      await Promise.all(loadUpdates);
+      
+      // Mark related notifications as cancelled
+      const notificationsSnapshot = await getDocs(query(collection(db, 'notifications'), where('poNumber', '==', poNumber)));
+      const notificationUpdates: Promise<any>[] = [];
+      notificationsSnapshot.forEach(notificationDoc => {
+        notificationUpdates.push(updateDoc(doc(db, 'notifications', notificationDoc.id), {
+          status: 'cancelled',
+          cancelledAt: new Date().toISOString(),
+        }));
+      });
+      await Promise.all(notificationUpdates);
+      
+      // Update local state to reflect the status change
+      setOrders(orders => orders.map(o => 
+        o.id === id || o.poNumber === poNumber 
+          ? { ...o, status: 'Cancelled', shippingScheduleStatus: 'Cancelled' }
+          : o
+      ));
+      setConfirmDeleteId(null);
+    } catch (error) {
+      console.error('Error cancelling PO:', error);
+      alert('Failed to cancel PO. Please try again.');
+    }
   };
   const cancelDelete = () => setConfirmDeleteId(null);
 
   const handleCompletePO = async (order: any) => {
     try {
-      // Move the PO to the 'poArchive' collection
+      console.log('[handleCompletePO] Completing PO:', order.poNumber, order.id);
+      // Update the PO status to 'Completed' in 'purchaseOrders'
       const poRef = doc(db, 'purchaseOrders', order.id);
+      await updateDoc(poRef, {
+        status: 'Completed',
+        shippingScheduleStatus: 'Completed',
+        completedAt: new Date().toISOString(),
+      });
+      // Optionally, copy the PO to the 'poArchive' collection for historical purposes
       const poSnap = await getDoc(poRef);
       if (poSnap.exists()) {
         const poData = poSnap.data();
         const archiveRef = doc(collection(db, 'poArchive'));
         await setDoc(archiveRef, { ...poData, archivedAt: new Date().toISOString() });
-        await deleteDoc(poRef);
-        // Refresh the list (fallback: reload page if no refresh function)
-        window.location.reload();
       }
+      // Update all related loads to completed
+      if (order.poNumber) {
+        const loadsSnapshot = await getDocs(query(collection(db, 'loads'), where('poNumber', '==', order.poNumber)));
+        console.log('[handleCompletePO] Loads found for poNumber', order.poNumber, ':', loadsSnapshot.size);
+        const loadUpdates: Promise<any>[] = [];
+        loadsSnapshot.forEach(loadDoc => {
+          console.log('[handleCompletePO] Updating load:', loadDoc.id);
+          loadUpdates.push(updateDoc(doc(db, 'loads', loadDoc.id), {
+            status: 'completed',
+            shippingScheduleStatus: 'Completed',
+            completedAt: new Date().toISOString(),
+          }));
+        });
+        await Promise.all(loadUpdates);
+        console.log('[handleCompletePO] All related loads updated.');
+      }
+      // Refresh the list (fallback: reload page if no refresh function)
+      window.location.reload();
     } catch (err) {
-      console.error('Error archiving PO:', err);
-      alert('Failed to archive PO.');
+      console.error('[handleCompletePO] Error completing PO:', err);
+      alert('Failed to complete PO.');
     }
   };
 

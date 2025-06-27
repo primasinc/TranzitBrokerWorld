@@ -6,7 +6,7 @@ import { loadService } from '../../services/loadService';
 import { LoadDetailsSkeleton } from '../../components/LoadingSkeleton';
 import mapboxgl from 'mapbox-gl';
 import styles from './LoadDetails.module.css';
-import { collection, getDocs, doc, getDoc, query, where } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, query, where, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 
 interface LoadStatus {
@@ -236,6 +236,22 @@ const LoadDetails: React.FC = () => {
     }
   };
 
+  const handleMarkDelayed = async () => {
+    if (!id) return;
+    setIsUpdating(true);
+    try {
+      // Update the load status to 'Delayed'
+      const loadRef = doc(db, 'loads', id);
+      await updateDoc(loadRef, { status: 'Delayed', updatedAt: new Date() });
+      setNewStatus('Delayed');
+      setIsUpdating(false);
+      alert('Status set to Delayed.');
+    } catch (err) {
+      setIsUpdating(false);
+      alert('Failed to set status to Delayed.');
+    }
+  };
+
   return (
     <div className={styles.container}>
       <header className={styles.header}>
@@ -327,6 +343,14 @@ const LoadDetails: React.FC = () => {
               disabled={isLoading}
             >
               {isLoading ? 'Updating...' : 'Add Update'}
+            </button>
+            <button 
+              className={styles.updateButton}
+              onClick={handleMarkDelayed}
+              disabled={isUpdating}
+              style={{ marginLeft: 8 }}
+            >
+              Mark as Delayed
             </button>
           </div>
 

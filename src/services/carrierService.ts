@@ -85,11 +85,33 @@ export const createCarrier = async (
 
 export const getCarrier = async (carrierId: string): Promise<any | null> => {
   try {
-    const carrierRef = doc(db, 'users', carrierId);
-    const carrierSnap = await getDoc(carrierRef);
-    if (carrierSnap.exists()) {
-      return carrierSnap.data();
+    console.log('[getCarrier] Looking up carrierId:', carrierId);
+    
+    // Try to get from 'carriers' collection by userId
+    const carriersQuery = query(
+      collection(db, 'carriers'),
+      where('userId', '==', carrierId),
+      limit(1)
+    );
+    const carriersSnap = await getDocs(carriersQuery);
+    if (!carriersSnap.empty) {
+      const carrierData = carriersSnap.docs[0].data();
+      console.log('[getCarrier] Found in carriers collection:', carrierData);
+      return carrierData;
     }
+    
+    console.log('[getCarrier] Not found in carriers collection, trying users collection...');
+    
+    // Fallback: Try to get from 'users' collection by userId
+    const userRef = doc(db, 'users', carrierId);
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists()) {
+      const userData = userSnap.data();
+      console.log('[getCarrier] Found in users collection:', userData);
+      return userData;
+    }
+    
+    console.warn('[getCarrier] Carrier not found in either collection for carrierId:', carrierId);
     return null;
   } catch (error) {
     console.error('Error fetching carrier:', error);

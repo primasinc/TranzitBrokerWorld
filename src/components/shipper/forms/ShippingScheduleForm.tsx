@@ -260,6 +260,33 @@ const ShippingScheduleForm: React.FC = () => {
           dimensions: data.cargoDetails.dimensions,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
+          isMarketplace: true // Explicitly set for marketplace
+        };
+        await addDoc(collection(db, 'loads'), loadDoc);
+        navigate('/shipper/loads');
+      } else if (selectedOption === 'carrier') {
+        // Create a load for a partner request
+        const poData = locationState?.poData || {};
+        const pickupLocation = {
+          ...data.pickupLocation,
+          position: poData.vendorInfo?.position || [0, 0],
+        };
+        const deliveryLocation = {
+          ...data.deliveryLocation,
+          position: poData.shipTo?.position || [0, 0],
+        };
+        const loadDoc = {
+          title: poData.title || poData.poNumber || 'Partner Request Load',
+          pickupLocation,
+          deliveryLocation,
+          rate: poData.rate || 0,
+          status: 'open',
+          poNumber: poData.poNumber || '',
+          weight: data.cargoDetails.weight,
+          dimensions: data.cargoDetails.dimensions,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          isMarketplace: false // Explicitly set for partner request
         };
         await addDoc(collection(db, 'loads'), loadDoc);
         navigate('/shipper/loads');

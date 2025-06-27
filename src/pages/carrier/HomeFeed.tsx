@@ -76,7 +76,7 @@ const HomeFeed: React.FC = () => {
     hasMore: hasMoreLoads,
     loadMore: loadMoreLoads
   } = useAvailableLoads(
-    null, // carrierLocation - will be set when location is available
+    userLocation, // Pass user location for location-based filtering
     100, // radiusMiles
     getOptimalPageSize(isLowBandwidth || isLowBattery ? 5 : 10) // Dynamic page size based on conditions
   );
@@ -334,23 +334,23 @@ const HomeFeed: React.FC = () => {
                   <div>Loading available loads...</div>
                 ) : loadsError ? (
                   <div>Error loading loads: {loadsError}</div>
-                ) : availableLoads.length === 0 ? (
+                ) : availableLoads.filter(load => load.isMarketplace === true).length === 0 ? (
                   <div>No available loads in your area.</div>
                 ) : (
                   <>
                     {availableLoads
-                      .filter(load => load && load.pickupLocation && load.deliveryLocation && load.pickupLocation.address && load.deliveryLocation.address)
+                      .filter(load => load.isMarketplace === true && load && load.pickupLocation && load.deliveryLocation && load.pickupLocation.address && load.deliveryLocation.address)
                       .map((load) => (
-                      <div key={load.id} className={styles.loadCard}>
-                        <h3>{load.title}</h3>
-                        <p>Pickup: {load.pickupLocation.address}</p>
-                        <p>Delivery: {load.deliveryLocation.address}</p>
-                        <p>Rate: {load.rate ? `$${load.rate.toLocaleString()}` : '—'}</p>
-                        <button onClick={() => console.log('View details:', load)}>
-                          View Details
-                        </button>
-                      </div>
-                    ))}
+                        <div key={load.id} className={styles.loadCard}>
+                          <h3>{load.title}</h3>
+                          <p>Pickup: {load.pickupLocation.address}</p>
+                          <p>Delivery: {load.deliveryLocation.address}</p>
+                          <p>Rate: {load.rate ? `$${load.rate.toLocaleString()}` : '—'}</p>
+                          <button onClick={() => console.log('View details:', load)}>
+                            View Details
+                          </button>
+                        </div>
+                      ))}
                     {hasMoreLoads && (
                       <button 
                         onClick={loadMoreLoads}

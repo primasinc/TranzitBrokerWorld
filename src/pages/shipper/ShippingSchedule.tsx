@@ -170,68 +170,108 @@ const ShippingSchedule: React.FC = () => {
 
   const handleApproveCarrier = async () => {
     if (!reviewOrderId || !reviewCarrierId || !reviewCarrierProfile) return;
+    
+    // Validate that reviewCarrierId is not the same as the shipper's userId
     const scheduleRef = doc(db, 'purchaseOrders', reviewOrderId);
-    // Set approvedCarrier, status to Active, clear pendingCarrier
-    await updateDoc(scheduleRef, {
-      approvedCarrier: {
-        id: reviewCarrierId,
-        companyName: reviewCarrierProfile.companyName || '',
-        email: reviewCarrierProfile.email || '',
-        phone: reviewCarrierProfile.phoneNumber || '',
-        mcNumber: reviewCarrierProfile.mcNumber || '',
-        dotNumber: reviewCarrierProfile.dotNumber || '',
-      },
-      status: 'Active',
-      shippingScheduleStatus: 'Active',
-      pendingCarrier: null
-    });
-    // --- Update the corresponding load in 'loads' collection ---
     const poDoc = await getDoc(scheduleRef);
     const poData = poDoc.data();
-    if (poData && poData.poNumber) {
-      // Fetch the shipper's name from the users collection
-      let shipperName = '';
-      if (poData.shipperId) {
-        const shipperDoc = await getDoc(doc(db, 'users', poData.shipperId));
-        if (shipperDoc.exists()) {
-          const shipperData = shipperDoc.data();
-          shipperName = shipperData.companyName || shipperData.displayName || '';
+    
+    if (!poData) {
+      console.error('[handleApproveCarrier] PO data not found for:', reviewOrderId);
+      alert('Purchase order data not found. Please try again.');
+      return;
+    }
+    
+    if (poData.userId === reviewCarrierId) {
+      console.error('[handleApproveCarrier] carrierId cannot be the same as shipper userId:', { 
+        carrierId: reviewCarrierId, 
+        shipperUserId: poData.userId 
+      });
+      alert('Invalid carrier assignment: Cannot assign shipper as carrier.');
+      return;
+    }
+    
+    try {
+      // Set approvedCarrier, status to Active, clear pendingCarrier
+      await updateDoc(scheduleRef, {
+        approvedCarrier: {
+          id: reviewCarrierId,
+          companyName: reviewCarrierProfile.companyName || '',
+          email: reviewCarrierProfile.email || '',
+          phone: reviewCarrierProfile.phoneNumber || '',
+          mcNumber: reviewCarrierProfile.mcNumber || '',
+          dotNumber: reviewCarrierProfile.dotNumber || '',
+        },
+        status: 'Active',
+        shippingScheduleStatus: 'Active',
+        pendingCarrier: null
+      });
+      
+      // --- Update the corresponding load in 'loads' collection ---
+      if (poData.poNumber) {
+        // Fetch the shipper's name from the users collection
+        let shipperName = '';
+        if (poData.shipperId) {
+          const shipperDoc = await getDoc(doc(db, 'users', poData.shipperId));
+          if (shipperDoc.exists()) {
+            const shipperData = shipperDoc.data();
+            shipperName = shipperData.companyName || shipperData.displayName || '';
+          }
+        }
+        
+        const loadsQuery = query(
+          collection(db, 'loads'),
+          where('poNumber', '==', poData.poNumber)
+        );
+        const loadsSnap = await getDocs(loadsQuery);
+        
+        if (!loadsSnap.empty) {
+          const loadDocRef = doc(db, 'loads', loadsSnap.docs[0].id);
+          const loadData = loadsSnap.docs[0].data();
+          
+          // Validate that we're not overwriting with the wrong carrierId
+          if (loadData.carrierId && loadData.carrierId !== reviewCarrierId) {
+            console.warn('[handleApproveCarrier] Load already has different carrierId:', { 
+              existing: loadData.carrierId, 
+              new: reviewCarrierId 
+            });
+          }
+          
+          await updateDoc(loadDocRef, {
+            carrierId: reviewCarrierId,
+            status: 'active',
+            updatedAt: serverTimestamp(),
+            // Fill in all relevant info from PO
+            pickup: {
+              location: poData.vendorInfo?.streetAddress || '',
+              time: poData.date || '',
+              status: 'pending'
+            },
+            delivery: {
+              location: poData.shipTo?.streetAddress || '',
+              time: poData.date || '',
+              status: 'pending'
+            },
+            payment: poData.rate || 0,
+            weight: poData.items?.reduce((sum: number, item: any) => sum + (item.weight || 0), 0) || '',
+            dimensions: poData.items && poData.items.length > 0
+              ? `${poData.items[0].length || ''}x${poData.items[0].width || ''}x${poData.items[0].height || ''}`
+              : '',
+            poNumber: poData.poNumber || '',
+            shipper: shipperName
+          });
+          console.log('[handleApproveCarrier] Updated load with carrierId:', reviewCarrierId);
+        } else {
+          console.warn('[handleApproveCarrier] No load found for poNumber:', poData.poNumber);
         }
       }
-      const loadsQuery = query(
-        collection(db, 'loads'),
-        where('poNumber', '==', poData.poNumber)
-      );
-      const loadsSnap = await getDocs(loadsQuery);
-      if (!loadsSnap.empty) {
-        const loadDocRef = doc(db, 'loads', loadsSnap.docs[0].id);
-        await updateDoc(loadDocRef, {
-          carrierId: reviewCarrierId,
-          status: 'active',
-          updatedAt: serverTimestamp(),
-          // Fill in all relevant info from PO
-          pickup: {
-            location: poData.vendorInfo?.streetAddress || '',
-            time: poData.date || '',
-            status: 'pending'
-          },
-          delivery: {
-            location: poData.shipTo?.streetAddress || '',
-            time: poData.date || '',
-            status: 'pending'
-          },
-          payment: poData.rate || 0,
-          weight: poData.items?.reduce((sum: number, item: any) => sum + (item.weight || 0), 0) || '',
-          dimensions: poData.items && poData.items.length > 0
-            ? `${poData.items[0].length || ''}x${poData.items[0].width || ''}x${poData.items[0].height || ''}`
-            : '',
-          poNumber: poData.poNumber || '',
-          shipper: shipperName
-        });
-      }
+      
+      setShowCarrierReview(false);
+      refreshShipments();
+    } catch (error) {
+      console.error('[handleApproveCarrier] Error approving carrier:', error);
+      alert('Failed to approve carrier. Please try again.');
     }
-    setShowCarrierReview(false);
-    refreshShipments();
   };
 
   const handleRejectCarrier = async () => {

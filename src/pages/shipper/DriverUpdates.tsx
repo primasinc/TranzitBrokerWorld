@@ -136,12 +136,42 @@ const DriverUpdates: React.FC = () => {
               return null; // Skip this update
             }
 
-            // Determine status for display
-            let status = 'N/A';
-            if (data.status === 'in_transit' || data.status === 'in_progress') {
-              status = 'En Route - Pickup';
-            } else if (data.status === 'delayed') {
+            // Get pickup and delivery coordinates from PO
+            let pickupCoords: [number, number] | undefined = undefined;
+            let deliveryCoords: [number, number] | undefined = undefined;
+            if (data.poNumber) {
+              try {
+                const poQuery = query(collection(db, 'purchaseOrders'), where('poNumber', '==', data.poNumber));
+                const poSnap = await getDocs(poQuery);
+                if (!poSnap.empty) {
+                  const poData = poSnap.docs[0].data();
+                  // Try pickupLocation.position or vendorInfo.position
+                  if (poData.pickupLocation && Array.isArray(poData.pickupLocation.position)) {
+                    pickupCoords = poData.pickupLocation.position;
+                  } else if (poData.vendorInfo && Array.isArray(poData.vendorInfo.position)) {
+                    pickupCoords = poData.vendorInfo.position;
+                  }
+                  // Try deliveryLocation.position or shipTo.position
+                  if (poData.deliveryLocation && Array.isArray(poData.deliveryLocation.position)) {
+                    deliveryCoords = poData.deliveryLocation.position;
+                  } else if (poData.shipTo && Array.isArray(poData.shipTo.position)) {
+                    deliveryCoords = poData.shipTo.position;
+                  }
+                }
+              } catch (err) {
+                // Ignore errors
+              }
+            }
+
+            // Default status
+            let status = 'En Route - Pickup';
+            // Manual Delayed status overrides all
+            if (data.status === 'Delayed') {
               status = 'Delayed';
+            } else if (data.status === 'Completed') {
+              status = 'Completed';
+            } else if (data.status === 'in_transit' || data.status === 'in_progress') {
+              status = 'En Route - Pickup';
             } else if (data.status) {
               status = data.status;
             }
@@ -149,27 +179,126 @@ const DriverUpdates: React.FC = () => {
             // Get carrier details if available
             let carrierName = 'N/A';
             let carrierId = data.carrier?.id;
-            if (load?.carrierId) {
-              const carrierDocSnap = await getDoc(doc(db, 'carriers', load.carrierId));
-              if (carrierDocSnap.exists()) {
-                const carrierData: any = carrierDocSnap.data();
-                carrierName = carrierData.companyName || 'N/A';
-                carrierId = load.carrierId;
+            let location = 'N/A';
+            let coordinates: [number, number] | undefined = undefined;
+            let poApprovedCarrier = undefined;
+            if (data.poNumber) {
+              try {
+                const poQuery = query(collection(db, 'purchaseOrders'), where('poNumber', '==', data.poNumber));
+                const poSnap = await getDocs(poQuery);
+                if (!poSnap.empty) {
+                  const poData = poSnap.docs[0].data();
+                  poApprovedCarrier = poData.approvedCarrier;
+                }
+              } catch (err) {
+                // Ignore errors
               }
             }
+            
+            console.log('[DriverUpdates] Processing shipment:', {
+              shipmentId: shipmentDoc.id,
+              poNumber: data.poNumber,
+              dataCarrierId: data.carrier?.id,
+              loadCarrierId: load?.carrierId,
+              loadData: load
+            });
+            
+            if (load?.carrierId) {
+              console.log('[DriverUpdates] Load has carrierId:', load.carrierId);
+              // Use global getCarrier utility for robust lookup
+              const carrierProfile = await getCarrier(load.carrierId);
+              console.log('[DriverUpdates] getCarrier result for', load.carrierId, ':', carrierProfile);
+              
+              if (carrierProfile) {
+                carrierName = carrierProfile.companyName || carrierProfile.displayName || 'N/A';
+                carrierId = load.carrierId;
+                console.log('[DriverUpdates] Set carrier name from profile:', {
+                  carrierId: load.carrierId,
+                  companyName: carrierProfile.companyName,
+                  displayName: carrierProfile.displayName,
+                  finalCarrierName: carrierName
+                });
+              } else {
+                console.warn('[DriverUpdates] No carrier profile found for carrierId:', load.carrierId);
+              }
+              // 1. Try ELD location
+              const eldLocRef = doc(db, 'eldLocations', load.carrierId);
+              const eldLocSnap = await getDoc(eldLocRef);
+              if (eldLocSnap.exists()) {
+                const eldLoc = eldLocSnap.data();
+                if (eldLoc.lat && eldLoc.lng) {
+                  coordinates = [eldLoc.lng, eldLoc.lat];
+                  location = eldLoc.city && eldLoc.state ? `${eldLoc.city}, ${eldLoc.state}` : `${eldLoc.lat.toFixed(4)}, ${eldLoc.lng.toFixed(4)}`;
+                }
+              } else {
+                // 2. Fallback to mobile app location
+                const mobLocRef = doc(db, 'locations', load.carrierId);
+                const mobLocSnap = await getDoc(mobLocRef);
+                if (mobLocSnap.exists()) {
+                  const mobLoc = mobLocSnap.data();
+                  // Support both lat/lng fields and position array
+                  let lat = mobLoc.lat;
+                  let lng = mobLoc.lng;
+                  if ((lat === undefined || lng === undefined) && Array.isArray(mobLoc.position) && mobLoc.position.length === 2) {
+                    lng = mobLoc.position[0];
+                    lat = mobLoc.position[1];
+                  }
+                  if (lat !== undefined && lng !== undefined) {
+                    coordinates = [lng, lat];
+                    if (mobLoc.city && mobLoc.state) {
+                      location = `${mobLoc.city}, ${mobLoc.state}`;
+                    } else {
+                      // Try reverse geocoding to get city/state
+                      try {
+                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+                        if (response.ok) {
+                          const geoData = await response.json();
+                          const address = geoData.address || {};
+                          const city = address.city || address.town || address.village || address.hamlet || '';
+                          const state = address.state || '';
+                          if (city && state) {
+                            location = `${city}, ${state}`;
+                          } else {
+                            location = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                          }
+                        } else {
+                          location = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                        }
+                      } catch (err) {
+                        location = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            if (location === 'N/A') {
+              // 3. Fallback to shipment origin
+              location = data.origin || 'N/A';
+            }
 
-            return {
+            // Fallback: use PO's approvedCarrier if carrierName is still N/A
+            if (carrierName === 'N/A' && poApprovedCarrier && poApprovedCarrier.companyName) {
+              carrierName = poApprovedCarrier.companyName;
+              carrierId = poApprovedCarrier.id;
+            }
+
+            const finalUpdate = {
               driverId: carrierId || shipmentDoc.id,
               driverName: carrierName,
-              location: data.origin || 'N/A',
+              location,
               status,
               lastUpdate: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toLocaleString() : 'N/A',
               eta: 'N/A', // Placeholder for ETA logic
               load: data.poNumber || 'N/A',
               carrierId: carrierId,
-              pickupCoords: data.pickupCoords,
-              deliveryCoords: data.deliveryCoords,
+              pickupCoords: pickupCoords,
+              deliveryCoords: deliveryCoords,
             };
+            
+            console.log('[DriverUpdates] Final update object for PO', data.poNumber, ':', finalUpdate);
+            
+            return finalUpdate;
           }));
 
           setUpdates(updatesList.filter((u): u is DriverUpdate => Boolean(u)));

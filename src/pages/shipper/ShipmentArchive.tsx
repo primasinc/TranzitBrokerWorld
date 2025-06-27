@@ -47,21 +47,45 @@ const ShipmentArchive: React.FC = () => {
     setError(null);
     try {
       const userId = user.uid;
-      const q = query(collection(db, 'poArchive'), where('userId', '==', userId));
-      const snapshot = await getDocs(q);
-      let pos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      // Fetch POs from poArchive collection
+      const archiveQuery = query(collection(db, 'poArchive'), where('userId', '==', userId));
+      const archiveSnapshot = await getDocs(archiveQuery);
+      let archivedPOs = archiveSnapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data(),
+        source: 'archive' // Mark as from archive collection
+      }));
+      
+      // Fetch completed/cancelled POs from purchaseOrders collection
+      const completedQuery = query(
+        collection(db, 'purchaseOrders'), 
+        where('userId', '==', userId),
+        where('status', 'in', ['Completed', 'Cancelled'])
+      );
+      const completedSnapshot = await getDocs(completedQuery);
+      const completedPOs = completedSnapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data(),
+        source: 'purchaseOrders' // Mark as from purchaseOrders collection
+      }));
+      
+      // Combine both sets of POs
+      let allPOs = [...archivedPOs, ...completedPOs];
+      
       // Optional: filter/search logic
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();
-        pos = pos.filter((po: any) =>
+        allPOs = allPOs.filter((po: any) =>
           (po.poNumber || '').toLowerCase().includes(searchLower) ||
           (po.vendorInfo?.name || '').toLowerCase().includes(searchLower) ||
           (po.companyInfo?.name || '').toLowerCase().includes(searchLower) ||
           (po.shipTo?.name || '').toLowerCase().includes(searchLower)
         );
       }
-      setArchivedPOs(pos);
-      setTotalCount(pos.length);
+      
+      setArchivedPOs(allPOs);
+      setTotalCount(allPOs.length);
     } catch (err) {
       setError('Failed to load archived POs. Please try again.');
       console.error('Error loading archived POs:', err);

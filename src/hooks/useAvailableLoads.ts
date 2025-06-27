@@ -176,7 +176,7 @@ export function useAvailableLoads(
         filtered = filtered.filter(load => load.poNumber && validPoNumbers.has(load.poNumber));
       }
       // Filter out partner loads (only show marketplace loads)
-      filtered = filtered.filter(load => load.isMarketplace !== false);
+      filtered = filtered.filter(load => load.isMarketplace === true);
 
       // Update state
       if (isInitial) {
