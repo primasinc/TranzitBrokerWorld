@@ -69,6 +69,7 @@ const Settings: React.FC = () => {
     renderTime: number;
   }>({ loadTime: 0, renderTime: 0 });
   const isCompanyAdmin = true; // Set to false for dependent/driver users
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
 
   // Mobile optimization hooks
   const { networkInfo, batteryInfo, isLowBandwidth, isLowBattery } = useMobileOptimization();
@@ -362,38 +363,53 @@ const Settings: React.FC = () => {
           {activeTab === 'security' && (
             <div className={styles.section}>
               <h2>Security</h2>
-              {/* Security settings go here */}
-              {isCompanyAdmin && (
-                <div className={styles.additionalDriversSection}>
-                  <h3>Additional Drivers</h3>
-                  <button className={styles.addButton} onClick={() => setShowInviteForm(true)}>Add Driver</button>
-                  {showInviteForm && (
-                    <form className={styles.inviteForm} onSubmit={handleSendInvite} style={{ marginTop: 16 }}>
-                      <div className={styles.formGroup}>
-                        <label>Name</label>
-                        <input type="text" value={inviteName} onChange={e => setInviteName(e.target.value)} required />
-                      </div>
-                      <div className={styles.formGroup}>
-                        <label>Phone Number</label>
-                        <input type="text" value={invitePhone} onChange={e => setInvitePhone(e.target.value)} required />
-                      </div>
-                      <div className={styles.formGroup}>
-                        <label>Email</label>
-                        <input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} required />
-                      </div>
-                      {inviteError && <div className={styles.error}>{inviteError}</div>}
-                      <button type="submit" className={styles.submitButton}>Send Invitation</button>
-                      <button type="button" className={styles.cancelButton} onClick={() => setShowInviteForm(false)}>Cancel</button>
-                    </form>
-                  )}
-                  {inviteSuccess && <div className={styles.success}>{inviteSuccess}</div>}
+              <div className={styles.securitySettings}>
+                <div className={styles.securityOption}>
+                  <div>
+                    <h3>Two-Factor Authentication</h3>
+                    <p>Require a second authentication step for added security.</p>
+                  </div>
+                  <label className={styles.switch}>
+                    <input
+                      type="checkbox"
+                      checked={twoFactorEnabled}
+                      onChange={e => setTwoFactorEnabled(e.target.checked)}
+                    />
+                    <span className={styles.slider}></span>
+                  </label>
                 </div>
-              )}
-              {!isCompanyAdmin && (
-                <div className={styles.dependentNotice}>
-                  <p>You are currently a driver for a carrier company. To add drivers, you must leave your current company and create your own account.</p>
-                </div>
-              )}
+                {isCompanyAdmin && (
+                  <div className={styles.additionalDriversSection}>
+                    <h3>Additional Drivers</h3>
+                    <button className={styles.addButton} onClick={() => setShowInviteForm(true)}>Add Driver</button>
+                    {showInviteForm && (
+                      <form className={styles.inviteForm} onSubmit={handleSendInvite} style={{ marginTop: 16 }}>
+                        <div className={styles.formGroup}>
+                          <label>Name</label>
+                          <input type="text" value={inviteName} onChange={e => setInviteName(e.target.value)} required />
+                        </div>
+                        <div className={styles.formGroup}>
+                          <label>Phone Number</label>
+                          <input type="text" value={invitePhone} onChange={e => setInvitePhone(e.target.value)} required />
+                        </div>
+                        <div className={styles.formGroup}>
+                          <label>Email</label>
+                          <input type="email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} required />
+                        </div>
+                        {inviteError && <div className={styles.error}>{inviteError}</div>}
+                        <button type="submit" className={styles.submitButton}>Send Invitation</button>
+                        <button type="button" className={styles.cancelButton} onClick={() => setShowInviteForm(false)}>Cancel</button>
+                      </form>
+                    )}
+                    {inviteSuccess && <div className={styles.success}>{inviteSuccess}</div>}
+                  </div>
+                )}
+                {!isCompanyAdmin && (
+                  <div className={styles.dependentNotice}>
+                    <p>You are currently a driver for a carrier company. To add drivers, you must leave your current company and create your own account.</p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

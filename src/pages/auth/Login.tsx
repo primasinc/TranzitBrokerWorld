@@ -5,6 +5,7 @@ import { auth } from '../../config/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import styles from './Login.module.css';
+import modalStyles from '../../components/DocumentModal.module.css';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -14,10 +15,18 @@ const Login: React.FC = () => {
     rememberMe: false
   });
   const [error, setError] = useState('');
+  const [show2FAModal, setShow2FAModal] = useState(false);
+  const [twoFACode, setTwoFACode] = useState('');
+  const [twoFAError, setTwoFAError] = useState('');
+  const [twoFALoading, setTwoFALoading] = useState(false);
+  const [pendingUser, setPendingUser] = useState<any>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setTwoFAError('');
+    setShow2FAModal(false);
+    setPendingUser(null);
 
     try {
       const email = formData.email || 'test@tranzit.com';
@@ -40,6 +49,28 @@ const Login: React.FC = () => {
         return;
       }
 
+      // 2FA logic
+      if (userData && userData["2faEnabled"]) {
+        setShow2FAModal(true);
+        setPendingUser({ user, userData });
+        setTwoFACode('');
+        setTwoFAError('');
+        setTwoFALoading(true);
+        // Call backend to send code
+        try {
+          await fetch('/api/auth/send-2fa-code', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: user.email })
+          });
+        } catch (err) {
+          setTwoFAError('Failed to send 2FA code. Please try again.');
+        }
+        setTwoFALoading(false);
+        return;
+      }
+
+      // Normal navigation
       if (userData && userData.userType === 'shipper') {
         navigate('/shipper/dashboard');
       } else if (userData && userData.userType === 'carrier') {
@@ -50,6 +81,38 @@ const Login: React.FC = () => {
     } catch (err) {
       console.error('Login error:', err);
       setError('Invalid email or password');
+    }
+  };
+
+  const handle2FAVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTwoFAError('');
+    setTwoFALoading(true);
+    try {
+      const res = await fetch('/api/auth/verify-2fa-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: pendingUser.user.email, code: twoFACode })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setTwoFAError(data.error || 'Invalid code.');
+        setTwoFALoading(false);
+        return;
+      }
+      // Success: proceed to dashboard
+      if (pendingUser.userData.userType === 'shipper') {
+        navigate('/shipper/dashboard');
+      } else if (pendingUser.userData.userType === 'carrier') {
+        navigate('/carrier/home');
+      } else {
+        setError('User type is invalid. Please contact support.');
+      }
+      setShow2FAModal(false);
+      setTwoFALoading(false);
+    } catch (err) {
+      setTwoFAError('Failed to verify code.');
+      setTwoFALoading(false);
     }
   };
 
@@ -119,6 +182,34 @@ const Login: React.FC = () => {
           )}
         </form>
       </div>
+      {show2FAModal && (
+        <div className={modalStyles.modalOverlay}>
+          <div className={modalStyles.modal}>
+            <h2>Two-Factor Authentication</h2>
+            <form onSubmit={handle2FAVerify}>
+              <div style={{ marginBottom: 16 }}>
+                <label htmlFor="twofa-code">Enter the 6-digit code sent to your email:</label>
+                <input
+                  id="twofa-code"
+                  type="text"
+                  value={twoFACode}
+                  onChange={e => setTwoFACode(e.target.value)}
+                  maxLength={6}
+                  style={{ width: '100%', padding: 8, fontSize: 18, marginTop: 8 }}
+                  autoFocus
+                />
+              </div>
+              {twoFAError && <div style={{ color: 'red', marginBottom: 8 }}>{twoFAError}</div>}
+              <button type="submit" className={modalStyles.uploadButton} disabled={twoFALoading || twoFACode.length !== 6}>
+                {twoFALoading ? 'Verifying...' : 'Verify'}
+              </button>
+              <button type="button" className={modalStyles.closeButton} onClick={() => setShow2FAModal(false)}>
+                Cancel
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

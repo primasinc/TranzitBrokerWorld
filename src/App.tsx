@@ -32,6 +32,7 @@ import CarrierDirectory from './pages/shipper/CarrierDirectory';
 import CarrierDetails from './pages/shipper/CarrierDetails';
 import { TestPurchaseOrder } from './pages/shipper/TestPurchaseOrder';
 import ShipperProfilePage from './pages/shipper/Profile';
+import ShipperSettings from './pages/shipper/Settings';
 
 // Carrier Pages
 import HomeFeed from './pages/carrier/HomeFeed';
@@ -186,6 +187,7 @@ function App() {
                 <Route path="carrier-partners/:partnerId" element={<CarrierDetails />} />
                 <Route path="test-po" element={<TestPurchaseOrder />} />
                 <Route path="profile" element={<ShipperProfilePage />} />
+                <Route path="settings" element={<ShipperSettings />} />
               </Route>
 
               {/* Auth Routes */}

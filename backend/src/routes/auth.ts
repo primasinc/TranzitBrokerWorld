@@ -161,4 +161,74 @@ router.patch('/invite/:token/use', async (req, res) => {
   }
 });
 
+// 2FA: Send code endpoint
+router.post('/send-2fa-code', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email required' });
+    // Generate 6-digit code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    // Store in Firestore with 5-min TTL
+    const expiresAt = Date.now() + 5 * 60 * 1000;
+    await db.collection('twofa').doc(email).set({ code, expiresAt });
+    // Send code via email
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
+      }
+    });
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to: email,
+      subject: 'Your Tranzit.io 2FA Code',
+      html: `<p>Your verification code is: <b>${code}</b><br>This code will expire in 5 minutes.</p>`
+    });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error sending 2FA code:', err);
+    res.status(500).json({ error: 'Failed to send 2FA code.' });
+  }
+});
+
+// 2FA: Verify code endpoint
+router.post('/verify-2fa-code', async (req, res) => {
+  try {
+    const { email, code } = req.body;
+    if (!email || !code) return res.status(400).json({ error: 'Email and code required' });
+    const doc = await db.collection('twofa').doc(email).get();
+    if (!doc.exists) return res.status(400).json({ error: 'No code found. Please request a new code.' });
+    const data = doc.data();
+    if (!data) {
+      return res.status(400).json({ error: 'No code found. Please request a new code.' });
+    }
+    if (data.expiresAt < Date.now()) {
+      await db.collection('twofa').doc(email).delete();
+      return res.status(400).json({ error: 'Code expired. Please request a new code.' });
+    }
+    if (data.code !== code) return res.status(400).json({ error: 'Invalid code.' });
+    // Success: delete code
+    await db.collection('twofa').doc(email).delete();
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error verifying 2FA code:', err);
+    res.status(500).json({ error: 'Failed to verify 2FA code.' });
+  }
+});
+
+// QuickBooks OAuth callback route
+router.get('/quickbooks/oauth-callback', async (req, res) => {
+  const { code, state, realmId, error, error_description } = req.query;
+  if (error) {
+    console.error('QuickBooks OAuth error:', error, error_description);
+    return res.status(400).send(`QuickBooks OAuth error: ${error}: ${error_description}`);
+  }
+  console.log('QuickBooks OAuth callback:', { code, state, realmId });
+  // In production, exchange code for access token here
+  res.send('QuickBooks OAuth successful! You can close this window.');
+});
+
 export default router;

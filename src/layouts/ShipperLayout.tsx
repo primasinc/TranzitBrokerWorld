@@ -97,6 +97,13 @@ const ShipperLayout: React.FC = () => {
         >
           Carrier Directory
         </NavLink>
+        <NavLink 
+          to="/shipper/settings" 
+          className={({ isActive }) => isActive ? styles.activeLink : styles.link}
+          onClick={() => setIsSidebarOpen(false)}
+        >
+          Settings
+        </NavLink>
       </nav>
       <main className={styles.main}>
         <header className={styles.header}>
@@ -142,7 +149,6 @@ const ShipperLayout: React.FC = () => {
               {isAccountMenuOpen && (
                 <div className={styles.dropdownMenu}>
                   <button onClick={() => navigate('/shipper/profile')}>Account</button>
-                  <button onClick={() => navigate('/shipper/settings')}>Settings</button>
                   <button 
                     onClick={handleLogout}
                     className={styles.logoutButton}
