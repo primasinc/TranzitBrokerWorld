@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import styles from './CarrierProfileCard.module.css';
+import { fetchCarrierByMC } from '../../services/saferApi';
+import { FmcsaCarrierSummary } from '../../types/carrier';
 
 interface CarrierProfileCardProps {
   carrier: any;
@@ -9,6 +11,59 @@ interface CarrierProfileCardProps {
 const CarrierProfileCard: React.FC<CarrierProfileCardProps> = ({ carrier, onPartnerRequest }) => {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showSaferModal, setShowSaferModal] = useState(false);
+  const [saferData, setSaferData] = useState<FmcsaCarrierSummary | null>(null);
+  const [saferLoading, setSaferLoading] = useState(false);
+  const [saferError, setSaferError] = useState<string | null>(null);
+
+  const handleSaferCheck = async () => {
+    console.log('MC Number used for FMCSA API:', carrier.mcNumber);
+    if (!carrier.mcNumber) {
+      setSaferError('No MC number available for this carrier.');
+      setSaferData(null);
+      setSaferLoading(false);
+      return;
+    }
+    setSaferLoading(true);
+    setSaferError(null);
+    setSaferData(null);
+    try {
+      const apiResponse = await fetchCarrierByMC(carrier.mcNumber);
+      const carrierData = apiResponse?.content?.[0]?.carrier;
+      if (!carrierData) {
+        setSaferError('No FMCSA data found for this MC number.');
+        setSaferData(null);
+        setSaferLoading(false);
+        return;
+      }
+      setSaferData({
+        legalName: carrierData.legalName,
+        dbaName: carrierData.dbaName,
+        usdotNumber: carrierData.dotNumber,
+        docketNumber: carrier.mcNumber || carrierData.docketNumber,
+        status: carrierData.statusCode,
+        outOfServiceDate: carrierData.oosDate,
+        address: {
+          street: carrierData.phyStreet,
+          city: carrierData.phyCity,
+          state: carrierData.phyState,
+          zip: carrierData.phyZipcode,
+        },
+        phone: '', // Not available in this response
+        mailingAddress: undefined, // Not available in this response
+        powerUnits: carrierData.totalPowerUnits,
+        drivers: carrierData.totalDrivers,
+        entityType: '', // Not available in this response
+        operatingStatus: carrierData.allowedToOperate === 'Y' ? 'Authorized' : 'Not Authorized',
+        authorityStatus: carrierData.commonAuthorityStatus,
+        mcMxNumbers: '', // Not available in this response
+        mileage: '', // Not available in this response
+      });
+    } catch (err) {
+      setSaferError('Could not fetch FMCSA data.');
+    } finally {
+      setSaferLoading(false);
+    }
+  };
 
   return (
     <div className={styles.card}>
@@ -24,7 +79,7 @@ const CarrierProfileCard: React.FC<CarrierProfileCardProps> = ({ carrier, onPart
         <button className={styles.viewButton} onClick={() => setShowProfileModal(true)}>
           View Profile
         </button>
-        <button className={styles.saferButton} onClick={() => setShowSaferModal(true)}>
+        <button className={styles.saferButton} onClick={() => { setShowSaferModal(true); handleSaferCheck(); }}>
           SAFER Check
         </button>
         <button
@@ -106,53 +161,29 @@ const CarrierProfileCard: React.FC<CarrierProfileCardProps> = ({ carrier, onPart
         <div className={styles.modalOverlay} onClick={() => setShowSaferModal(false)}>
           <div className={styles.modal} onClick={e => e.stopPropagation()}>
             <h2>FMCSA SAFER Check</h2>
-            <p><strong>Company:</strong> {carrier.companyName}</p>
-            {carrier.mcNumber && (
-              <p>
-                <strong>MC Number:</strong> {carrier.mcNumber} <br />
-                <a
-                  href="https://safer.fmcsa.dot.gov/CompanySnapshot.aspx"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title="Click to open the SAFER Company Snapshot search page. MC Number will be copied to your clipboard. On the SAFER page, select 'MC/MX Number', paste the number, and search."
-                  onClick={e => {
-                    e.preventDefault();
-                    navigator.clipboard.writeText(carrier.mcNumber);
-                    window.open('https://safer.fmcsa.dot.gov/CompanySnapshot.aspx', '_blank');
-                  }}
-                  style={{ textDecoration: 'underline', cursor: 'pointer' }}
-                >
-                  Check MC on SAFER
-                </a>
-                <span style={{ marginLeft: 8, fontSize: '0.9em', color: '#888' }} title="MC Number copied to clipboard when you click the link!">🛈</span>
-              </p>
+            {saferLoading && <p>Loading FMCSA data...</p>}
+            {saferError && <p style={{ color: 'red' }}>{saferError}</p>}
+            {saferData && (
+              <div>
+                <p><strong>Legal Name:</strong> {saferData.legalName}</p>
+                <p><strong>DBA Name:</strong> {saferData.dbaName || 'N/A'}</p>
+                <p><strong>USDOT Number:</strong> {saferData.usdotNumber}</p>
+                <p><strong>MC Number:</strong> {saferData.docketNumber}</p>
+                <p><strong>Status:</strong> {saferData.status}</p>
+                <p><strong>Entity Type:</strong> {saferData.entityType || 'N/A'}</p>
+                <p><strong>Operating Status:</strong> {saferData.operatingStatus || 'N/A'}</p>
+                <p><strong>Authority Status:</strong> {saferData.authorityStatus || 'N/A'}</p>
+                <p><strong>Out of Service Date:</strong> {saferData.outOfServiceDate || 'None'}</p>
+                <p><strong>Address:</strong> {saferData.address ? `${saferData.address.street || ''}, ${saferData.address.city || ''}, ${saferData.address.state || ''} ${saferData.address.zip || ''}` : 'N/A'}</p>
+                <p><strong>Phone:</strong> {saferData.phone || 'N/A'}</p>
+                <p><strong>Mailing Address:</strong> {saferData.mailingAddress ? `${saferData.mailingAddress.street || ''}, ${saferData.mailingAddress.city || ''}, ${saferData.mailingAddress.state || ''} ${saferData.mailingAddress.zip || ''}` : 'N/A'}</p>
+                <p><strong>Power Units:</strong> {saferData.powerUnits ?? 'N/A'}</p>
+                <p><strong>Drivers:</strong> {saferData.drivers ?? 'N/A'}</p>
+                <p><strong>Mileage:</strong> {saferData.mileage || 'N/A'}</p>
+                <p><a href={`https://safer.fmcsa.dot.gov/query.asp?searchtype=ANY&query_type=queryCarrierSnapshot&query_param=MC_MX&query_string=${saferData.docketNumber}`} target="_blank" rel="noopener noreferrer">View Full SAFER Report</a></p>
+              </div>
             )}
-            {carrier.dotNumber && (
-              <p>
-                <strong>DOT Number:</strong> {carrier.dotNumber} <br />
-                <a
-                  href="https://safer.fmcsa.dot.gov/CompanySnapshot.aspx"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title="Click to open the SAFER Company Snapshot search page. DOT Number will be copied to your clipboard. On the SAFER page, select 'USDOT Number', paste the number, and search."
-                  onClick={e => {
-                    e.preventDefault();
-                    navigator.clipboard.writeText(carrier.dotNumber);
-                    window.open('https://safer.fmcsa.dot.gov/CompanySnapshot.aspx', '_blank');
-                  }}
-                  style={{ textDecoration: 'underline', cursor: 'pointer' }}
-                >
-                  Check DOT on SAFER
-                </a>
-                <span style={{ marginLeft: 8, fontSize: '0.9em', color: '#888' }} title="DOT Number copied to clipboard when you click the link!">🛈</span>
-              </p>
-            )}
-            {!(carrier.mcNumber || carrier.dotNumber) && (
-              <p>No MC or DOT number available for this carrier.</p>
-            )}
-            <div style={{ marginTop: 16, fontSize: '0.95em', color: '#555', background: '#f8f9fa', padding: 8, borderRadius: 4 }}>
-              <strong>Instructions:</strong> Click the MC or DOT link above. The number will be copied to your clipboard. On the SAFER page, select the correct search type, paste the number, and click Search.
-            </div>
+            {!saferLoading && !saferData && !saferError && <p>No FMCSA data available.</p>}
             <button className={styles.closeButton} onClick={() => setShowSaferModal(false)}>Close</button>
           </div>
         </div>

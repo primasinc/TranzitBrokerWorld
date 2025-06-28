@@ -116,4 +116,33 @@ export interface CarrierMetrics {
   // Timestamps
   lastUpdated: Timestamp;
   lastLoad: Timestamp;
+}
+
+export interface FmcsaCarrierSummary {
+  legalName: string;
+  dbaName?: string;
+  usdotNumber: string;
+  docketNumber: string;
+  status: string;
+  outOfServiceDate?: string;
+  address?: {
+    street?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+  };
+  phone?: string;
+  mailingAddress?: {
+    street?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+  };
+  powerUnits?: number;
+  drivers?: number;
+  entityType?: string;
+  operatingStatus?: string;
+  authorityStatus?: string;
+  mcMxNumbers?: string;
+  mileage?: string;
 } 
