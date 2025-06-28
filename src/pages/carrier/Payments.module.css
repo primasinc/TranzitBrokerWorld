@@ -1272,4 +1272,20 @@
 
 .performanceIndicator span {
   font-weight: 500;
+}
+
+.statusUnpaid {
+  background: #fff8e1;
+  color: #b88600;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-weight: 600;
+}
+
+.statusOverdue {
+  background: #ffebee;
+  color: #d32f2f;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-weight: 600;
 } 

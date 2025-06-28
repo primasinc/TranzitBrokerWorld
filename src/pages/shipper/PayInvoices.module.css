@@ -144,6 +144,22 @@
   color: #d32f2f;
 }
 
+.statusunpaid {
+  background: #fff8e1;
+  color: #b88600;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-weight: 600;
+}
+
+.statuspastdue {
+  background: #ffebee;
+  color: #d32f2f;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-weight: 600;
+}
+
 .actions {
   display: flex;
   gap: 8px;
@@ -386,5 +402,120 @@
   .cardActions .downloadButton {
     padding: 6px 10px;
     font-size: 0.8rem;
+  }
+}
+
+.payModal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+  padding: 32px 24px;
+  z-index: 2000;
+  min-width: 320px;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  outline: none;
+}
+
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0,0,0,0.35);
+  z-index: 1999;
+}
+
+.methodButton {
+  background: #007bff;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 20px;
+  margin: 10px 0;
+  font-size: 1rem;
+  cursor: pointer;
+  width: 100%;
+}
+
+.methodButton:hover {
+  background: #0056b3;
+}
+
+.cancelButton {
+  background: #ccc;
+  color: #333;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  margin-top: 12px;
+  font-size: 1rem;
+  cursor: pointer;
+  width: 100%;
+}
+
+.confirmButton {
+  background: #28a745;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 20px;
+  margin: 10px 0;
+  font-size: 1rem;
+  cursor: pointer;
+  width: 100%;
+}
+
+.confirmButton:hover {
+  background: #218838;
+}
+
+.inputField {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  margin: 8px 0 16px 0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.printButton {
+  background: #007bff;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 10px 20px;
+  margin: 10px 0;
+  font-size: 1rem;
+  cursor: pointer;
+  width: 100%;
+}
+
+.printButton:hover {
+  background: #0056b3;
+}
+
+.printArea {
+  display: none;
+}
+
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  .printArea, .printArea * {
+    display: block !important;
+    visibility: visible !important;
+    position: static !important;
+    background: #fff !important;
+    color: #000 !important;
+    box-shadow: none !important;
   }
 } 

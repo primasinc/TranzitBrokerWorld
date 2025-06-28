@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import styles from './PayInvoices.module.css';
 import { useMobileOptimization } from '../../hooks/useMobileOptimization';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../contexts/AuthContext';
+import Modal from 'react-modal';
 
 interface Invoice {
   id: string;
@@ -40,6 +41,13 @@ const PayInvoices: React.FC = () => {
   // Device detection for mobile layout
   const isMobile = window.innerWidth <= 768;
 
+  const [showPayModal, setShowPayModal] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'electronic' | 'check' | null>(null);
+  const [checkNumber, setCheckNumber] = useState('');
+  const [signature, setSignature] = useState('');
+  const [showPrintArea, setShowPrintArea] = useState(false);
+
   useEffect(() => {
     const fetchInvoices = async () => {
       if (!user) return;
@@ -64,8 +72,18 @@ const PayInvoices: React.FC = () => {
     fetchInvoices();
   }, [user]);
 
+  const normalizeStatus = (invoice: Invoice) => {
+    if (invoice.status === 'Paid') return 'Paid';
+    const issue = new Date(invoice.issueDate);
+    const now = new Date();
+    const days = (now.getTime() - issue.getTime()) / (1000 * 60 * 60 * 24);
+    if (days > 30) return 'Past Due';
+    return 'Unpaid';
+  };
+
   const filteredInvoices = invoices.filter(invoice => {
-    const matchesTab = activeTab === 'all' || invoice.status.toLowerCase() === activeTab;
+    const status = normalizeStatus(invoice).toLowerCase();
+    const matchesTab = activeTab === 'all' || status === activeTab;
     const matchesSearch = 
       invoice.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       invoice.carrier.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -88,13 +106,38 @@ const PayInvoices: React.FC = () => {
     </svg>
   );
 
+  const handlePayNow = (invoice: Invoice) => {
+    setSelectedInvoice(invoice);
+    setShowPayModal(true);
+    setPaymentMethod(null);
+    setCheckNumber('');
+    setSignature('');
+    setShowPrintArea(false);
+  };
+
+  const handlePrint = () => {
+    setShowPrintArea(true);
+    setTimeout(() => {
+      window.print();
+      setShowPrintArea(false);
+    }, 100);
+  };
+
+  // Helper to update invoice status in Firestore and local state
+  const markInvoicePaid = async (invoice: Invoice) => {
+    // Update Firestore
+    await updateDoc(doc(db, 'invoices', invoice.id), { status: 'Paid' });
+    // Update local state
+    setInvoices(prev => prev.map(inv => inv.id === invoice.id ? { ...inv, status: 'Paid' } : inv));
+  };
+
   // Mobile card component for invoices
   const renderMobileInvoiceCard = (invoice: Invoice) => (
     <div key={invoice.id} className={styles.mobileInvoiceCard}>
       <div className={styles.cardHeader}>
         <div className={styles.invoiceNumber}>{invoice.invoiceNumber}</div>
-        <span className={`${styles.status} ${styles[invoice.status.toLowerCase()]}`}>
-          {invoice.status}
+        <span className={`${styles.status} ${styles[normalizeStatus(invoice).toLowerCase().replace(' ', '')]}`}>
+          {normalizeStatus(invoice)}
         </span>
       </div>
       
@@ -124,7 +167,7 @@ const PayInvoices: React.FC = () => {
       <div className={styles.cardActions}>
         <button className={styles.viewButton}>View</button>
         {['Pending', 'Unpaid'].includes(invoice.status) && (
-          <button className={styles.payButton}>Pay Now</button>
+          <button className={styles.payButton} onClick={() => handlePayNow(invoice)}>Pay Now</button>
         )}
         <button
           className={styles.downloadButton}
@@ -263,16 +306,14 @@ ${values.map(v => `"${v ?? ''}"`).join(',')}`;
                   <td>{invoice.issueDate}</td>
                   <td>{invoice.dueDate}</td>
                   <td>
-                    <span className={`${styles.status} ${styles[invoice.status.toLowerCase()]}`}>
-                      {invoice.status}
-                    </span>
+                    <span className={`${styles.status} ${styles[normalizeStatus(invoice).toLowerCase().replace(' ', '')]}`}>{normalizeStatus(invoice)}</span>
                   </td>
                   <td>{invoice.poNumber}</td>
                   <td>
                     <div className={styles.actions}>
                       <button className={styles.viewButton}>View</button>
                       {['Pending', 'Unpaid'].includes(invoice.status) && (
-                        <button className={styles.payButton}>Pay Now</button>
+                        <button className={styles.payButton} onClick={() => handlePayNow(invoice)}>Pay Now</button>
                       )}
                       <button
                         className={styles.downloadButton}
@@ -306,6 +347,74 @@ ${values.map(v => `"${v ?? ''}"`).join(',')}`;
         <div className={styles.performanceIndicator}>
           {isLowBandwidth && <span>📶 Slow connection - Optimized loading</span>}
           {isLowBattery && <span>🔋 Low battery - Reduced animations</span>}
+        </div>
+      )}
+
+      {/* Payment Modal */}
+      <Modal
+        isOpen={showPayModal}
+        onRequestClose={() => setShowPayModal(false)}
+        contentLabel="Pay Invoice"
+        ariaHideApp={false}
+        className={styles.payModal}
+        overlayClassName={styles.modalOverlay}
+      >
+        {!paymentMethod ? (
+          <div>
+            <h2>Choose Payment Method</h2>
+            <button onClick={() => setPaymentMethod('electronic')} className={styles.methodButton}>Electronic</button>
+            <button onClick={() => setPaymentMethod('check')} className={styles.methodButton}>Check</button>
+            <button onClick={() => setShowPayModal(false)} className={styles.cancelButton}>Cancel</button>
+          </div>
+        ) : paymentMethod === 'electronic' ? (
+          <div>
+            <h2>Pay Electronically</h2>
+            <p>This will use your attached payment method (e.g., QuickBooks).</p>
+            <p>Invoice: <b>{selectedInvoice?.invoiceNumber}</b></p>
+            <p>Amount: <b>${selectedInvoice?.amount.toFixed(2)}</b></p>
+            <button className={styles.confirmButton} onClick={async () => {
+              if (selectedInvoice) await markInvoicePaid(selectedInvoice);
+              setShowPayModal(false);
+              alert('Payment processed via QuickBooks (simulated).');
+            }}>Confirm Payment</button>
+            <button onClick={() => setPaymentMethod(null)} className={styles.cancelButton}>Back</button>
+          </div>
+        ) : (
+          <div>
+            <h2>Pay by Check</h2>
+            <p>Invoice: <b>{selectedInvoice?.invoiceNumber}</b></p>
+            <p>Amount: <b>${selectedInvoice?.amount.toFixed(2)}</b></p>
+            <label>
+              Check Number:
+              <input type="text" value={checkNumber} onChange={e => setCheckNumber(e.target.value)} className={styles.inputField} />
+            </label>
+            <label>
+              Signature:
+              <input type="text" value={signature} onChange={e => setSignature(e.target.value)} className={styles.inputField} placeholder="Type your name as signature" />
+            </label>
+            <button className={styles.printButton} onClick={async () => {
+              handlePrint();
+              if (selectedInvoice) await markInvoicePaid(selectedInvoice);
+              setShowPayModal(false);
+            }}>Print Paperwork</button>
+            <button onClick={() => setPaymentMethod(null)} className={styles.cancelButton}>Back</button>
+          </div>
+        )}
+      </Modal>
+
+      {/* Print Area for Check Payment */}
+      {showPrintArea && (
+        <div className={styles.printArea}>
+          <h2>Check Payment Authorization</h2>
+          <p>Invoice Number: <b>{selectedInvoice?.invoiceNumber}</b></p>
+          <p>Carrier: <b>{selectedInvoice?.carrier}</b></p>
+          <p>Amount: <b>${selectedInvoice?.amount.toFixed(2)}</b></p>
+          <p>Check Number: <b>{checkNumber}</b></p>
+          <div style={{ margin: '40px 0 20px 0' }}>
+            <span>Signature: </span>
+            <span style={{ borderBottom: '1px solid #000', minWidth: 200, display: 'inline-block', padding: '0 40px' }}>{signature}</span>
+          </div>
+          <p>Date: {new Date().toLocaleDateString()}</p>
         </div>
       )}
     </div>

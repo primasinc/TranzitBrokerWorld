@@ -671,6 +671,24 @@ const Payments: React.FC = () => {
     }
   };
 
+  // Helper to normalize invoice status
+  const normalizeStatus = (invoice: Invoice) => {
+    if (invoice.status === 'Paid') return 'Paid';
+    const issue = new Date(invoice.issueDate);
+    const now = new Date();
+    const days = (now.getTime() - issue.getTime()) / (1000 * 60 * 60 * 24);
+    if (days > 30) return 'Past Due';
+    return 'Unpaid';
+  };
+
+  // When rendering invoice status, use normalizeStatus and .statusPaid for green highlight
+  const renderInvoiceStatus = (invoice: Invoice) => {
+    const status = normalizeStatus(invoice);
+    if (status === 'Paid') return <span className={styles.statusPaid}>Paid</span>;
+    if (status === 'Past Due') return <span className={styles.statusOverdue}>Past Due</span>;
+    return <span className={styles.statusUnpaid}>Unpaid</span>;
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.headerCard}>
@@ -904,11 +922,7 @@ const Payments: React.FC = () => {
                     <td>{invoice.customer || '-'}</td>
                     <td>{invoice.issueDate || '-'}</td>
                     <td>{typeof invoice.amount === 'number' ? `$${invoice.amount.toFixed(2)}` : '-'}</td>
-                    <td>
-                      <span className={`${styles.status} ${invoice.status ? styles[invoice.status.toLowerCase()] : ''}`}>
-                        {invoice.status || '-'}
-                      </span>
-                    </td>
+                    <td>{renderInvoiceStatus(invoice)}</td>
                     <td style={{ textAlign: 'right' }}>
                       <div className={styles.payActionButtons}>
                         <button className={styles.payActionButton} onClick={() => handleInvoiceAction(invoice, 'shipper')}>Shipper Pay</button>
@@ -951,11 +965,7 @@ const Payments: React.FC = () => {
                   <td>{invoice.issueDate || '-'}</td>
                   <td>{invoice.dueDate || '-'}</td>
                   <td>{typeof invoice.amount === 'number' ? `$${invoice.amount.toFixed(2)}` : '-'}</td>
-                  <td>
-                    <span className={`${styles.status} ${invoice.status ? styles[invoice.status.toLowerCase()] : ''}`}>
-                      {invoice.status || '-'}
-                    </span>
-                  </td>
+                  <td>{renderInvoiceStatus(invoice)}</td>
                   <td>
                     <div className={styles.invoiceActions}>
                       <button className={styles.invoiceViewButton} onClick={() => { setSelectedInvoice(invoice); setShowInvoiceView(true); }}>View</button>
