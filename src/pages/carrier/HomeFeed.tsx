@@ -10,6 +10,7 @@ import NotificationsTray, { useUnreadNotifications } from './NotificationsTray';
 import { useAvailableLoads } from '../../hooks/useAvailableLoads';
 import { isValidPartnerRequest } from './AvailableLoads';
 import { useMobileOptimization } from '../../hooks/useMobileOptimization';
+import { usePartnerRequestLoads } from '../../hooks/usePartnerRequestLoads';
 
 interface AvailableLoad {
   id: string;
@@ -160,6 +161,9 @@ const HomeFeed: React.FC = () => {
     return () => { isMounted = false; };
   }, [partnerRequests]);
 
+  // After validRequests is set, use the hook to fetch authoritative load data
+  const { merged: mergedPartnerRequests, loading: mergedPartnerLoading, error: mergedPartnerError } = usePartnerRequestLoads(validRequests);
+
   // State for current load (mock data for now)
   const [currentLoad] = useState({
     poNumber: 'PO-2024-001',
@@ -184,6 +188,13 @@ const HomeFeed: React.FC = () => {
   const handleLogout = () => {
     navigate('/login');
   };
+
+  // Filter out loads from marketplace if there is a matching partner request for this carrier
+  const partnerRequestPoNumbers = new Set(partnerRequests.map((req: any) => req.loadDetails?.poNumber || req.poNumber).filter(Boolean));
+  const partnerRequestLoadIds = new Set(partnerRequests.map((req: any) => req.loadId).filter(Boolean));
+  const filteredMarketplaceLoads = availableLoads.filter(load =>
+    !partnerRequestPoNumbers.has(load.poNumber) && !partnerRequestLoadIds.has(load.id)
+  );
 
   return (
     <div className={styles.container}>
@@ -334,11 +345,11 @@ const HomeFeed: React.FC = () => {
                   <div>Loading available loads...</div>
                 ) : loadsError ? (
                   <div>Error loading loads: {loadsError}</div>
-                ) : availableLoads.filter(load => load.isMarketplace === true).length === 0 ? (
+                ) : filteredMarketplaceLoads.length === 0 ? (
                   <div>No available loads in your area.</div>
                 ) : (
                   <>
-                    {availableLoads
+                    {filteredMarketplaceLoads
                       .filter(load => load.isMarketplace === true && load && load.pickupLocation && load.deliveryLocation && load.pickupLocation.address && load.deliveryLocation.address)
                       .map((load) => (
                         <div key={load.id} className={styles.loadCard}>
@@ -372,9 +383,11 @@ const HomeFeed: React.FC = () => {
               </div>
             ) : (
               <div className={styles.listView}>
-                {partnerLoading ? (
+                {partnerLoading || mergedPartnerLoading ? (
                   <div>Loading partner loads...</div>
-                ) : validRequests.length === 0 ? (
+                ) : mergedPartnerError ? (
+                  <div>Error loading partner loads: {mergedPartnerError}</div>
+                ) : mergedPartnerRequests.length === 0 ? (
                   <div>No partner loads at this time.</div>
                 ) : (
                   <>
@@ -386,51 +399,57 @@ const HomeFeed: React.FC = () => {
                             <th>PO Number</th>
                             <th>Shipper</th>
                             <th>Pickup</th>
+                            <th>Pickup Date</th>
                             <th>Delivery</th>
                             <th>Rate</th>
-                            <th></th>
                           </tr>
                         </thead>
                         <tbody>
-                          {validRequests.slice(0, 5).map((request) => (
-                            <tr key={request.id}>
-                              <td>{request.loadDetails?.poNumber || '-'}</td>
-                              <td>{request.loadDetails?.shipperCompany || '-'}</td>
-                              <td>{request.loadDetails?.pickupLocation?.address || '-'}</td>
-                              <td>{request.loadDetails?.deliveryLocation?.address || '-'}</td>
-                              <td>{typeof request.loadDetails?.rate === 'number' ? `$${request.loadDetails.rate}` : '-'}</td>
-                              <td>
-                                <a
-                                  href="/carrier/available-loads#partner"
-                                  style={{ color: '#007bff', textDecoration: 'underline', cursor: 'pointer', fontWeight: 500 }}
-                                >
-                                  View
-                                </a>
-                              </td>
-                            </tr>
-                          ))}
+                          {mergedPartnerRequests.slice(0, 5).map(({ notification, load }) => {
+                            const pickup = load?.pickupLocation || notification.loadDetails?.pickupLocation || {};
+                            const delivery = load?.deliveryLocation || notification.loadDetails?.deliveryLocation || {};
+                            const pickupFull = pickup.address && pickup.city && pickup.state && pickup.zipCode
+                              ? `${pickup.address}, ${pickup.city}, ${pickup.state} ${pickup.zipCode}`
+                              : pickup.address || '-';
+                            const deliveryFull = delivery.address && delivery.city && delivery.state && delivery.zipCode
+                              ? `${delivery.address}, ${delivery.city}, ${delivery.state} ${delivery.zipCode}`
+                              : delivery.address || '-';
+                            const pickupDate = load?.pickupLocation?.date || notification.loadDetails?.pickupLocation?.date || '-';
+                            return (
+                              <tr key={notification.id}>
+                                <td>
+                                  <a
+                                    href={`/carrier/available-loads#partner`}
+                                    style={{ color: '#007bff', textDecoration: 'underline', cursor: 'pointer', fontWeight: 500 }}
+                                  >
+                                    {load?.poNumber || notification.loadDetails?.poNumber || '-'}
+                                  </a>
+                                </td>
+                                <td>{load?.shipper || notification.loadDetails?.shipperCompany || '-'}</td>
+                                <td>{pickupFull}</td>
+                                <td>{pickupDate}</td>
+                                <td>{deliveryFull}</td>
+                                <td>{typeof (load?.rate ?? notification.loadDetails?.rate) === 'number' ? `$${(load?.rate ?? notification.loadDetails?.rate)}` : '-'}</td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     )}
-                    
                     {/* Mobile Card View */}
                     {isMobile && (
                       <div className={styles.mobilePartnerCards}>
-                        {validRequests.slice(0, 5).map((request) => (
-                          <div key={request.id} className={styles.partnerCard}>
-                            <h4>PO: {request.loadDetails?.poNumber || 'N/A'}</h4>
-                            <p><strong>Shipper:</strong> {request.loadDetails?.shipperCompany || 'N/A'}</p>
-                            <p><strong>Pickup:</strong> {request.loadDetails?.pickupLocation?.address || 'N/A'}</p>
-                            <p><strong>Delivery:</strong> {request.loadDetails?.deliveryLocation?.address || 'N/A'}</p>
+                        {mergedPartnerRequests.slice(0, 5).map(({ notification, load }) => (
+                          <div key={notification.id} className={styles.partnerCard}>
+                            <h4>PO: {load?.poNumber || notification.loadDetails?.poNumber || 'N/A'}</h4>
+                            <p><strong>Shipper:</strong> {load?.shipper || notification.loadDetails?.shipperCompany || 'N/A'}</p>
+                            <p><strong>Pickup:</strong> {load?.pickupLocation?.address || notification.loadDetails?.pickupLocation?.address || 'N/A'}</p>
+                            <p><strong>Pickup Date:</strong> {load?.pickupLocation?.date || notification.loadDetails?.pickupLocation?.date || 'N/A'}</p>
+                            <p><strong>Delivery:</strong> {load?.deliveryLocation?.address || notification.loadDetails?.deliveryLocation?.address || 'N/A'}</p>
+                            <p><strong>Delivery Date:</strong> {load?.deliveryLocation?.date || notification.loadDetails?.deliveryLocation?.date || 'N/A'}</p>
                             <p className={styles.rate}>
-                              <strong>Rate:</strong> {typeof request.loadDetails?.rate === 'number' ? `$${request.loadDetails.rate}` : 'N/A'}
+                              <strong>Rate:</strong> {typeof (load?.rate ?? notification.loadDetails?.rate) === 'number' ? `$${(load?.rate ?? notification.loadDetails?.rate)}` : 'N/A'}
                             </p>
-                            <a
-                              href="/carrier/available-loads#partner"
-                              className={styles.viewLink}
-                            >
-                              View Details
-                            </a>
                           </div>
                         ))}
                       </div>

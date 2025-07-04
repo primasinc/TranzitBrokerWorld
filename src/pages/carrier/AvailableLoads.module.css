@@ -149,7 +149,8 @@
 
 .loadCard {
   width: 100%;
-  min-width: 700px;
+  max-width: 500px;
+  margin: 0 auto 20px auto;
   background: white;
   padding: 20px;
   border-radius: 8px;
@@ -548,8 +549,9 @@
   }
 
   .loadCard {
-    padding: 16px;
-    margin-bottom: 12px;
+    max-width: 100%;
+    width: 100%;
+    margin: 0 0 16px 0;
   }
 
   .loadHeader h3 {
@@ -673,7 +675,9 @@
   }
 
   .loadCard {
-    padding: 12px;
+    max-width: 100%;
+    width: 100%;
+    margin: 0 0 12px 0;
   }
 
   .loadActions {

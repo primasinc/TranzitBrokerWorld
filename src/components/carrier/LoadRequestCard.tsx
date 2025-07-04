@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styles from './LoadRequestCard.module.css';
 import { updateLoadRequestStatus } from '../../services/notificationService';
+import { db } from '../../firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 interface LoadRequestNotification {
   id?: string;
@@ -48,6 +50,24 @@ const LoadRequestCard: React.FC<LoadRequestCardProps> = ({ notification, onStatu
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [counterOffer, setCounterOffer] = useState(notification.loadDetails.rate);
   const [logMessage, setLogMessage] = useState<string | null>(null);
+  const [loadDetails, setLoadDetails] = useState<any>(null);
+
+  useEffect(() => {
+    // Fetch load details from loads collection using poNumber
+    const fetchLoad = async () => {
+      if (!notification.loadDetails.poNumber) return;
+      console.log('Fetching load for poNumber:', notification.loadDetails.poNumber);
+      const q = query(collection(db, 'loads'), where('poNumber', '==', notification.loadDetails.poNumber));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        console.log('Fetched load details:', snap.docs[0].data());
+        setLoadDetails(snap.docs[0].data());
+      } else {
+        console.warn('No load found for poNumber:', notification.loadDetails.poNumber);
+      }
+    };
+    fetchLoad();
+  }, [notification.loadDetails.poNumber]);
 
   const handleAction = async (action: LoadRequestNotification['status']) => {
     try {
@@ -83,9 +103,9 @@ const LoadRequestCard: React.FC<LoadRequestCardProps> = ({ notification, onStatu
     <div className={styles.card}>
       <div className={styles.header}>
         <h3>Load Request</h3>
-        {notification.loadDetails.shipperCompany && (
+        {loadDetails?.shipper && (
           <div className={styles.shipperCompany}>
-            <strong>From:</strong> {notification.loadDetails.shipperCompany}
+            <strong>From:</strong> {loadDetails.shipper}
           </div>
         )}
         <span className={`${styles.status} ${styles[notification.status]}`}>
@@ -96,25 +116,23 @@ const LoadRequestCard: React.FC<LoadRequestCardProps> = ({ notification, onStatu
       <div className={styles.content}>
         <div className={styles.section}>
           <h4>Pickup Details</h4>
-          <p>{notification.loadDetails.pickupLocation.address}</p>
-          <p>{notification.loadDetails.pickupLocation.city}, {notification.loadDetails.pickupLocation.state} {notification.loadDetails.pickupLocation.zipCode}</p>
-          <p>Date: {notification.loadDetails.pickupLocation.date}</p>
-          <p>Time: {notification.loadDetails.pickupLocation.time}</p>
+          <p>{loadDetails?.pickupLocation?.address || '-'}</p>
+          <p>{loadDetails?.pickupLocation?.city || ''}{loadDetails?.pickupLocation?.state ? ', ' + loadDetails.pickupLocation.state : ''} {loadDetails?.pickupLocation?.zipCode || ''}</p>
+          <p>Date: {loadDetails?.pickupLocation?.date ?? loadDetails?.items?.[0]?.pickupDate ?? notification.loadDetails.pickupLocation.date ?? '-'}</p>
         </div>
 
         <div className={styles.section}>
           <h4>Delivery Details</h4>
-          <p>{notification.loadDetails.deliveryLocation.address}</p>
-          <p>{notification.loadDetails.deliveryLocation.city}, {notification.loadDetails.deliveryLocation.state} {notification.loadDetails.deliveryLocation.zipCode}</p>
-          <p>Date: {notification.loadDetails.deliveryLocation.date}</p>
-          <p>Time: {notification.loadDetails.deliveryLocation.time}</p>
+          <p>{loadDetails?.deliveryLocation?.address || '-'}</p>
+          <p>{loadDetails?.deliveryLocation?.city || ''}{loadDetails?.deliveryLocation?.state ? ', ' + loadDetails.deliveryLocation.state : ''} {loadDetails?.deliveryLocation?.zipCode || ''}</p>
+          <p>Date: {loadDetails?.deliveryLocation?.date ?? loadDetails?.items?.[0]?.deliveryDate ?? notification.loadDetails.deliveryLocation.date ?? '-'}</p>
         </div>
 
         <div className={styles.section}>
           <h4>Cargo Details</h4>
-          <p>Weight: {notification.loadDetails.weight} lbs</p>
-          <p>Dimensions: {notification.loadDetails.dimensions.length}L x {notification.loadDetails.dimensions.width}W x {notification.loadDetails.dimensions.height}H</p>
-          <p>Rate: ${notification.loadDetails.rate}</p>
+          <p>Weight: {(loadDetails?.weight ?? loadDetails?.items?.[0]?.weight ?? 0)} lbs</p>
+          <p>Dimensions: {(loadDetails?.dimensions ?? loadDetails?.items?.[0]?.dimensions ?? '-')}</p>
+          <p>Rate: ${loadDetails?.rate || 0}</p>
         </div>
 
         {/* Show PO Number if present */}

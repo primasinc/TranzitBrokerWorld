@@ -86,10 +86,10 @@ const ShippingSchedule: React.FC = () => {
     }
   }, [location, navigate]);
 
-  // Filter schedules based on status
+  // Filter schedules based on status and exclude completed
   const filteredSchedules = filter
-    ? shipments.filter(schedule => schedule.status.toLowerCase() === filter)
-    : shipments;
+    ? shipments.filter(schedule => schedule.status.toLowerCase() === filter && schedule.status.toLowerCase() !== 'completed')
+    : shipments.filter(schedule => schedule.status.toLowerCase() !== 'completed');
 
   // Clear filter
   const handleClearFilter = () => {

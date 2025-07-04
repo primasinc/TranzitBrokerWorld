@@ -257,6 +257,13 @@ const AvailableLoads: React.FC = () => {
     return () => unsubscribe();
   }, [user]);
 
+  // On mount, check for #partner hash and set tab accordingly
+  useEffect(() => {
+    if (window.location.hash === '#partner') {
+      setActiveTab('PARTNER');
+    }
+  }, []);
+
   const handleLogout = () => navigate('/login');
   const handleProfile = () => navigate('/carrier/profile');
   const handleSettings = () => navigate('/carrier/settings');
@@ -379,6 +386,13 @@ const AvailableLoads: React.FC = () => {
         </button>
       </div>
     </div>
+  );
+
+  // Filter out loads from marketplace if there is a matching partner request for this carrier
+  const partnerRequestPoNumbers = new Set(partnerRequests.map((req: any) => req.loadDetails?.poNumber || req.poNumber).filter(Boolean));
+  const partnerRequestLoadIds = new Set(partnerRequests.map((req: any) => req.loadId).filter(Boolean));
+  const filteredMarketplaceLoads = availableLoads.filter(load =>
+    !partnerRequestPoNumbers.has(load.poNumber) && !partnerRequestLoadIds.has(load.id)
   );
 
   // Show loading state
@@ -518,7 +532,7 @@ const AvailableLoads: React.FC = () => {
                   <MapboxMap 
                     center={userLocation}
                     zoom={mapZoom}
-                    markers={availableLoads.map(load => ({
+                    markers={filteredMarketplaceLoads.map(load => ({
                       id: load.id,
                       position: load.pickupLocation.position,
                       type: 'shipper' as const,
@@ -582,14 +596,14 @@ const AvailableLoads: React.FC = () => {
             ) : (
               // List view - mobile optimized
               <div className={styles.listView}>
-                {availableLoads.length === 0 ? (
+                {filteredMarketplaceLoads.length === 0 ? (
                   <div className={styles.noLoads}>
                     <h3>No Available Loads</h3>
                     <p>No loads found in your area. Try expanding your search radius or check back later.</p>
                   </div>
                 ) : (
                   <MobileOptimizedList
-                    items={availableLoads}
+                    items={filteredMarketplaceLoads}
                     renderItem={renderLoadItem}
                     keyExtractor={(item) => item.id}
                     onLoadMore={loadMore}

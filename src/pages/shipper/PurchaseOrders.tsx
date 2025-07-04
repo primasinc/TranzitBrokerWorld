@@ -34,6 +34,7 @@ const PurchaseOrders: React.FC = () => {
   const [viewingPO, setViewingPO] = useState<PurchaseOrder | null>(null);
   const [editingPO, setEditingPO] = useState<PurchaseOrder | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [removeConfirmId, setRemoveConfirmId] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
@@ -69,7 +70,9 @@ const PurchaseOrders: React.FC = () => {
                          order.companyInfo?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          order.shipTo?.name?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesFilter = filterStatus === 'all' || order.status === filterStatus;
-    return matchesSearch && matchesFilter;
+    // Hide completed POs from this page
+    const notCompleted = order.status !== 'Completed';
+    return matchesSearch && matchesFilter && notCompleted;
   });
 
   const handleView = (po: PurchaseOrder) => setViewingPO(po);
@@ -88,13 +91,35 @@ const PurchaseOrders: React.FC = () => {
     setOrders(orders => orders.map(o => o.id === editingPO.id ? { ...o, ...data, userId: editingPO.userId } : o));
     setEditingPO(null);
   };
-  const handleDelete = (id: string) => setConfirmDeleteId(id);
-  const confirmDelete = async (id: string) => {
+  const handleDelete = (id: string) => setRemoveConfirmId(id);
+  const handleRemoveFromList = async (id: string) => {
+    // Remove PO from Firestore and UI
+    try {
+      // Find the PO to get its poNumber
+      const poToDelete = orders.find(o => o.id === id);
+      const poNumber = poToDelete?.poNumber;
+      // Delete all notifications with this poNumber
+      if (poNumber) {
+        const notificationsSnapshot = await getDocs(query(collection(db, 'notifications'), where('poNumber', '==', poNumber)));
+        const deletePromises: Promise<void>[] = [];
+        notificationsSnapshot.forEach(docSnap => {
+          deletePromises.push(deleteDoc(doc(db, 'notifications', docSnap.id)));
+        });
+        await Promise.all(deletePromises);
+      }
+      await deleteDoc(doc(db, 'purchaseOrders', id));
+      setOrders(orders => orders.filter(o => o.id !== id));
+      setRemoveConfirmId(null);
+    } catch (error) {
+      alert('Failed to remove PO.');
+      setRemoveConfirmId(null);
+    }
+  };
+  const cancelAndSetCancelled = async (id: string) => {
     // Find the PO to get its poNumber
     const poToDelete = orders.find(o => o.id === id);
     if (!poToDelete) return;
     const poNumber = poToDelete.poNumber;
-    
     try {
       // Mark the PO as cancelled instead of deleting it
       const poRef = doc(db, 'purchaseOrders', id);
@@ -103,12 +128,11 @@ const PurchaseOrders: React.FC = () => {
         shippingScheduleStatus: 'Cancelled',
         cancelledAt: new Date().toISOString(),
       });
-      
       // Mark related POs with the same poNumber as cancelled
       const schedulesSnapshot = await getDocs(query(collection(db, 'purchaseOrders'), where('poNumber', '==', poNumber)));
       const batchUpdates: Promise<any>[] = [];
       schedulesSnapshot.forEach(docSnap => {
-        if (docSnap.id !== id) { // Don't double-update the same doc
+        if (docSnap.id !== id) {
           batchUpdates.push(updateDoc(doc(db, 'purchaseOrders', docSnap.id), {
             status: 'Cancelled',
             shippingScheduleStatus: 'Cancelled',
@@ -117,7 +141,6 @@ const PurchaseOrders: React.FC = () => {
         }
       });
       await Promise.all(batchUpdates);
-      
       // Mark related loads as cancelled
       const loadsSnapshot = await getDocs(query(collection(db, 'loads'), where('poNumber', '==', poNumber)));
       const loadUpdates: Promise<any>[] = [];
@@ -128,7 +151,6 @@ const PurchaseOrders: React.FC = () => {
         }));
       });
       await Promise.all(loadUpdates);
-      
       // Mark related notifications as cancelled
       const notificationsSnapshot = await getDocs(query(collection(db, 'notifications'), where('poNumber', '==', poNumber)));
       const notificationUpdates: Promise<any>[] = [];
@@ -139,20 +161,23 @@ const PurchaseOrders: React.FC = () => {
         }));
       });
       await Promise.all(notificationUpdates);
-      
       // Update local state to reflect the status change
-      setOrders(orders => orders.map(o => 
-        o.id === id || o.poNumber === poNumber 
+      setOrders(orders => orders.map(o =>
+        o.id === id || o.poNumber === poNumber
           ? { ...o, status: 'Cancelled', shippingScheduleStatus: 'Cancelled' }
           : o
       ));
-      setConfirmDeleteId(null);
+      setRemoveConfirmId(null);
     } catch (error) {
       console.error('Error cancelling PO:', error);
       alert('Failed to cancel PO. Please try again.');
+      setRemoveConfirmId(null);
     }
   };
-  const cancelDelete = () => setConfirmDeleteId(null);
+  const handleCancelInstead = async (id: string) => {
+    setRemoveConfirmId(null);
+    await cancelAndSetCancelled(id);
+  };
 
   const handleCompletePO = async (order: any) => {
     try {
@@ -187,8 +212,8 @@ const PurchaseOrders: React.FC = () => {
         await Promise.all(loadUpdates);
         console.log('[handleCompletePO] All related loads updated.');
       }
-      // Refresh the list (fallback: reload page if no refresh function)
-      window.location.reload();
+      // Redirect to Shipment Archive page
+      navigate('/shipper/archive');
     } catch (err) {
       console.error('[handleCompletePO] Error completing PO:', err);
       alert('Failed to complete PO.');
@@ -370,13 +395,13 @@ const PurchaseOrders: React.FC = () => {
           </div>
         </div>
       )}
-      {confirmDeleteId && (
+      {removeConfirmId && (
         <div className={styles.modalOverlay}>
           <div className={styles.modalContent}>
-            <div className={styles.modalMessage}>Are you sure you want to delete this PO?</div>
+            <div className={styles.modalMessage}>Do you want to remove this purchase order from your list?</div>
             <div className={styles.modalActions}>
-              <button className={styles.confirmButton} onClick={() => confirmDelete(confirmDeleteId)}>Yes</button>
-              <button className={styles.confirmButton} onClick={cancelDelete}>No</button>
+              <button className={styles.confirmButton} onClick={() => handleRemoveFromList(removeConfirmId)}>Yes</button>
+              <button className={styles.confirmButton} onClick={() => handleCancelInstead(removeConfirmId)}>No</button>
             </div>
           </div>
         </div>

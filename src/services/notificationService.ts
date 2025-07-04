@@ -199,6 +199,7 @@ export const updateLoadRequestStatus = async (
           ...notifData.loadDetails,
           carrierOption: notifData.loadDetails?.carrierOption || (notifData.carrierId ? 'carrier' : undefined)
         },
+        read: false,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
@@ -219,6 +220,7 @@ export const updateLoadRequestStatus = async (
         type: notifData.status === 'counter_offer' ? 'shipper_accept_counter' : 'shipper_assign',
         message: carrierAcceptMessage,
         loadDetails: notifData.loadDetails,
+        read: false,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
@@ -252,6 +254,7 @@ export const updateLoadRequestStatus = async (
         type: 'carrier_reject',
         message: 'Carrier has rejected your load request.',
         loadDetails: notifData.loadDetails,
+        read: false,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         requiresAction: true
@@ -273,6 +276,7 @@ export const updateLoadRequestStatus = async (
         type: notifData.status === 'counter_offer' ? 'shipper_accept_counter' : 'shipper_assign',
         message: carrierAcceptMessage,
         loadDetails: notifData.loadDetails,
+        read: false,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
@@ -293,6 +297,7 @@ export const updateLoadRequestStatus = async (
           ...notifData.loadDetails,
           rate: counterOffer
         },
+        read: false,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         requiresAction: true

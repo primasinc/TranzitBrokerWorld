@@ -7,6 +7,8 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { db } from '../../../firebase';
 import { addDoc, collection, getDocs, query, where, updateDoc, doc } from 'firebase/firestore';
 
+type CarrierOrMarketplace = 'carrier' | 'marketplace' | null;
+
 interface ShippingScheduleFormData {
   pickupLocation: {
     address: string;
@@ -112,7 +114,7 @@ const ShippingScheduleForm: React.FC = () => {
     };
   }, [locationState]);
 
-  const [selectedOption, setSelectedOption] = React.useState<'carrier' | 'marketplace' | null>(null);
+  const [selectedOption, setSelectedOption] = React.useState<CarrierOrMarketplace>(null);
   const { control, handleSubmit, formState: { errors } } = useForm<ShippingScheduleFormData>({
     defaultValues: defaultValues || {
       pickupLocation: {
@@ -209,17 +211,97 @@ const ShippingScheduleForm: React.FC = () => {
 
       // If a carrier was selected, send them a notification
       if (selectedOption === 'carrier' && locationState?.selectedCarrier && user) {
+        const poData = locationState?.poData || {};
+        // 1. Create the load first
+        const pickupLocationForLoad = {
+          ...data.pickupLocation,
+          position: poData.vendorInfo?.position || [0, 0],
+        };
+        const deliveryLocationForLoad = {
+          ...data.deliveryLocation,
+          position: poData.shipTo?.position || [0, 0],
+        };
+        // Set title based on selectedOption
+        let loadTitle = poData.title || poData.poNumber || '';
+        if (!loadTitle) {
+          loadTitle = (selectedOption as CarrierOrMarketplace) === 'marketplace' ? 'Marketplace Load' : 'Partner Request Load';
+        }
+        // Format dimensions as string for top-level field
+        const formattedDimensions = data.cargoDetails.dimensions && (data.cargoDetails.dimensions.length || data.cargoDetails.dimensions.width || data.cargoDetails.dimensions.height)
+          ? `${data.cargoDetails.dimensions.length || ''}x${data.cargoDetails.dimensions.width || ''}x${data.cargoDetails.dimensions.height || ''}`
+          : '';
+        const loadDoc = {
+          title: loadTitle,
+          pickupLocation: pickupLocationForLoad,
+          deliveryLocation: deliveryLocationForLoad,
+          rate: poData.rate || 0,
+          status: 'open',
+          poNumber: poData.poNumber || '',
+          weight: data.cargoDetails.weight ? data.cargoDetails.weight.toString() : '',
+          dimensions: formattedDimensions,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          isMarketplace: (selectedOption as CarrierOrMarketplace) === 'marketplace',
+        };
+        await addDoc(collection(db, 'loads'), loadDoc);
+        // 2. Robust retry: fetch the load by poNumber with retries
+        let pickupLocation, deliveryLocation;
+        const maxAttempts = 5;
+        const delayMs = 300;
+        let found = false;
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+          const loadsQuery = query(collection(db, 'loads'), where('poNumber', '==', poData.poNumber || ''));
+          const loadsSnap = await getDocs(loadsQuery);
+          if (!loadsSnap.empty) {
+            const loadData = loadsSnap.docs[0].data();
+            pickupLocation = loadData.pickupLocation || {};
+            deliveryLocation = loadData.deliveryLocation || {};
+            found = true;
+            break;
+          }
+          await new Promise(res => setTimeout(res, delayMs));
+        }
+        if (!found) {
+          // Fallback to form/PO data
+          pickupLocation = {
+            address: data.pickupLocation.address || poData.vendorInfo?.streetAddress || 'N/A',
+            city: data.pickupLocation.city || poData.vendorInfo?.city || 'N/A',
+            state: data.pickupLocation.state || poData.vendorInfo?.state || 'N/A',
+            zipCode: data.pickupLocation.zipCode || poData.vendorInfo?.zipCode || 'N/A',
+            date: data.pickupLocation.date || poData.date || 'N/A',
+            time: ''
+          };
+          deliveryLocation = {
+            address: data.deliveryLocation.address || poData.shipTo?.streetAddress || 'N/A',
+            city: data.deliveryLocation.city || poData.shipTo?.city || 'N/A',
+            state: data.deliveryLocation.state || poData.shipTo?.state || 'N/A',
+            zipCode: data.deliveryLocation.zipCode || poData.shipTo?.zipCode || 'N/A',
+            date: data.deliveryLocation.date || poData.date || 'N/A',
+            time: ''
+          };
+        }
+        const dimensions = (data.cargoDetails.dimensions && (data.cargoDetails.dimensions.length || data.cargoDetails.dimensions.width || data.cargoDetails.dimensions.height))
+          ? data.cargoDetails.dimensions
+          : (poData.cargoDetails?.dimensions || { length: 0, width: 0, height: 0 });
+        const weight = data.cargoDetails.weight || poData.cargoDetails?.weight || 0;
+        const rate = poData.rate || 0;
+        const shipperCompany = poData.companyInfo?.name || poData.shipperName || 'N/A';
+        const poNumber = poData.poNumber || 'N/A';
+        const loadDetails = {
+          pickupLocation,
+          deliveryLocation,
+          dimensions,
+          weight,
+          rate,
+          shipperCompany,
+          poNumber
+        };
+        console.log('Sending partner request with loadDetails:', loadDetails);
         await sendLoadRequestToCarrier(
           locationState.selectedCarrier.id,
           user.uid,
           id,
-          {
-            pickupLocation: data.pickupLocation,
-            deliveryLocation: data.deliveryLocation,
-            dimensions: data.cargoDetails.dimensions,
-            weight: data.cargoDetails.weight,
-            rate: locationState.poData?.rate || 0
-          }
+          loadDetails
         );
       }
 
@@ -256,11 +338,13 @@ const ShippingScheduleForm: React.FC = () => {
           rate: poData.rate || 0,
           status: 'open',
           poNumber: poData.poNumber || '',
-          weight: data.cargoDetails.weight,
-          dimensions: data.cargoDetails.dimensions,
+          weight: data.cargoDetails.weight ? data.cargoDetails.weight.toString() : '',
+          dimensions: data.cargoDetails.dimensions && (data.cargoDetails.dimensions.length || data.cargoDetails.dimensions.width || data.cargoDetails.dimensions.height)
+            ? `${data.cargoDetails.dimensions.length || ''}x${data.cargoDetails.dimensions.width || ''}x${data.cargoDetails.dimensions.height || ''}`
+            : '',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          isMarketplace: true // Explicitly set for marketplace
+          isMarketplace: (selectedOption as CarrierOrMarketplace) === 'marketplace',
         };
         await addDoc(collection(db, 'loads'), loadDoc);
         navigate('/shipper/loads');
@@ -282,11 +366,13 @@ const ShippingScheduleForm: React.FC = () => {
           rate: poData.rate || 0,
           status: 'open',
           poNumber: poData.poNumber || '',
-          weight: data.cargoDetails.weight,
-          dimensions: data.cargoDetails.dimensions,
+          weight: data.cargoDetails.weight ? data.cargoDetails.weight.toString() : '',
+          dimensions: data.cargoDetails.dimensions && (data.cargoDetails.dimensions.length || data.cargoDetails.dimensions.width || data.cargoDetails.dimensions.height)
+            ? `${data.cargoDetails.dimensions.length || ''}x${data.cargoDetails.dimensions.width || ''}x${data.cargoDetails.dimensions.height || ''}`
+            : '',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          isMarketplace: false // Explicitly set for partner request
+          isMarketplace: (selectedOption as CarrierOrMarketplace) === 'marketplace',
         };
         await addDoc(collection(db, 'loads'), loadDoc);
         navigate('/shipper/loads');
