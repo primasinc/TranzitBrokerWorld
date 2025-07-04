@@ -50,19 +50,9 @@ const LoadRequests: React.FC = () => {
   return (
     <div className={styles.container}>
       <h1>Load Requests</h1>
-      {loadRequests.length === 0 ? (
-        <p className={styles.noRequests}>No load requests at this time.</p>
-      ) : (
-        <div className={styles.requestsList}>
-          {loadRequests.map((request) => (
-            <LoadRequestCard
-              key={request.id}
-              notification={request}
-              onStatusUpdate={(status) => handleStatusUpdate(request.id!, status)}
-            />
-          ))}
-        </div>
-      )}
+      <div style={{ color: 'red', padding: 16, textAlign: 'center' }}>
+        This page is deprecated. Please use the Home or Available Loads page to view your carrier requests.
+      </div>
     </div>
   );
 };

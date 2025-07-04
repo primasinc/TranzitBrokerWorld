@@ -19,6 +19,8 @@ interface CounterOfferModalProps {
       city: string;
       state: string;
     };
+    poNumber?: string;
+    carrierName?: string;
   };
 }
 
@@ -65,11 +67,17 @@ const CounterOfferModal: React.FC<CounterOfferModalProps> = ({
 
           <div className={styles.loadDetails}>
             <h3>Load Details</h3>
-            <div className={styles.location}>
-              <strong>Pickup:</strong> {loadDetails.pickupLocation.address}, {loadDetails.pickupLocation.city}, {loadDetails.pickupLocation.state}
+            {loadDetails.carrierName && (
+              <div className={styles.carrierName} style={{ marginBottom: 4 }}><strong>Carrier:</strong> {loadDetails.carrierName}</div>
+            )}
+            {loadDetails.poNumber && (
+              <div className={styles.poNumber} style={{ marginBottom: 4 }}><strong>PO Number:</strong> {loadDetails.poNumber}</div>
+            )}
+            <div className={styles.location} style={{ marginBottom: 4 }}>
+              <strong>Pickup:</strong> {[loadDetails.pickupLocation.address, loadDetails.pickupLocation.city, loadDetails.pickupLocation.state].filter(Boolean).join(', ')}
             </div>
             <div className={styles.location}>
-              <strong>Delivery:</strong> {loadDetails.deliveryLocation.address}, {loadDetails.deliveryLocation.city}, {loadDetails.deliveryLocation.state}
+              <strong>Delivery:</strong> {[loadDetails.deliveryLocation.address, loadDetails.deliveryLocation.city, loadDetails.deliveryLocation.state].filter(Boolean).join(', ')}
             </div>
           </div>
 

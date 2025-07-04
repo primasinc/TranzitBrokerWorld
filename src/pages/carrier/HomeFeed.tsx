@@ -4,13 +4,14 @@ import { useAuth } from '../../contexts/AuthContext';
 import MapboxMap from '../../components/common/MapboxMap';
 import styles from './HomeFeed.module.css';
 import LoadRequestCard from '../../components/carrier/LoadRequestCard';
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase';
 import NotificationsTray, { useUnreadNotifications } from './NotificationsTray';
 import { useAvailableLoads } from '../../hooks/useAvailableLoads';
 import { isValidPartnerRequest } from './AvailableLoads';
 import { useMobileOptimization } from '../../hooks/useMobileOptimization';
 import { usePartnerRequestLoads } from '../../hooks/usePartnerRequestLoads';
+import { useCarrierPartnerRequests } from '../../hooks/useCarrierPartnerRequests';
 
 interface AvailableLoad {
   id: string;
@@ -24,6 +25,21 @@ interface AvailableLoad {
   };
   title: string;
   // ... other existing properties ...
+}
+
+interface PurchaseOrder {
+  id?: string;
+  poNumber?: string;
+  date?: string;
+  vendorInfo?: { name?: string };
+  companyInfo?: { name?: string };
+  shipTo?: { name?: string };
+  status?: string;
+  amount?: number;
+  total?: number;
+  items?: any[];
+  shipperCompany?: string;
+  [key: string]: any;
 }
 
 const TABS = {
@@ -55,6 +71,7 @@ const HomeFeed: React.FC = () => {
     getOptimalPageSize,
     shouldFetchData 
   } = useMobileOptimization();
+  const { partnerRequests: poPartnerRequests, loading: poPartnerLoading } = useCarrierPartnerRequests();
 
   // Mobile detection
   useEffect(() => {
@@ -383,78 +400,45 @@ const HomeFeed: React.FC = () => {
               </div>
             ) : (
               <div className={styles.listView}>
-                {partnerLoading || mergedPartnerLoading ? (
+                {partnerLoading ? (
                   <div>Loading partner loads...</div>
-                ) : mergedPartnerError ? (
-                  <div>Error loading partner loads: {mergedPartnerError}</div>
-                ) : mergedPartnerRequests.length === 0 ? (
+                ) : partnerRequests.length === 0 ? (
                   <div>No partner loads at this time.</div>
                 ) : (
-                  <>
-                    {/* Desktop Table View */}
-                    {!isMobile && (
-                      <table className={styles.partnerTable}>
-                        <thead>
-                          <tr>
-                            <th>PO Number</th>
-                            <th>Shipper</th>
-                            <th>Pickup</th>
-                            <th>Pickup Date</th>
-                            <th>Delivery</th>
-                            <th>Rate</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {mergedPartnerRequests.slice(0, 5).map(({ notification, load }) => {
-                            const pickup = load?.pickupLocation || notification.loadDetails?.pickupLocation || {};
-                            const delivery = load?.deliveryLocation || notification.loadDetails?.deliveryLocation || {};
-                            const pickupFull = pickup.address && pickup.city && pickup.state && pickup.zipCode
-                              ? `${pickup.address}, ${pickup.city}, ${pickup.state} ${pickup.zipCode}`
-                              : pickup.address || '-';
-                            const deliveryFull = delivery.address && delivery.city && delivery.state && delivery.zipCode
-                              ? `${delivery.address}, ${delivery.city}, ${delivery.state} ${delivery.zipCode}`
-                              : delivery.address || '-';
-                            const pickupDate = load?.pickupLocation?.date || notification.loadDetails?.pickupLocation?.date || '-';
-                            return (
-                              <tr key={notification.id}>
-                                <td>
-                                  <a
-                                    href={`/carrier/available-loads#partner`}
-                                    style={{ color: '#007bff', textDecoration: 'underline', cursor: 'pointer', fontWeight: 500 }}
-                                  >
-                                    {load?.poNumber || notification.loadDetails?.poNumber || '-'}
-                                  </a>
-                                </td>
-                                <td>{load?.shipper || notification.loadDetails?.shipperCompany || '-'}</td>
-                                <td>{pickupFull}</td>
-                                <td>{pickupDate}</td>
-                                <td>{deliveryFull}</td>
-                                <td>{typeof (load?.rate ?? notification.loadDetails?.rate) === 'number' ? `$${(load?.rate ?? notification.loadDetails?.rate)}` : '-'}</td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    )}
-                    {/* Mobile Card View */}
-                    {isMobile && (
-                      <div className={styles.mobilePartnerCards}>
-                        {mergedPartnerRequests.slice(0, 5).map(({ notification, load }) => (
-                          <div key={notification.id} className={styles.partnerCard}>
-                            <h4>PO: {load?.poNumber || notification.loadDetails?.poNumber || 'N/A'}</h4>
-                            <p><strong>Shipper:</strong> {load?.shipper || notification.loadDetails?.shipperCompany || 'N/A'}</p>
-                            <p><strong>Pickup:</strong> {load?.pickupLocation?.address || notification.loadDetails?.pickupLocation?.address || 'N/A'}</p>
-                            <p><strong>Pickup Date:</strong> {load?.pickupLocation?.date || notification.loadDetails?.pickupLocation?.date || 'N/A'}</p>
-                            <p><strong>Delivery:</strong> {load?.deliveryLocation?.address || notification.loadDetails?.deliveryLocation?.address || 'N/A'}</p>
-                            <p><strong>Delivery Date:</strong> {load?.deliveryLocation?.date || notification.loadDetails?.deliveryLocation?.date || 'N/A'}</p>
-                            <p className={styles.rate}>
-                              <strong>Rate:</strong> {typeof (load?.rate ?? notification.loadDetails?.rate) === 'number' ? `$${(load?.rate ?? notification.loadDetails?.rate)}` : 'N/A'}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </>
+                  <table className={styles.partnerTable} style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 16 }}>
+                    <thead>
+                      <tr>
+                        <th style={{ textAlign: 'left', padding: '8px' }}>PO Number</th>
+                        <th style={{ textAlign: 'left', padding: '8px' }}>Shipper</th>
+                        <th style={{ textAlign: 'left', padding: '8px' }}>Pickup</th>
+                        <th style={{ textAlign: 'left', padding: '8px' }}>Pickup Date</th>
+                        <th style={{ textAlign: 'left', padding: '8px' }}>Delivery</th>
+                        <th style={{ textAlign: 'left', padding: '8px' }}>Delivery Date</th>
+                        <th style={{ textAlign: 'left', padding: '8px' }}>Rate</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {partnerRequests.filter(r => r.status === 'pending').map((notification) => (
+                        <tr key={notification.id} style={{ borderBottom: '1px solid #eee' }}>
+                          <td style={{ padding: '8px' }}>
+                            <a
+                              href={`/carrier/available-loads#partner&po=${notification.loadDetails.poNumber}`}
+                              className={styles.poLink}
+                              style={{ fontWeight: 600 }}
+                            >
+                              {notification.loadDetails.poNumber || '-'}
+                            </a>
+                          </td>
+                          <td style={{ padding: '8px' }}>{notification.loadDetails.shipperCompany || '-'}</td>
+                          <td style={{ padding: '8px' }}>{notification.loadDetails.pickupLocation?.address || '-'}</td>
+                          <td style={{ padding: '8px' }}>{notification.loadDetails.pickupLocation?.date || '-'}</td>
+                          <td style={{ padding: '8px' }}>{notification.loadDetails.deliveryLocation?.address || '-'}</td>
+                          <td style={{ padding: '8px' }}>{notification.loadDetails.deliveryLocation?.date || '-'}</td>
+                          <td style={{ padding: '8px', fontWeight: 600, color: '#1976d2' }}>{notification.loadDetails.rate ? `$${notification.loadDetails.rate}` : '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 )}
               </div>
             )}

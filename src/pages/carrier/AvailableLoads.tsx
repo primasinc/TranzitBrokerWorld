@@ -13,6 +13,8 @@ import { sendLoadRequestToCarrier, acceptLoadForPO } from '../../services/notifi
 import { useMobileOptimization } from '../../hooks/useMobileOptimization';
 import { MobileOptimizedList } from '../../components/common/MobileOptimizedList';
 import NotificationsTray, { useUnreadNotifications } from './NotificationsTray';
+import { useCarrierPartnerRequests } from '../../hooks/useCarrierPartnerRequests';
+import { usePartnerRequestLoads } from '../../hooks/usePartnerRequestLoads';
 
 interface Load {
   id: string;
@@ -24,6 +26,21 @@ interface Load {
   distance: string;
   weight: string;
   dimensions: string;
+}
+
+interface PurchaseOrder {
+  id?: string;
+  poNumber?: string;
+  date?: string;
+  vendorInfo?: { name?: string };
+  companyInfo?: { name?: string };
+  shipTo?: { name?: string };
+  status?: string;
+  amount?: number;
+  total?: number;
+  items?: any[];
+  shipperCompany?: string;
+  [key: string]: any;
 }
 
 const VIEW_TYPES: Record<'MAP' | 'LIST', 'map' | 'list'> = {
@@ -120,11 +137,26 @@ const AvailableLoads: React.FC = () => {
   const [eldApiId, setEldApiId] = useState<string | null>(null);
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('MARKETPLACE');
-  const [partnerRequests, setPartnerRequests] = useState<any[]>([]);
-  const [partnerLoading, setPartnerLoading] = useState(true);
+  const { partnerRequests: poPartnerRequests, loading: poPartnerLoading } = useCarrierPartnerRequests();
   const [locationError, setLocationError] = useState<string | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const unreadCount = useUnreadNotifications();
+  const [isMobile, setIsMobile] = useState(false);
+  const [partnerRequests, setPartnerRequests] = useState<any[]>([]);
+  const [partnerLoading, setPartnerLoading] = useState(true);
+  const { merged: mergedPartnerRequests, loading: mergedPartnerLoading, error: mergedPartnerError } = usePartnerRequestLoads(partnerRequests.filter(r => r.status === 'pending'));
+
+  // Mobile detection
+  useEffect(() => {
+    const checkMobile = () => {
+      const userAgent = navigator.userAgent.toLowerCase();
+      const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+      setIsMobile(isMobileDevice || window.innerWidth <= 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Mobile optimization
   const { 
@@ -237,7 +269,14 @@ const AvailableLoads: React.FC = () => {
     }
   }, [user]); // Only run when user changes
 
-  // Fetch partner requests for the logged-in carrier
+  // On mount, check for #partner hash and set tab accordingly
+  useEffect(() => {
+    if (window.location.hash.startsWith('#partner')) {
+      setActiveTab('PARTNER');
+    }
+  }, []);
+
+  // Fetch notifications for this carrier
   useEffect(() => {
     if (!user) return;
     setPartnerLoading(true);
@@ -256,13 +295,6 @@ const AvailableLoads: React.FC = () => {
     });
     return () => unsubscribe();
   }, [user]);
-
-  // On mount, check for #partner hash and set tab accordingly
-  useEffect(() => {
-    if (window.location.hash === '#partner') {
-      setActiveTab('PARTNER');
-    }
-  }, []);
 
   const handleLogout = () => navigate('/login');
   const handleProfile = () => navigate('/carrier/profile');
@@ -388,9 +420,9 @@ const AvailableLoads: React.FC = () => {
     </div>
   );
 
-  // Filter out loads from marketplace if there is a matching partner request for this carrier
-  const partnerRequestPoNumbers = new Set(partnerRequests.map((req: any) => req.loadDetails?.poNumber || req.poNumber).filter(Boolean));
-  const partnerRequestLoadIds = new Set(partnerRequests.map((req: any) => req.loadId).filter(Boolean));
+  // Use only poPartnerRequests for filtering
+  const partnerRequestPoNumbers = new Set(poPartnerRequests.map(({ po }) => po.poNumber).filter(Boolean));
+  const partnerRequestLoadIds = new Set(poPartnerRequests.map(({ load }) => load.id).filter(Boolean));
   const filteredMarketplaceLoads = availableLoads.filter(load =>
     !partnerRequestPoNumbers.has(load.poNumber) && !partnerRequestLoadIds.has(load.id)
   );
@@ -621,7 +653,33 @@ const AvailableLoads: React.FC = () => {
             )}
           </>
         ) : (
-          <PartnerRequestsList partnerRequests={partnerRequests} />
+          <div className={styles.listView}>
+            {mergedPartnerLoading ? (
+              <div>Loading partner loads...</div>
+            ) : mergedPartnerRequests.length === 0 ? (
+              <div>No partner loads at this time.</div>
+            ) : (
+              <>
+                {mergedPartnerRequests.map(({ notification, po }) => (
+                  <LoadRequestCard
+                    key={notification.id}
+                    notification={{ ...notification, loadDetails: {
+                      ...notification.loadDetails,
+                      ...po,
+                      pickupLocation: po?.pickupLocation || notification.loadDetails.pickupLocation,
+                      deliveryLocation: po?.deliveryLocation || notification.loadDetails.deliveryLocation,
+                      rate: po?.rate || notification.loadDetails.rate,
+                      weight: po?.weight || notification.loadDetails.weight,
+                      dimensions: po?.dimensions || notification.loadDetails.dimensions,
+                      shipperCompany: po?.shipperCompany || notification.loadDetails.shipperCompany,
+                      poNumber: po?.poNumber || notification.loadDetails.poNumber
+                    }}}
+                    onStatusUpdate={() => {}}
+                  />
+                ))}
+              </>
+            )}
+          </div>
         )}
 
         {/* Mobile performance indicator */}
@@ -635,33 +693,5 @@ const AvailableLoads: React.FC = () => {
     </div>
   );
 };
-
-function PartnerRequestsList({ partnerRequests }: { partnerRequests: any[] }) {
-  const [validRequests, setValidRequests] = React.useState<any[]>([]);
-  React.useEffect(() => {
-    let isMounted = true;
-    async function filterRequests() {
-      const filtered = [];
-      for (const req of partnerRequests) {
-        if (await isValidPartnerRequest(req)) filtered.push(req);
-      }
-      if (isMounted) setValidRequests(filtered);
-    }
-    filterRequests();
-    return () => { isMounted = false; };
-  }, [partnerRequests]);
-  if (validRequests.length === 0) return <div>No partner requests at this time.</div>;
-  return (
-    <>
-      {validRequests.map((request) => (
-        <LoadRequestCard
-          key={request.id}
-          notification={request}
-          onStatusUpdate={() => {}}
-        />
-      ))}
-    </>
-  );
-}
 
 export default AvailableLoads;

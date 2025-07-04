@@ -181,37 +181,33 @@ const CarrierPartners: React.FC = () => {
           // Map vendorInfo and shipTo to pickup/delivery
           const pickupLocation = orderData.pickupLocation || po.vendorInfo || {};
           const deliveryLocation = orderData.deliveryLocation || po.shipTo || {};
-          // Map company name
           const shipperCompany = orderData.shipperCompany || po.companyInfo?.name || orderData.shipperName || '';
-          // Map date
-          const pickupDate = orderData.date || po.date || '';
-          // Map dimensions and weight
+          const pickupDate = orderData.pickupDate || orderData.date || po.date || (Array.isArray(po.items) && po.items[0]?.pickupDate) || '';
+          const deliveryDate = orderData.deliveryDate || po.deliveryDate || (Array.isArray(po.items) && po.items[0]?.deliveryDate) || pickupDate || '';
           const cargoDetails = orderData.cargoDetails || po.cargoDetails || {};
-          const dimensions = cargoDetails.dimensions || po.dimensions || { length: 0, width: 0, height: 0 };
-          // Defensive: ensure po.items is always an array
-          const items = Array.isArray(po.items) ? po.items : [];
-          const weight = cargoDetails.weight || items.reduce((sum: number, item: any) => sum + (item.weight || 0), 0) || 0;
-          const rate = orderData.carrierRate || po.rate || 0;
+          const dimensions = cargoDetails.dimensions || po.dimensions || (Array.isArray(po.items) && po.items[0]?.dimensions) || { length: 0, width: 0, height: 0 };
+          const weight = cargoDetails.weight || (Array.isArray(po.items) && po.items[0]?.weight) || 0;
+          const rate = orderData.carrierRate || po.rate || (Array.isArray(po.items) && po.items[0]?.rate) || 0;
           await sendLoadRequestToCarrier(
             carrier.id,
             userId,
             orderDoc.id,
             {
               pickupLocation: {
-                address: pickupLocation.streetAddress || '',
-                city: pickupLocation.cityStateZip?.split(',')[0]?.trim() || '',
-                state: pickupLocation.cityStateZip?.split(',')[1]?.trim().split(' ')[0] || '',
-                zipCode: pickupLocation.cityStateZip?.split(' ').slice(-1)[0] || '',
+                address: pickupLocation.streetAddress || pickupLocation.address || '',
+                city: pickupLocation.city || pickupLocation.cityStateZip?.split(',')[0]?.trim() || '',
+                state: pickupLocation.state || pickupLocation.cityStateZip?.split(',')[1]?.trim().split(' ')[0] || '',
+                zipCode: pickupLocation.zipCode || pickupLocation.cityStateZip?.split(' ').slice(-1)[0] || '',
                 date: pickupDate,
-                time: ''
+                time: pickupLocation.time || ''
               },
               deliveryLocation: {
-                address: deliveryLocation.streetAddress || '',
-                city: deliveryLocation.cityStateZip?.split(',')[0]?.trim() || '',
-                state: deliveryLocation.cityStateZip?.split(',')[1]?.trim().split(' ')[0] || '',
-                zipCode: deliveryLocation.cityStateZip?.split(' ').slice(-1)[0] || '',
-                date: pickupDate,
-                time: ''
+                address: deliveryLocation.streetAddress || deliveryLocation.address || '',
+                city: deliveryLocation.city || deliveryLocation.cityStateZip?.split(',')[0]?.trim() || '',
+                state: deliveryLocation.state || deliveryLocation.cityStateZip?.split(',')[1]?.trim().split(' ')[0] || '',
+                zipCode: deliveryLocation.zipCode || deliveryLocation.cityStateZip?.split(' ').slice(-1)[0] || '',
+                date: deliveryDate,
+                time: deliveryLocation.time || ''
               },
               dimensions,
               weight,

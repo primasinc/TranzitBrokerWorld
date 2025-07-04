@@ -106,6 +106,14 @@ const PurchaseOrders: React.FC = () => {
           deletePromises.push(deleteDoc(doc(db, 'notifications', docSnap.id)));
         });
         await Promise.all(deletePromises);
+
+        // Delete all loads with this poNumber
+        const loadsSnapshot = await getDocs(query(collection(db, 'loads'), where('poNumber', '==', poNumber)));
+        const loadDeletePromises: Promise<void>[] = [];
+        loadsSnapshot.forEach(loadDoc => {
+          loadDeletePromises.push(deleteDoc(doc(db, 'loads', loadDoc.id)));
+        });
+        await Promise.all(loadDeletePromises);
       }
       await deleteDoc(doc(db, 'purchaseOrders', id));
       setOrders(orders => orders.filter(o => o.id !== id));

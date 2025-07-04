@@ -284,6 +284,19 @@ export const updateLoadRequestStatus = async (
   } else if (status === 'counter_offer' && counterOffer !== undefined) {
     // Notify the shipper of the counter offer
     if (notifData?.shipperId) {
+      // Fetch carrier name
+      let carrierName = '';
+      if (notifData.carrierId) {
+        try {
+          const carrierDoc = await getDoc(doc(db, 'users', notifData.carrierId));
+          if (carrierDoc.exists()) {
+            const carrierProfile = carrierDoc.data();
+            carrierName = carrierProfile.companyName || carrierProfile.displayName || '';
+          }
+        } catch (err) {
+          console.error('[updateLoadRequestStatus] Error fetching carrier profile for counter offer:', err);
+        }
+      }
       const shipperNotificationRef = collection(db, 'notifications');
       await addDoc(shipperNotificationRef, {
         shipperId: notifData.shipperId,
@@ -295,7 +308,8 @@ export const updateLoadRequestStatus = async (
         message: `Carrier has made a counter offer of $${counterOffer.toFixed(2)}.`,
         loadDetails: {
           ...notifData.loadDetails,
-          rate: counterOffer
+          rate: counterOffer,
+          carrierName
         },
         read: false,
         createdAt: serverTimestamp(),
