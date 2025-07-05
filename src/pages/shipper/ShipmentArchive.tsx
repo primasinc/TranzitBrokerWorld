@@ -131,43 +131,65 @@ const ShipmentArchive: React.FC = () => {
     return styles[status.toLowerCase()] || '';
   };
 
-  // Mobile card component for shipments
-  const renderMobileShipmentCard = (shipment: ShipmentData) => (
+  // Always use the 'rate' field for cost (never N/A)
+  const normalizedArchivedPOs = archivedPOs.map((po) => ({
+    ...po,
+    cost: typeof po.rate === 'number' ? po.rate : 0, // Always use 'rate' for cost
+    // ...rest of normalization as before
+    id: po.id || '',
+    poNumber: po.poNumber || '',
+    origin: po.origin || po.vendorInfo?.cityStateZip || '',
+    destination: po.destination || po.shipTo?.cityStateZip || '',
+    carrier: typeof po.carrier === 'object' && po.carrier !== null
+      ? { id: po.carrier.id || '', name: po.carrier.name || '' }
+      : { id: '', name: po.carrier || po.carrierName || '' },
+    scheduledPickup: po.scheduledPickup || po.pickupDate || po.createdAt || null,
+    scheduledDelivery: po.scheduledDelivery || po.deliveryDate || po.updatedAt || null,
+    status: po.status || 'archived',
+    shipperId: po.userId || '',
+    isOnTime: typeof po.isOnTime === 'boolean' ? po.isOnTime : false,
+    createdAt: po.createdAt || null,
+    updatedAt: po.updatedAt || null,
+  }));
+
+  // Calculate Total Cost as the sum of cost for all filtered/displayed POs
+  const totalCostDisplayed = normalizedArchivedPOs.reduce((sum, po) => sum + po.cost, 0);
+
+  // Defensive mobile card renderer
+  const renderMobileShipmentCard = (shipment: any) => (
     <div key={shipment.id} className={styles.mobileShipmentCard}>
       <div className={styles.cardHeader}>
-        <div className={styles.poNumber}>{shipment.poNumber}</div>
+        <div className={styles.poNumber}>{shipment.poNumber || 'N/A'}</div>
         <span className={`${styles.status} ${getStatusClass(shipment.status)}`}>
-          {shipment.status}
+          {shipment.status || 'N/A'}
         </span>
       </div>
-      
       <div className={styles.cardContent}>
         <div className={styles.cardRow}>
           <span className={styles.label}>Carrier:</span>
-          <span className={styles.value}>{shipment.carrier.name}</span>
+          <span className={styles.value}>{shipment.carrier?.name || 'N/A'}</span>
         </div>
         <div className={styles.cardRow}>
           <span className={styles.label}>Origin:</span>
-          <span className={styles.value}>{shipment.origin}</span>
+          <span className={styles.value}>{shipment.origin || 'N/A'}</span>
         </div>
         <div className={styles.cardRow}>
           <span className={styles.label}>Destination:</span>
-          <span className={styles.value}>{shipment.destination}</span>
+          <span className={styles.value}>{shipment.destination || 'N/A'}</span>
         </div>
         <div className={styles.cardRow}>
           <span className={styles.label}>Pickup:</span>
-          <span className={styles.value}>{formatDate(shipment.scheduledPickup)}</span>
+          <span className={styles.value}>{shipment.scheduledPickup ? formatDate(shipment.scheduledPickup) : 'N/A'}</span>
         </div>
         <div className={styles.cardRow}>
           <span className={styles.label}>Delivery:</span>
-          <span className={styles.value}>{formatDate(shipment.scheduledDelivery)}</span>
+          <span className={styles.value}>{shipment.scheduledDelivery ? formatDate(shipment.scheduledDelivery) : 'N/A'}</span>
         </div>
         <div className={styles.cardRow}>
           <span className={styles.label}>Cost:</span>
           <span className={styles.value}>{formatCurrency(shipment.cost)}</span>
         </div>
       </div>
-      
       <div className={styles.cardActions}>
         <button className={styles.viewButton}>View</button>
         <button className={styles.downloadButton}>Download</button>
@@ -250,15 +272,15 @@ const ShipmentArchive: React.FC = () => {
         </div>
         <div className={styles.statCard}>
           <h3>Total Cost</h3>
-          <p>{formatCurrency(archivedPOs.reduce((sum, s) => sum + s.cost, 0))}</p>
+          <p>{formatCurrency(totalCostDisplayed)}</p>
         </div>
       </div>
 
       {/* Mobile Cards View */}
       {isMobile ? (
         <div className={styles.mobileShipmentsGrid}>
-          {archivedPOs.length > 0 ? (
-            archivedPOs.map(renderMobileShipmentCard)
+          {normalizedArchivedPOs.length > 0 ? (
+            normalizedArchivedPOs.map(renderMobileShipmentCard)
           ) : (
             <div className={styles.noResults}>No archived POs found matching your criteria.</div>
           )}
@@ -281,17 +303,17 @@ const ShipmentArchive: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {archivedPOs.map(po => (
+              {normalizedArchivedPOs.map(po => (
                 <tr key={po.id}>
-                  <td>{po.poNumber}</td>
-                  <td>{po.carrier?.name}</td>
-                  <td>{po.origin}</td>
-                  <td>{po.destination}</td>
-                  <td>{formatDate(po.scheduledPickup)}</td>
-                  <td>{formatDate(po.scheduledDelivery)}</td>
+                  <td>{po.poNumber || 'N/A'}</td>
+                  <td>{po.carrier?.name || 'N/A'}</td>
+                  <td>{po.origin || 'N/A'}</td>
+                  <td>{po.destination || 'N/A'}</td>
+                  <td>{po.scheduledPickup ? formatDate(po.scheduledPickup) : 'N/A'}</td>
+                  <td>{po.scheduledDelivery ? formatDate(po.scheduledDelivery) : 'N/A'}</td>
                   <td>
                     <span className={`${styles.status} ${getStatusClass(po.status)}`}>
-                      {po.status}
+                      {po.status || 'N/A'}
                     </span>
                   </td>
                   <td>{formatCurrency(po.cost)}</td>

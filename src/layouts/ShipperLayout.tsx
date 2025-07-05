@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import styles from './ShipperLayout.module.css';
 import NotificationsTray, { useUnreadNotifications } from '../pages/carrier/NotificationsTray';
+import { useLocationContext } from '../contexts/LocationContext';
 
 const ShipperLayout: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -9,6 +10,7 @@ const ShipperLayout: React.FC = () => {
   const [showNotifications, setShowNotifications] = useState(false);
   const navigate = useNavigate();
   const unreadCount = useUnreadNotifications();
+  const { location, error: locationError, permissionState, retry } = useLocationContext();
 
   const handleLogout = () => {
     navigate('/login');
@@ -164,6 +166,48 @@ const ShipperLayout: React.FC = () => {
           <Outlet />
         </div>
       </main>
+      {/* Location authentication modal */}
+      {!location && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'rgba(0,0,0,0.45)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: 12,
+            padding: 32,
+            maxWidth: 400,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.15)',
+            textAlign: 'center',
+          }}>
+            <h2>Location Required</h2>
+            <p style={{ marginBottom: 16 }}>
+              This app requires your location to function. Please allow location access when prompted.<br/>
+              {locationError && <span style={{ color: '#b00' }}>{locationError}</span>}
+            </p>
+            <button onClick={retry} style={{
+              background: '#007bff',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 6,
+              padding: '10px 24px',
+              fontSize: 16,
+              cursor: 'pointer',
+            }}>Retry</button>
+            <div style={{ marginTop: 16, fontSize: 13, color: '#666' }}>
+              If you previously denied location, please enable it in your browser settings and click Retry.
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { db } from '../../../src/config/firebase';
 import { collection, addDoc, Timestamp, doc, getDocs, getDoc, updateDoc, query, where } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { firebaseStorage as storage } from '../../services/firebase';
 
 interface InvoiceModalProps {
   isOpen: boolean;
@@ -31,6 +33,8 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ isOpen, onClose, load, user
   });
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
+  // Add a state to force re-render of file input
+  const [fileInputKey, setFileInputKey] = useState(0);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -39,8 +43,28 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ isOpen, onClose, load, user
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setForm(prev => ({ ...prev, files: Array.from(e.target.files!) }));
+      setForm(prev => {
+        const existingFiles = prev.files || [];
+        const newFiles = Array.from(e.target.files!);
+        // Avoid duplicates by name and size
+        const allFiles = [...existingFiles];
+        newFiles.forEach(file => {
+          if (!allFiles.some(f => f.name === file.name && f.size === file.size)) {
+            allFiles.push(file);
+          }
+        });
+        return { ...prev, files: allFiles };
+      });
+      // Force re-render of file input
+      setFileInputKey(prev => prev + 1);
     }
+  };
+
+  const handleRemoveFile = (fileIdx: number) => {
+    setForm(prev => {
+      const newFiles = prev.files.filter((_, idx) => idx !== fileIdx);
+      return { ...prev, files: newFiles };
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -48,13 +72,13 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ isOpen, onClose, load, user
     setSubmitting(true);
     try {
       const now = new Date();
-      await addDoc(collection(db, 'invoices'), {
+      // 1. Create the invoice doc first to get the ID
+      const invoiceRef = await addDoc(collection(db, 'invoices'), {
         invoiceNumber: form.invoiceNumber,
         poNumber: form.poNumber,
         customer: form.shipperName,
         amount: typeof form.rate === 'string' ? parseFloat(form.rate) : form.rate,
         issueDate: now.toISOString().split('T')[0],
-        dueDate: form.dateDue,
         status: 'Unpaid',
         carrierName: form.carrierName,
         carrierAddress: form.carrierAddress,
@@ -66,16 +90,31 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ isOpen, onClose, load, user
         dateDelivered: form.dateDelivered,
         additionalInfo: form.additionalInfo,
         terms: form.terms,
-        files: [], // File upload logic can be added later
+        files: [], // Deprecated, use attachments
         createdAt: Timestamp.now(),
         loadId: load?.id || '',
         userId: user?.uid || '',
+        attachments: [], // Will update after upload
       });
+      // 2. Upload files if any
+      let attachments = [];
+      if (form.files && form.files.length > 0) {
+        const uploadPromises = form.files.map(async (file) => {
+          const storageRef = ref(storage, `invoices/${invoiceRef.id}/attachments/${file.name}`);
+          await uploadBytes(storageRef, file);
+          const url = await getDownloadURL(storageRef);
+          return { name: file.name, url };
+        });
+        attachments = await Promise.all(uploadPromises);
+        // 3. Update invoice doc with attachments
+        await updateDoc(invoiceRef, { attachments });
+      }
       setSubmitting(false);
       onClose();
       navigate('/carrier/payments');
     } catch (err) {
       setSubmitting(false);
+      console.error('Invoice submit error:', err);
       alert('Failed to create invoice. Please try again.');
     }
   };
@@ -160,9 +199,9 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ isOpen, onClose, load, user
             </div>
             <textarea name="jobDetails" value={form.jobDetails} onChange={handleChange} placeholder="Job Details" style={{ width: '100%', marginTop: 8, ...inputStyle, minHeight: 40, resize: 'vertical' }} rows={2} />
             <input name="rate" value={form.rate} onChange={handleChange} placeholder="Rate" style={{ width: '100%', marginTop: 8, ...inputStyle }} required />
-            <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
-              <input name="dateDelivered" type="date" value={form.dateDelivered} onChange={handleChange} style={{ flex: 1, ...inputStyle }} required />
-              <input name="dateDue" type="date" value={form.dateDue} onChange={handleChange} style={{ flex: 1, ...inputStyle }} required />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }}>
+              <label htmlFor="dateDelivered" style={{ fontWeight: 600, marginBottom: 2, color: '#007bff', fontSize: 18 }}>Issue Date</label>
+              <input name="dateDelivered" id="dateDelivered" type="date" value={form.dateDelivered} onChange={handleChange} style={{ flex: 1, ...inputStyle }} required />
             </div>
           </div>
           <div style={{ borderBottom: '1px solid #eee', paddingBottom: 12, marginBottom: 8 }}>
@@ -171,13 +210,30 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ isOpen, onClose, load, user
             <textarea name="terms" value={form.terms} onChange={handleChange} placeholder="Terms and Conditions" style={{ width: '100%', marginTop: 8, ...inputStyle, minHeight: 40, resize: 'vertical' }} rows={2} />
           </div>
           <div style={{ marginTop: 8 }}>
-            <label style={{ fontWeight: 500, color: '#333', marginBottom: 6, display: 'block' }}>Attach Files</label>
-            <input name="files" type="file" multiple onChange={handleFileChange} style={{ ...inputStyle, padding: 6 }} />
+            <label style={{ fontWeight: 600, color: '#007bff', fontSize: 18, marginBottom: 6, display: 'block' }}>Attach Files</label>
+            <input
+              key={fileInputKey}
+              name="files"
+              type="file"
+              multiple
+              onChange={handleFileChange}
+              style={{ ...inputStyle, padding: 6 }}
+            />
+            {/* Show selected files with remove option */}
+            {form.files && form.files.length > 0 && (
+              <ul style={{ margin: '8px 0 0 0', padding: 0, listStyle: 'none' }}>
+                {form.files.map((file, idx) => (
+                  <li key={file.name + file.size} style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
+                    <span style={{ flex: 1, fontSize: 14 }}>{file.name}</span>
+                    <button type="button" onClick={() => handleRemoveFile(idx)} style={{ background: 'none', border: 'none', color: '#dc3545', cursor: 'pointer', fontSize: 18, marginLeft: 8 }} title="Remove attachment">🗑️</button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 8 }}>
             <button type="button" onClick={onClose} style={{ padding: '10px 28px', background: '#eee', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 500, fontSize: 16 }}>Cancel</button>
             <button type="submit" disabled={submitting} style={{ padding: '10px 28px', background: '#28a745', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 16, boxShadow: '0 2px 8px rgba(40,167,69,0.08)' }}>{submitting ? 'Submitting...' : 'Submit'}</button>
-            <button type="button" onClick={handleShipperPay} style={{ padding: '10px 28px', background: '#007bff', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 600, fontSize: 16, boxShadow: '0 2px 8px rgba(0,123,255,0.08)' }}>Shipper Pay</button>
           </div>
         </form>
       </div>

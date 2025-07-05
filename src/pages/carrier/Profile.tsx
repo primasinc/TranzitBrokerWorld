@@ -8,6 +8,9 @@ import CarrierProfileCard from '../../components/carrier/CarrierProfileCard';
 import CarrierProfileForm from '../../components/carrier/CarrierProfileForm';
 import MapboxMap from '../../components/common/MapboxMap';
 import { locationService } from '../../services/locationService';
+import homeFeedStyles from './HomeFeed.module.css';
+import NotificationsTray, { useUnreadNotifications } from './NotificationsTray';
+import { useNavigate } from 'react-router-dom';
 
 const ProfilePage: React.FC = () => {
   const [profile, setProfile] = useState<Partial<CarrierProfile>>({});
@@ -25,6 +28,12 @@ const ProfilePage: React.FC = () => {
   const [serviceAreas, setServiceAreas] = useState<ServiceArea[]>([]);
   const [address, setAddress] = useState({ street: '', city: '', state: '', zip: '' });
   const [showProfileCardModal, setShowProfileCardModal] = useState(false);
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [geoError, setGeoError] = useState<string | null>(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const unreadCount = useUnreadNotifications();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -60,6 +69,26 @@ const ProfilePage: React.FC = () => {
     }
   }, [userId]);
 
+  useEffect(() => {
+    if (!('geolocation' in navigator)) {
+      setGeoError('Geolocation is not supported by your browser.');
+      return;
+    }
+    const watcher = navigator.geolocation.watchPosition(
+      (position) => {
+        setUserLocation([position.coords.longitude, position.coords.latitude]);
+        setGeoError(null);
+      },
+      (error) => {
+        setGeoError('Unable to retrieve your location. Please allow location access.');
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+    return () => {
+      navigator.geolocation.clearWatch(watcher);
+    };
+  }, []);
+
   const handleProfileUpdate = async (data: CarrierProfile) => {
     if (!userId) return;
     await setDoc(doc(db, 'users', userId), data, { merge: true });
@@ -90,31 +119,91 @@ const ProfilePage: React.FC = () => {
 
   return (
     <div className={styles.container}>
-      <div className={styles.header}>
-        <h1>Company Profile</h1>
-      </div>
+      <main className={homeFeedStyles.mainContent}>
+        <header className={homeFeedStyles.header}>
+          <h1>Company Profile</h1>
+          <div className={homeFeedStyles.headerControls}>
+            <button
+              className={homeFeedStyles.bellButton}
+              onClick={() => setShowNotifications(v => !v)}
+            >
+              <span role="img" aria-label="Notifications">🔔</span>
+              {unreadCount > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: 0,
+                  right: 0,
+                  background: 'red',
+                  color: 'white',
+                  borderRadius: '50%',
+                  width: 18,
+                  height: 18,
+                  fontSize: 12,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 700,
+                  zIndex: 10
+                }}>{unreadCount}</span>
+              )}
+            </button>
+            {showNotifications && <NotificationsTray onClose={() => setShowNotifications(false)} />}
+            <div className={homeFeedStyles.menuContainer}>
+              <button
+                className={homeFeedStyles.hamburgerButton}
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+              >
+                <div className={homeFeedStyles.hamburgerIcon}>
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+              </button>
+              {isMenuOpen && (
+                <div className={homeFeedStyles.dropdownMenu}>
+                  <button onClick={() => navigate('/carrier/profile')}>Account</button>
+                  <button onClick={() => navigate('/carrier/settings')}>Settings</button>
+                  <button onClick={() => navigate('/login')}>Logout</button>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
       <CarrierProfileForm
         initialData={profile}
         onSubmit={handleProfileUpdate}
         isLoading={loading}
       />
-      {/* Show the carrier's map using their ELD API key */}
-      {profile.eldApiKey && (
-        <div style={{ marginTop: 32 }}>
-          <h2>Carrier Map (using your ELD API Key)</h2>
-          <div style={{ 
-            width: '100%', 
-            minHeight: '400px',
-            height: '50vh',
-            maxHeight: '600px',
-            borderRadius: '8px',
-            overflow: 'hidden',
-            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
-          }}>
-            <MapboxMap eldApiKey={profile.eldApiKey} />
-          </div>
+      {/* Show the carrier's map using device geolocation */}
+      <div style={{ marginTop: 32 }}>
+        <h2>Carrier Map (using your Device Location)</h2>
+        <div style={{ 
+          width: '100%', 
+          minHeight: '400px',
+          height: '50vh',
+          maxHeight: '600px',
+          borderRadius: '8px',
+          overflow: 'hidden',
+          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+        }}>
+          {geoError ? (
+            <div style={{ background: '#fff3cd', color: '#856404', padding: 24, borderRadius: 8, textAlign: 'center' }}>
+              <p>⚠️ {geoError}</p>
+            </div>
+          ) : userLocation ? (
+            <MapboxMap
+              center={userLocation}
+              markers={[{ id: 'me', position: userLocation, type: 'carrier', icon: 'circle' }]}
+              zoom={10}
+              circles={[{ center: userLocation, radius: 16093.4 }]}
+            />
+          ) : (
+            <div style={{ textAlign: 'center', padding: 24 }}>
+              <p>Locating your device...</p>
+            </div>
+          )}
         </div>
-      )}
+      </div>
       {showProfileCardModal && (
         <div className={styles.modalOverlay} onClick={() => setShowProfileCardModal(false)}>
           <div className={styles.modal} onClick={e => e.stopPropagation()}>
@@ -170,6 +259,7 @@ const ProfilePage: React.FC = () => {
           </div>
         </div>
       )}
+    </main>
     </div>
   );
 };

@@ -418,18 +418,30 @@ const ShipperDashboard: React.FC = () => {
   useEffect(() => {
     if (!mapInstance) return;
 
+    // Defensive: check all methods exist before calling
+    const safeGetLayer = (id: string) => typeof mapInstance.getLayer === 'function' && mapInstance.getLayer(id);
+    const safeRemoveLayer = (id: string) => typeof mapInstance.removeLayer === 'function' && mapInstance.removeLayer(id);
+    const safeGetSource = (id: string) => typeof mapInstance.getSource === 'function' && mapInstance.getSource(id);
+    const safeRemoveSource = (id: string) => typeof mapInstance.removeSource === 'function' && mapInstance.removeSource(id);
+    // MapboxGL typings: addSource(id: string, source: any)
+    const safeAddSource = (id: string, source: any) => typeof mapInstance.addSource === 'function' && mapInstance.addSource(id, source);
+    // addLayer(layer: any)
+    const safeAddLayer = (layer: any) => typeof mapInstance.addLayer === 'function' && mapInstance.addLayer(layer);
+    // fitBounds(bounds: any, options?: any)
+    const safeFitBounds = (bounds: any, options?: any) => typeof mapInstance.fitBounds === 'function' && mapInstance.fitBounds(bounds, options);
+
     if (!showActiveShipments) {
       // Add radius circle for available carriers view
-      if (mapInstance.getLayer('radius')) mapInstance.removeLayer('radius');
-      if (mapInstance.getLayer('radius-outline')) mapInstance.removeLayer('radius-outline');
-      if (mapInstance.getSource('radius')) mapInstance.removeSource('radius');
+      if (safeGetLayer('radius')) safeRemoveLayer('radius');
+      if (safeGetLayer('radius-outline')) safeRemoveLayer('radius-outline');
+      if (safeGetSource('radius')) safeRemoveSource('radius');
       
       const circleGeoJSON = createGeoJSONCircle(userLocation, radiusInMiles);
-      mapInstance.addSource('radius', {
+      safeAddSource('radius', {
         type: 'geojson',
         data: circleGeoJSON
       });
-      mapInstance.addLayer({
+      safeAddLayer({
         id: 'radius',
         type: 'fill',
         source: 'radius',
@@ -438,7 +450,7 @@ const ShipperDashboard: React.FC = () => {
           'fill-opacity': 0.12
         }
       });
-      mapInstance.addLayer({
+      safeAddLayer({
         id: 'radius-outline',
         type: 'line',
         source: 'radius',
@@ -455,12 +467,12 @@ const ShipperDashboard: React.FC = () => {
         new mapboxgl.LngLat(coordinates[Math.floor(coordinates.length / 2)][0], coordinates[Math.floor(coordinates.length / 2)][1])
       );
       coordinates.forEach(coord => bounds.extend(new mapboxgl.LngLat(coord[0], coord[1])));
-      mapInstance.fitBounds(bounds, { padding: isMobile ? 20 : 40, maxZoom: isMobile ? 14 : 12 });
+      safeFitBounds(bounds, { padding: isMobile ? 20 : 40, maxZoom: isMobile ? 14 : 12 });
     } else {
       // Remove radius if present
-      if (mapInstance.getLayer('radius')) mapInstance.removeLayer('radius');
-      if (mapInstance.getLayer('radius-outline')) mapInstance.removeLayer('radius-outline');
-      if (mapInstance.getSource('radius')) mapInstance.removeSource('radius');
+      if (safeGetLayer('radius')) safeRemoveLayer('radius');
+      if (safeGetLayer('radius-outline')) safeRemoveLayer('radius-outline');
+      if (safeGetSource('radius')) safeRemoveSource('radius');
     }
   }, [mapInstance, showActiveShipments, userLocation, radiusInMiles, isMobile]);
 
@@ -606,62 +618,46 @@ const ShipperDashboard: React.FC = () => {
           )}
         </div>
 
-        <div className={styles.recentShipments}>
+        <div className={styles.activeShipments}>
           <div className={styles.sectionHeader}>
-            <h2>{showActiveShipments ? 'Recent Shipments' : 'Available Carriers'}</h2>
-            {showActiveShipments && (
-              <div className={styles.periodSelector}>
-                <button 
-                  className={selectedPeriod === 'week' ? styles.active : ''}
-                  onClick={() => setSelectedPeriod('week')}
-                >
-                  Week
-                </button>
-                <button 
-                  className={selectedPeriod === 'month' ? styles.active : ''}
-                  onClick={() => setSelectedPeriod('month')}
-                >
-                  Month
-                </button>
-              </div>
-            )}
+            <h2>{showActiveShipments ? 'Active Shipments' : 'Available Carriers'}</h2>
           </div>
 
           <div className={styles.shipmentList}>
             {showActiveShipments ? (
-              // Show active shipments list from real data, omitting cancelled
-              shipments.map(shipment => (
-                  <div key={shipment.id} className={styles.shipmentCard}>
-                    <div className={styles.shipmentHeader}>
-                      <h3>{shipment.carrier}</h3>
-                      <span className={`${styles.status} ${styles[shipment.status.toLowerCase()]}`}>
-                        {shipment.status}
-                      </span>
+              // Show only active shipments (not open, pending, or completed)
+              shipments.filter(shipment => shipment.status === 'Active').map(shipment => (
+                <div key={shipment.id} className={styles.shipmentCard}>
+                  <div className={styles.shipmentHeader}>
+                    <h3>{shipment.carrier}</h3>
+                    <span className={`${styles.status} ${styles[shipment.status.toLowerCase()]}`}>
+                      {shipment.status}
+                    </span>
+                  </div>
+                  <div className={styles.shipmentDetails}>
+                    <div>
+                      <label>Type:</label>
+                      <span>{shipment.type}</span>
                     </div>
-                    <div className={styles.shipmentDetails}>
-                      <div>
-                        <label>Type:</label>
-                        <span>{shipment.type}</span>
-                      </div>
-                      <div>
-                        <label>Carrier:</label>
-                        <span>{shipment.carrier}</span>
-                      </div>
-                      <div>
-                        <label>Date:</label>
-                        <span>{shipment.date}</span>
-                      </div>
-                      <div>
-                        <label>Cost:</label>
-                        <span>${shipment.cost}</span>
-                      </div>
-                      <div>
-                        <label>PO Number:</label>
-                        <span>{shipment.poNumber}</span>
-                      </div>
+                    <div>
+                      <label>Carrier:</label>
+                      <span>{shipment.carrier}</span>
+                    </div>
+                    <div>
+                      <label>Date:</label>
+                      <span>{shipment.date}</span>
+                    </div>
+                    <div>
+                      <label>Cost:</label>
+                      <span>${shipment.cost}</span>
+                    </div>
+                    <div>
+                      <label>PO Number:</label>
+                      <span>{shipment.poNumber}</span>
                     </div>
                   </div>
-                ))
+                </div>
+              ))
             ) : (
               // Show available carriers list with mobile optimization
               <MobileOptimizedList

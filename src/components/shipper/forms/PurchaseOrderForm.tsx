@@ -575,7 +575,7 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
         <button 
           type="submit"
           className={styles.submitButton}
-          disabled={!selectedOption || !carrierRate || readOnly}
+          disabled={!selectedOption || (selectedOption === 'carrier' && !carrierRate) || readOnly}
           onClick={() => { console.log('DEBUG: Submit button clicked'); }}
         >
           {selectedOption === 'carrier' ? 'Continue to Carrier Selection' : 'Post Job to Marketplace'}

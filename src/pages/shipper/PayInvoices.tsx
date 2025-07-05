@@ -93,8 +93,9 @@ const PayInvoices: React.FC = () => {
     return matchesTab && matchesSearch && matchesDate;
   });
 
+  // Calculate total pending payments as the sum of all invoices with normalized status 'Unpaid'
   const totalPending = invoices
-    .filter(inv => inv.status === 'Pending')
+    .filter(inv => normalizeStatus(inv) === 'Unpaid')
     .reduce((sum, inv) => sum + inv.amount, 0);
 
   // SVG for download icon

@@ -55,6 +55,20 @@ const InvoiceViewModal: React.FC<InvoiceViewModalProps> = ({ isOpen, onClose, in
           <div style={valueStyle}>{invoice.additionalInfo || '-'}</div>
           <div style={labelStyle}>Terms and Conditions</div>
           <div style={valueStyle}>{invoice.terms || '-'}</div>
+          {Array.isArray(invoice.attachments) && invoice.attachments.length > 0 && (
+            <>
+              <div style={{ ...labelStyle, marginTop: 10 }}>Attachments</div>
+              <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+                {invoice.attachments.map((att: any) => (
+                  <li key={att.url} style={{ marginBottom: 4 }}>
+                    <a href={att.url} target="_blank" rel="noopener noreferrer" style={{ color: '#007bff', textDecoration: 'underline' }}>
+                      {att.name}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 18 }}>
           <button onClick={onClose} style={{ padding: '10px 28px', background: '#eee', border: 'none', borderRadius: 6, cursor: 'pointer', fontWeight: 500, fontSize: 16 }}>Close</button>

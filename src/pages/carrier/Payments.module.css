@@ -85,7 +85,12 @@
   gap: 12px;
   margin-bottom: 18px;
   margin-left: 0;
-  flex-wrap: wrap;
+}
+
+.filterGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .searchInput {
@@ -94,6 +99,7 @@
   border-radius: 8px;
   font-size: 1rem;
   min-width: 200px;
+  margin-right: 12px;
 }
 
 .filterSelect {
@@ -102,6 +108,7 @@
   border-radius: 8px;
   font-size: 1rem;
   background: #fff;
+  margin-left: 0;
 }
 
 .dateInput {
@@ -666,14 +673,6 @@
 }
 
 /* Filter groups and labels */
-.filterGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex: 1;
-  min-width: 0;
-}
-
 .filterLabel {
   font-size: 0.85rem;
   font-weight: 500;

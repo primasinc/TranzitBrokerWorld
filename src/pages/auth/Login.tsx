@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../config/firebase';
@@ -20,6 +20,36 @@ const Login: React.FC = () => {
   const [twoFAError, setTwoFAError] = useState('');
   const [twoFALoading, setTwoFALoading] = useState(false);
   const [pendingUser, setPendingUser] = useState<any>(null);
+  const [locationAllowed, setLocationAllowed] = useState(true);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const locationCheckRef = useRef(false);
+
+  const requestLocation = () => {
+    if (!('geolocation' in navigator)) {
+      setLocationError('Geolocation is not supported by your browser.');
+      setLocationAllowed(false);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocationAllowed(true);
+        setLocationError(null);
+        console.log('[Location] Success:', pos.coords);
+      },
+      (error) => {
+        setLocationAllowed(false);
+        setLocationError('Location access is required. Please allow location in your browser settings and click Retry.');
+        console.log('[Location] Error:', error);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  const handleRetryLocation = () => {
+    setLocationError(null);
+    setLocationAllowed(true);
+    requestLocation();
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,8 +103,20 @@ const Login: React.FC = () => {
       // Normal navigation
       if (userData && userData.userType === 'shipper') {
         navigate('/shipper/dashboard');
+        setTimeout(() => {
+          if (!locationCheckRef.current) {
+            locationCheckRef.current = true;
+            requestLocation();
+          }
+        }, 100);
       } else if (userData && userData.userType === 'carrier') {
         navigate('/carrier/home');
+        setTimeout(() => {
+          if (!locationCheckRef.current) {
+            locationCheckRef.current = true;
+            requestLocation();
+          }
+        }, 100);
       } else {
         setError('User type is invalid. Please contact support.');
       }

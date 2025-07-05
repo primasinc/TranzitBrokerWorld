@@ -101,13 +101,19 @@ const Payments: React.FC = () => {
 
   const { user } = useAuth();
 
-  const totalEarnings = payments
-    .filter(p => p.status === 'Paid')
-    .reduce((sum, p) => sum + p.amount, 0);
-
-  const pendingPayments = payments
-    .filter(p => p.status === 'Pending' || p.status === 'Processing')
-    .reduce((sum, p) => sum + p.amount, 0);
+  // Calculate rolling 365-day totals for invoices
+  const now = new Date();
+  const oneYearAgo = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+  const invoicesRollingYear = invoices.filter(inv => {
+    const issue = new Date(inv.issueDate);
+    return issue >= oneYearAgo && issue <= now;
+  });
+  const totalEarnings = invoicesRollingYear
+    .filter(inv => (inv.status === 'Paid' || (typeof inv.status === 'string' && inv.status.toLowerCase() === 'paid')))
+    .reduce((sum, inv) => sum + (typeof inv.amount === 'number' ? inv.amount : 0), 0);
+  const pendingPayments = invoicesRollingYear
+    .filter(inv => (inv.status === 'Unpaid' || (typeof inv.status === 'string' && inv.status.toLowerCase() === 'unpaid')))
+    .reduce((sum, inv) => sum + (typeof inv.amount === 'number' ? inv.amount : 0), 0);
 
   const [filteredPayments, setFilteredPayments] = useState<Payment[]>([]);
   const [statusFilter, setStatusFilter] = useState<PaymentStatus | 'All'>('All');

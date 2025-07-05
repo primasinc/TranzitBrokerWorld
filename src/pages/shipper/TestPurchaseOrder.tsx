@@ -200,7 +200,9 @@ export const TestPurchaseOrder: React.FC = () => {
         if (data.carrierOption === 'carrier') {
           navigate('/shipper/partners', { state: { poData: newOrder } });
         } else {
-          navigate('/shipper/orders');
+          // Ensure status is correct for shipping schedule
+          await updateDoc(poDocRef, { shippingScheduleStatus: 'Open', status: 'Processing' });
+          navigate('/shipper/schedule');
         }
         return;
       }

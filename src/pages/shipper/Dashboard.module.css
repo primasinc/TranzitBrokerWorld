@@ -281,7 +281,7 @@ input:checked + .toggleSlider:before {
   transform: scale(1.1);
 }
 
-.recentShipments {
+.activeShipments {
   background: white;
   padding: 20px;
   border-radius: 8px;

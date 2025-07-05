@@ -24,6 +24,7 @@ interface MapboxMapProps {
   enableRealtime?: boolean;
   showKonexialVehicles?: boolean;
   eldApiKey?: string;
+  circles?: { center: [number, number]; radius: number }[];
 }
 
 const MapboxMap: React.FC<MapboxMapProps> = ({
@@ -35,7 +36,8 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
   deliveryLocation,
   enableRealtime = false,
   showKonexialVehicles = false,
-  eldApiKey
+  eldApiKey,
+  circles = []
 }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
@@ -386,6 +388,59 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
       }
     };
   }, [routeGeoJson]);
+
+  // Add circle rendering effect
+  useEffect(() => {
+    if (!map.current || !isMapLoaded || !Array.isArray(circles)) return;
+    // Remove any previous circle layers/sources
+    circles.forEach((_, i) => {
+      if (map.current!.getLayer(`radius-${i}`)) map.current!.removeLayer(`radius-${i}`);
+      if (map.current!.getSource(`radius-${i}`)) map.current!.removeSource(`radius-${i}`);
+    });
+    // Add new circles
+    circles.forEach((circle, i) => {
+      // Generate GeoJSON for the circle
+      const points = 64;
+      const coords = [];
+      const [lng, lat] = circle.center;
+      for (let j = 0; j <= points; j++) {
+        const angle = (j / points) * 2 * Math.PI;
+        // Approximate radius in degrees
+        const dx = (circle.radius / 1000) / 111.32 * Math.cos(angle);
+        const dy = (circle.radius / 1000) / 111.32 * Math.sin(angle);
+        coords.push([lng + dx, lat + dy]);
+      }
+      const geojson = {
+        type: 'Feature' as const,
+        properties: {},
+        geometry: {
+          type: 'Polygon' as const,
+          coordinates: [coords],
+        },
+      };
+      map.current!.addSource(`radius-${i}`, {
+        type: 'geojson',
+        data: geojson,
+      });
+      map.current!.addLayer({
+        id: `radius-${i}`,
+        type: 'fill',
+        source: `radius-${i}`,
+        paint: {
+          'fill-color': '#4285F4',
+          'fill-opacity': 0.12,
+        },
+      });
+    });
+    // Cleanup
+    return () => {
+      if (!map.current) return;
+      circles.forEach((_, i) => {
+        if (map.current!.getLayer(`radius-${i}`)) map.current!.removeLayer(`radius-${i}`);
+        if (map.current!.getSource(`radius-${i}`)) map.current!.removeSource(`radius-${i}`);
+      });
+    };
+  }, [circles, isMapLoaded]);
 
   // Show error state
   if (mapError) {
