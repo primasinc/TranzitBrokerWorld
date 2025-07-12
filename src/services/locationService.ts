@@ -33,16 +33,17 @@ export const locationService = {
     const watchId = navigator.geolocation.watchPosition(
       async (position) => {
         try {
-          const locationUpdate: LocationUpdate = {
+          // Only include fields if they are defined
+          const locationUpdate: any = {
             userId,
             position: [position.coords.longitude, position.coords.latitude],
-            heading: position.coords.heading || undefined,
-            speed: position.coords.speed || undefined,
             accuracy: position.coords.accuracy,
             timestamp: Timestamp.now(),
             status: 'online',
             lastHeartbeat: Timestamp.now()
           };
+          if (typeof position.coords.heading === 'number') locationUpdate.heading = position.coords.heading;
+          if (typeof position.coords.speed === 'number') locationUpdate.speed = position.coords.speed;
 
           const locationRef = doc(db, LOCATIONS_COLLECTION, userId);
           await setDoc(locationRef, locationUpdate, { merge: true });

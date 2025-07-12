@@ -1,6 +1,9 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { collection, getDocs, query, limit, startAfter, orderBy, where } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import { getAuth } from 'firebase/auth';
+import { getApp } from 'firebase/app';
+console.log('FIREBASE PROJECT ID:', getApp().options.projectId);
 
 export interface AvailableLoad {
   id: string;
@@ -16,6 +19,7 @@ export interface AvailableLoad {
   rate?: number;
   poNumber?: string;
   isMarketplace?: boolean;
+  carrierId?: string; // Add carrierId to track if load has been accepted
   // Add other fields as needed
 }
 
@@ -39,7 +43,7 @@ function haversineDistance([lng1, lat1]: [number, number], [lng2, lat2]: [number
 export function useAvailableLoads(
   carrierLocation: [number, number] | null, 
   radiusMiles: number = 100,
-  pageSize: number = 10
+  pageSize: number = 20 // Increased for better UX
 ) {
   const [loads, setLoads] = useState<AvailableLoad[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,13 +51,8 @@ export function useAvailableLoads(
   const [hasMore, setHasMore] = useState(true);
   const [lastDoc, setLastDoc] = useState<any>(null);
 
-  // Memoize cache key based on location and radius
-  const cacheKey = useMemo(() => {
-    if (!carrierLocation) return 'default';
-    return `${carrierLocation[0]}-${carrierLocation[1]}-${radiusMiles}`;
-  }, [carrierLocation, radiusMiles]);
-
-  // Check cache first
+  const cacheKey = `${carrierLocation?.join(',') || 'no-location'}-${radiusMiles}`;
+  
   const getCachedData = useCallback(() => {
     const cached = loadsCache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
@@ -62,11 +61,8 @@ export function useAvailableLoads(
     return null;
   }, [cacheKey]);
 
-  // Fetch loads with pagination
   const fetchLoads = useCallback(async (isInitial: boolean = true) => {
-    if (!isInitial) {
-      setLoading(true);
-    }
+    setLoading(true);
     
     try {
       // Check cache first
@@ -78,47 +74,56 @@ export function useAvailableLoads(
         return;
       }
 
-      // Build query with pagination
+      // Debug: Log current user authentication state before running query
+      const auth = getAuth();
+      console.log('[useAvailableLoads] Current user before query:', auth.currentUser);
+      // TEMP: Fetch first 10 loads with no filters for debugging
       let baseQuery = query(
         collection(db, 'loads'),
-        orderBy('createdAt', 'desc'),
-        limit(pageSize)
+        limit(10)
       );
 
       if (lastDoc && !isInitial) {
         baseQuery = query(baseQuery, startAfter(lastDoc));
       }
 
-      const snapshot = await getDocs(baseQuery);
+      let snapshot;
+      try {
+        snapshot = await getDocs(baseQuery);
+      } catch (err) {
+        throw err;
+      }
       let allLoads: AvailableLoad[] = [];
+
+      // Debug: Log raw Firestore docs
+      console.log('[useAvailableLoads] RAW Firestore snapshot:', snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
       if (!snapshot.empty) {
         allLoads = snapshot.docs.map(doc => {
           const data = doc.data();
-          if (
-            data.pickupLocation &&
-            typeof data.pickupLocation.address === 'string' &&
-            Array.isArray(data.pickupLocation.position) &&
-            data.pickupLocation.position.length === 2 &&
-            data.deliveryLocation &&
-            typeof data.deliveryLocation.address === 'string' &&
-            Array.isArray(data.deliveryLocation.position) &&
-            data.deliveryLocation.position.length === 2
-          ) {
-            return {
-              id: doc.id,
-              title: data.title,
-              pickupLocation: data.pickupLocation,
-              deliveryLocation: data.deliveryLocation,
-              rate: typeof data.rate === 'number' ? data.rate : 0,
-              poNumber: data.poNumber || '',
-              isMarketplace: data.isMarketplace || true,
-            } as AvailableLoad;
-          } else {
-            console.warn('Skipping malformed load:', doc.id, data);
-            return null;
-          }
-        }).filter((l): l is AvailableLoad => l !== null);
+          // Defensive mapping with fallbacks
+          return {
+            id: doc.id,
+            title: data.title || '—',
+            pickupLocation: {
+              address: data.pickupLocation?.address || '—',
+              position: Array.isArray(data.pickupLocation?.position) && data.pickupLocation.position.length === 2 ? data.pickupLocation.position : [0, 0],
+            },
+            deliveryLocation: {
+              address: data.deliveryLocation?.address || '—',
+              position: Array.isArray(data.deliveryLocation?.position) && data.deliveryLocation.position.length === 2 ? data.deliveryLocation.position : [0, 0],
+            },
+            rate: typeof data.rate === 'number' ? data.rate : 0,
+            poNumber: data.poNumber || '',
+            carrierId: data.carrierId,
+            isMarketplace: true,
+            companyInfo: data.companyInfo,
+          } as AvailableLoad;
+        });
+        // Debug: Log mapped loads
+        console.log('[useAvailableLoads] MAPPED loads:', allLoads);
+        // Remove carrierId filtering - marketplace loads should not have carrierId at all
+        // allLoads = allLoads.filter(load => !load.carrierId);
       } else {
         // Fallback to sample data if Firestore is empty
         allLoads = [
@@ -153,7 +158,7 @@ export function useAvailableLoads(
         ];
       }
 
-      // Filter by radius if carrierLocation is available
+      // Restore radius filtering
       let filtered = allLoads;
       if (carrierLocation) {
         filtered = allLoads.filter(load => {
@@ -161,6 +166,8 @@ export function useAvailableLoads(
           return dist <= radiusMiles;
         });
       }
+      // Debug: Log after radius filtering
+      console.log('[useAvailableLoads] After radius filter:', filtered);
 
       // Filter by valid purchase orders (only on initial load)
       if (isInitial) {
@@ -174,9 +181,9 @@ export function useAvailableLoads(
           }
         });
         filtered = filtered.filter(load => load.poNumber && validPoNumbers.has(load.poNumber));
+        // Debug: Log after PO filtering
+        console.log('[useAvailableLoads] After PO filter:', filtered);
       }
-      // Filter out partner loads (only show marketplace loads)
-      filtered = filtered.filter(load => load.isMarketplace === true);
 
       // Update state
       if (isInitial) {
@@ -195,7 +202,7 @@ export function useAvailableLoads(
     } finally {
       setLoading(false);
     }
-  }, [carrierLocation, radiusMiles, pageSize, lastDoc, cacheKey, getCachedData]);
+  }, [carrierLocation, radiusMiles, pageSize, lastDoc, cacheKey, getCachedData, loading]);
 
   // Load more function for pagination
   const loadMore = useCallback(() => {
@@ -225,4 +232,46 @@ export function useAvailableLoads(
   }, []);
 
   return { loads, loading, error, hasMore, loadMore };
+} 
+
+/**
+ * Returns the filtered marketplace loads, excluding those with matching partner requests or accepted loads.
+ * @param availableLoads Array of loads from useAvailableLoads
+ * @param partnerRequests Array of partner requests (with poNumber and loadId)
+ */
+export function getFilteredMarketplaceLoads(availableLoads: AvailableLoad[], partnerRequests: any[]): AvailableLoad[] {
+  const partnerRequestPoNumbers = new Set(partnerRequests.map((req: any) => req.loadDetails?.poNumber || req.poNumber).filter(Boolean));
+  const partnerRequestLoadIds = new Set(partnerRequests.map((req: any) => req.loadId).filter(Boolean));
+  const result = availableLoads.filter(load => {
+    const res =
+      load.isMarketplace === true &&
+      load && load.pickupLocation && load.deliveryLocation && load.pickupLocation.address && load.deliveryLocation.address &&
+      !partnerRequestPoNumbers.has(load.poNumber) &&
+      !partnerRequestLoadIds.has(load.id);
+      // Remove carrierId filtering - marketplace loads should not have carrierId at all
+      // && !load.carrierId; // Exclude loads that have been accepted by a carrier
+    if (!res) {
+      console.log('FILTERED OUT:', {
+        id: load.id,
+        isMarketplace: load.isMarketplace,
+        pickupLocation: load.pickupLocation,
+        deliveryLocation: load.deliveryLocation,
+        poNumber: load.poNumber,
+        partnerRequestPoNumbers: Array.from(partnerRequestPoNumbers),
+        partnerRequestLoadIds: Array.from(partnerRequestLoadIds),
+        pickupLocationTruthy: !!load.pickupLocation,
+        deliveryLocationTruthy: !!load.deliveryLocation,
+        pickupAddressTruthy: !!(load.pickupLocation && load.pickupLocation.address),
+        deliveryAddressTruthy: !!(load.deliveryLocation && load.deliveryLocation.address),
+        isMarketplaceCheck: load.isMarketplace === true,
+        poNumberCheck: !partnerRequestPoNumbers.has(load.poNumber),
+        idCheck: !partnerRequestLoadIds.has(load.id),
+        // Remove carrierId check from debug logging
+        // carrierIdCheck: !load.carrierId,
+      });
+    }
+    return res;
+  });
+  console.log('getFilteredMarketplaceLoads - result:', result);
+  return result;
 } 

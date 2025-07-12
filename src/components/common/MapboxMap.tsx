@@ -8,7 +8,7 @@ import type { KonexialVehicle } from '../../services/konexialService';
 interface MapMarker {
   id: string;
   position: [number, number];
-  type: 'carrier' | 'shipper';
+  type: 'carrier' | 'shipper' | 'load';
   onClick?: () => void;
   status?: 'online' | 'offline' | 'inactive';
   icon?: string; // Make icon optional with a default value
@@ -166,22 +166,23 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
     el.className = styles.marker;
     el.style.cursor = 'pointer'; // Add pointer cursor for better UX
 
-    // Add colored circle if specified
-    if (marker.icon === 'circle') {
+    // Set color based on marker type
+    if (marker.type === 'carrier') {
       el.style.width = '22px';
       el.style.height = '22px';
-      el.style.background = '#4285F4';
+      el.style.background = '#4285F4'; // Blue for carrier
       el.style.borderRadius = '50%';
       el.style.border = '2px solid #fff';
       el.style.boxShadow = '0 2px 8px rgba(66,133,244,0.18)';
       el.style.display = 'block';
-    }
-
-    // Add truck icon if specified
-    if (marker.icon === 'truck') {
-      el.textContent = '🚚'; // Show truck emoji for truck markers
-      el.style.fontSize = '28px';
-      el.style.lineHeight = '1';
+    } else if (marker.type === 'shipper' || marker.type === 'load') {
+      el.style.width = '22px';
+      el.style.height = '22px';
+      el.style.background = '#4CAF50'; // Green for load
+      el.style.borderRadius = '50%';
+      el.style.border = '2px solid #fff';
+      el.style.boxShadow = '0 2px 8px rgba(76,175,80,0.18)';
+      el.style.display = 'block';
     }
 
     // Add status dot if status is provided

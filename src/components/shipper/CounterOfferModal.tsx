@@ -42,57 +42,38 @@ const CounterOfferModal: React.FC<CounterOfferModalProps> = ({
     <div className={styles.modalOverlay}>
       <div className={styles.modal}>
         <div className={styles.modalHeader}>
-          <h2>Counter Offer Received</h2>
-          <button className={styles.closeButton} onClick={onClose}>×</button>
+          <h2 style={{ fontWeight: 700, fontSize: '1.6rem', color: '#222', letterSpacing: '-1px', margin: 0 }}>Offer Details</h2>
         </div>
-        
         <div className={styles.modalContent}>
-          <p>A carrier has made a counter offer for your load:</p>
-          
-          <div className={styles.rateComparison}>
-            <div className={styles.rateItem}>
-              <span className={styles.label}>Original Rate:</span>
-              <span className={styles.value}>${currentRate.toFixed(2)}</span>
-            </div>
-            <div className={styles.rateItem}>
-              <span className={styles.label}>Counter Offer:</span>
-              <span className={`${styles.value} ${isIncrease ? styles.increase : styles.decrease}`}>
-                ${counterOffer.toFixed(2)}
-              </span>
-            </div>
-            <div className={styles.difference}>
-              {isIncrease ? '↑' : '↓'} {difference}%
-            </div>
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontWeight: 600, fontSize: '1.1rem', marginBottom: 6 }}>Carrier: <span style={{ fontWeight: 400 }}>{loadDetails.carrierName}</span></div>
+            <div style={{ fontWeight: 600, fontSize: '1.1rem', marginBottom: 6 }}>Offer Amount: <span style={{ color: '#1976d2', fontWeight: 700 }}>${counterOffer.toLocaleString()}</span></div>
+            <div style={{ fontWeight: 600, fontSize: '1.1rem', marginBottom: 6 }}>PO Number: <span style={{ fontWeight: 400 }}>{loadDetails.poNumber}</span></div>
+            <div style={{ fontWeight: 600, fontSize: '1.1rem', marginBottom: 6 }}>Pickup: <span style={{ fontWeight: 400 }}>{[loadDetails.pickupLocation.address, loadDetails.pickupLocation.city, loadDetails.pickupLocation.state].filter(Boolean).join(', ')}</span></div>
+            <div style={{ fontWeight: 600, fontSize: '1.1rem', marginBottom: 6 }}>Delivery: <span style={{ fontWeight: 400 }}>{[loadDetails.deliveryLocation.address, loadDetails.deliveryLocation.city, loadDetails.deliveryLocation.state].filter(Boolean).join(', ')}</span></div>
+            <div style={{ fontWeight: 600, fontSize: '1.1rem', marginBottom: 6 }}>Message: <span style={{ fontWeight: 400 }}>{loadDetails.carrierName} has made an offer of ${counterOffer.toLocaleString()} on PO {loadDetails.poNumber}</span></div>
           </div>
-
-          <div className={styles.loadDetails}>
-            <h3>Load Details</h3>
-            {loadDetails.carrierName && (
-              <div className={styles.carrierName} style={{ marginBottom: 4 }}><strong>Carrier:</strong> {loadDetails.carrierName}</div>
-            )}
-            {loadDetails.poNumber && (
-              <div className={styles.poNumber} style={{ marginBottom: 4 }}><strong>PO Number:</strong> {loadDetails.poNumber}</div>
-            )}
-            <div className={styles.location} style={{ marginBottom: 4 }}>
-              <strong>Pickup:</strong> {[loadDetails.pickupLocation.address, loadDetails.pickupLocation.city, loadDetails.pickupLocation.state].filter(Boolean).join(', ')}
-            </div>
-            <div className={styles.location}>
-              <strong>Delivery:</strong> {[loadDetails.deliveryLocation.address, loadDetails.deliveryLocation.city, loadDetails.deliveryLocation.state].filter(Boolean).join(', ')}
-            </div>
-          </div>
-
-          <div className={styles.actions}>
-            <button 
-              className={`${styles.button} ${styles.accept}`}
+          <div className={styles.actions} style={{ display: 'flex', gap: 12, marginTop: 32 }}>
+            <button
+              className={styles.accept}
+              style={{ background: '#28a745', color: 'white', fontWeight: 600, border: 'none', borderRadius: 6, padding: '12px 0', flex: 1, fontSize: '1rem' }}
               onClick={onAccept}
             >
-              Accept Counter Offer
+              Accept
             </button>
-            <button 
-              className={`${styles.button} ${styles.reject}`}
+            <button
+              className={styles.reject}
+              style={{ background: '#dc3545', color: 'white', fontWeight: 600, border: 'none', borderRadius: 6, padding: '12px 0', flex: 1, fontSize: '1rem' }}
               onClick={onReject}
             >
-              Reject Counter Offer
+              Reject
+            </button>
+            <button
+              className={styles.closeButton}
+              style={{ background: '#1976d2', color: 'white', fontWeight: 600, border: 'none', borderRadius: 6, padding: '12px 0', flex: 1, fontSize: '1rem' }}
+              onClick={onClose}
+            >
+              Close
             </button>
           </div>
         </div>

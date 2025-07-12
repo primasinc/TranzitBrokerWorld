@@ -228,17 +228,9 @@ const ShippingSchedule: React.FC = () => {
         if (!loadsSnap.empty) {
           const loadDocRef = doc(db, 'loads', loadsSnap.docs[0].id);
           const loadData = loadsSnap.docs[0].data();
-          
-          // Validate that we're not overwriting with the wrong carrierId
-          if (loadData.carrierId && loadData.carrierId !== reviewCarrierId) {
-            console.warn('[handleApproveCarrier] Load already has different carrierId:', { 
-              existing: loadData.carrierId, 
-              new: reviewCarrierId 
-            });
-          }
-          
-          await updateDoc(loadDocRef, {
-            carrierId: reviewCarrierId,
+
+          // Only set carrierId if this is not a marketplace load
+          const updateData: any = {
             status: 'active',
             updatedAt: serverTimestamp(),
             // Fill in all relevant info from PO
@@ -259,7 +251,11 @@ const ShippingSchedule: React.FC = () => {
               : '',
             poNumber: poData.poNumber || '',
             shipper: shipperName
-          });
+          };
+          if (!loadData.isMarketplace) {
+            updateData.carrierId = reviewCarrierId;
+          }
+          await updateDoc(loadDocRef, updateData);
           console.log('[handleApproveCarrier] Updated load with carrierId:', reviewCarrierId);
         } else {
           console.warn('[handleApproveCarrier] No load found for poNumber:', poData.poNumber);

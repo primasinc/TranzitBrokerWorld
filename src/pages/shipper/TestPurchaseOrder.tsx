@@ -73,12 +73,19 @@ export const TestPurchaseOrder: React.FC = () => {
       // --- EDITING EXISTING PO ---
       if (isEditing && editingPO?.id) {
         const poRef = doc(db, 'purchaseOrders', editingPO.id);
-        await updateDoc(poRef, poData);
+        // Fetch the existing PO to avoid overwriting important fields
+        const existingPOSnap = await getDocs(query(collection(db, 'purchaseOrders'), where('poNumber', '==', editingPO.poNumber)));
+        let existingPO = {};
+        if (!existingPOSnap.empty) {
+          existingPO = existingPOSnap.docs[0].data();
+        }
+        await updateDoc(poRef, { ...existingPO, ...poData, items: data.items || [] });
         // Update corresponding load
         const loadsSnapshot = await getDocs(query(collection(db, 'loads'), where('poNumber', '==', editingPO.poNumber)));
         for (const loadDocSnap of loadsSnapshot.docs) {
           await updateDoc(doc(db, 'loads', loadDocSnap.id), {
             ...poData,
+            items: data.items || [],
             title: `${data.vendorInfo?.name || 'Pickup'} to ${data.shipTo?.name || 'Delivery'}`,
             status: data.status || 'open',
             updatedAt: new Date().toISOString(),
@@ -93,10 +100,11 @@ export const TestPurchaseOrder: React.FC = () => {
             await updateDoc(doc(db, 'loads', loadDocSnap.id), { status: 'cancelled' });
           }
           // Create new PO and load
-          const newOrder = { ...poData, poNumber: data.poNumber };
+          const newOrder = { ...poData, poNumber: data.poNumber, items: data.items || [] };
           const newPOSnap = await addDoc(collection(db, 'purchaseOrders'), newOrder);
           const newLoad = {
             ...poData,
+            items: data.items || [],
             title: `${data.vendorInfo?.name || 'Pickup'} to ${data.shipTo?.name || 'Delivery'}`,
             poNumber: data.poNumber,
             status: 'open',
@@ -130,12 +138,13 @@ export const TestPurchaseOrder: React.FC = () => {
       if (foundActive && poId) {
         // Update the existing active PO
         const poRef = doc(db, 'purchaseOrders', poId);
-        await updateDoc(poRef, { ...poData, poNumber, updatedAt: new Date().toISOString() });
+        await updateDoc(poRef, { ...poData, poNumber, updatedAt: new Date().toISOString(), items: data.items || [] });
         // Update corresponding load
         const loadsSnapshot = await getDocs(query(collection(db, 'loads'), where('poNumber', '==', poNumber)));
         for (const loadDocSnap of loadsSnapshot.docs) {
           await updateDoc(doc(db, 'loads', loadDocSnap.id), {
             ...poData,
+            items: data.items || [],
             title: `${data.vendorInfo?.name || 'Pickup'} to ${data.shipTo?.name || 'Delivery'}`,
             status: data.status || 'open',
             updatedAt: new Date().toISOString(),
@@ -157,7 +166,7 @@ export const TestPurchaseOrder: React.FC = () => {
           vendor: data.vendorInfo?.name || '',
           amount: data.total || 0,
           rate: data.rate || 0,
-          items: data.items?.length || 0,
+          items: data.items || [],
           deliveryDate: data.shipTo?.deliveryDate || '',
           status: data.carrierOption ? 'Active' : 'Processing',
           shippingScheduleStatus: data.carrierOption ? 'Carrier Pending' : 'Open',
@@ -179,6 +188,7 @@ export const TestPurchaseOrder: React.FC = () => {
         // Create new load
         const newLoad = {
           ...poData,
+          items: data.items || [],
           title: `${data.vendorInfo?.name || 'Pickup'} to ${data.shipTo?.name || 'Delivery'}`,
           pickupLocation: {
             address: pickupAddress,

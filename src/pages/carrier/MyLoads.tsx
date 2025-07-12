@@ -119,6 +119,17 @@ const MyLoads: React.FC = () => {
     );
   });
 
+  // Deduplicate loads by poNumber or load id to prevent duplicates
+  const deduplicatedLoads = React.useMemo(() => {
+    const seen = new Set();
+    return filteredLoads.filter(load => {
+      const key = load.poNumber || load.id;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [filteredLoads]);
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return styles.pending;
@@ -386,7 +397,7 @@ const MyLoads: React.FC = () => {
               <p>{error}</p>
               <button onClick={() => window.location.reload()}>Retry</button>
             </div>
-          ) : filteredLoads.length === 0 ? (
+          ) : deduplicatedLoads.length === 0 ? (
             <div className={styles.errorState}>
               <p>No loads found for this tab.</p>
             </div>
@@ -408,7 +419,7 @@ const MyLoads: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredLoads.map(load => (
+                    {deduplicatedLoads.map(load => (
                       <tr key={load.id}>
                         <td>{load.shipper}</td>
                         <td>{load.poNumber}</td>
@@ -438,13 +449,13 @@ const MyLoads: React.FC = () => {
               
               {/* Mobile card view */}
               <div className={styles.mobileTable}>
-                {filteredLoads.map(load => (
+                {deduplicatedLoads.map(load => (
                   <MobileTableRow key={load.id} load={load} />
                 ))}
               </div>
             </div>
           ) : (
-            filteredLoads.map(load => (
+            deduplicatedLoads.map(load => (
               <div key={load.id} className={styles.loadCard}>
                 <div className={styles.loadHeader}>
                   <h3>{load.title}</h3>

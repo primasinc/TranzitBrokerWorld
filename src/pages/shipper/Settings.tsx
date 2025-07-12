@@ -30,7 +30,7 @@ const ShipperSettings: React.FC = () => {
   const [accountMatchError, setAccountMatchError] = useState('');
   const [showAccount, setShowAccount] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState('');
-  const [showAppModal, setShowAppModal] = useState(false);
+  const [showModal, setShowModal] = useState(false);
   const paymentApps = [
     { name: 'SAP', description: 'Connect your SAP ERP or S/4HANA account' },
     { name: 'Quicken', description: 'Connect your Quicken account' },
@@ -285,14 +285,14 @@ const ShipperSettings: React.FC = () => {
                 </div>
                 <div style={{ display: 'flex', gap: 16, marginTop: 24 }}>
                   <button type="submit" className={styles.saveButton}>Save</button>
-                  <button type="button" className={styles.actionButton} onClick={() => setShowAppModal(true)}>
+                  <button type="button" className={styles.actionButton} onClick={() => setShowModal(true)}>
                     Add AP/AR Software
                   </button>
                 </div>
                 <div style={{ marginTop: 32 }}></div>
                 {saveSuccess && <div style={{ color: 'green', marginTop: 12 }}>{saveSuccess}</div>}
               </form>
-              {showAppModal && (
+              {showModal && (
                 <div className={styles.modalOverlay}>
                   <div className={styles.modal}>
                     <h3>Connect Payment App</h3>
@@ -350,7 +350,7 @@ const ShipperSettings: React.FC = () => {
                       )}
                     </ul>
                     {connectMsg && <div style={{ color: '#007bff', marginTop: 12 }}>{connectMsg}</div>}
-                    <button className={styles.closeButton} onClick={() => { setShowAppModal(false); setAppSearch(''); setConnectMsg(''); }} style={{ marginTop: 16 }}>Close</button>
+                    <button className={styles.closeButton} onClick={() => { setShowModal(false); setAppSearch(''); setConnectMsg(''); }} style={{ marginTop: 16 }}>Close</button>
                   </div>
                 </div>
               )}

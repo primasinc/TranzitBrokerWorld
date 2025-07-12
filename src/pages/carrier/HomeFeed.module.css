@@ -536,4 +536,66 @@
   flex-direction: column;
   gap: 8px;
   width: 100%;
+}
+
+.dashboardLoadCard {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  padding: 20px 24px;
+  margin-bottom: 18px;
+  transition: box-shadow 0.2s;
+  border: 1px solid #e3e6ea;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dashboardLoadCard:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.13);
+}
+
+.dashboardLoadTitle {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #222;
+  margin-bottom: 6px;
+}
+
+.dashboardLoadInfoRow {
+  display: flex;
+  gap: 18px;
+  font-size: 0.98rem;
+  color: #444;
+}
+
+.dashboardLoadLabel {
+  font-weight: 500;
+  color: #007bff;
+  margin-right: 4px;
+}
+
+.dashboardLoadRate {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #28a745;
+  margin-top: 6px;
+}
+
+.dashboardLoadButton {
+  margin-top: 10px;
+  align-self: flex-start;
+  background: #007bff;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 18px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.18s;
+}
+
+.dashboardLoadButton:hover {
+  background: #0056b3;
 } 

@@ -46,9 +46,10 @@ export const sendLoadRequestToCarrier = async (
   loadDetails: LoadRequestNotification['loadDetails']
 ) => {
   const notificationRef = collection(db, 'notifications');
-  const notificationData: Omit<LoadRequestNotification, 'id'> = {
+  const notificationData: Omit<LoadRequestNotification, 'id'> & { recipientId: string } = {
     carrierId,
     shipperId,
+    recipientId: shipperId, // Ensure shipper receives the notification
     shippingScheduleId,
     status: 'pending',
     loadDetails,
@@ -142,47 +143,60 @@ export const updateLoadRequestStatus = async (
       console.error('[updateLoadRequestStatus] Missing shipperId or poNumber for shipment creation:', { shipperId: notifData?.shipperId, poNumber });
     }
     // --- Add load to 'loads' collection for carrier's My Loads ---
-    const loadsRef = collection(db, 'loads');
-    const loadData = {
-      carrierId: notifData.carrierId,
-      shipperId: notifData.shipperId,
-      title: notifData.loadDetails?.shipperCompany || 'Load',
-      shipper: notifData.loadDetails?.shipperCompany || '',
-      pickup: {
-        location: notifData.loadDetails?.pickupLocation?.address || '',
-        time: notifData.loadDetails?.pickupLocation?.date || '',
-        status: 'pending'
-      },
-      delivery: {
-        location: notifData.loadDetails?.deliveryLocation?.address || '',
-        time: notifData.loadDetails?.deliveryLocation?.date || '',
-        status: 'pending'
-      },
-      status: 'active',
-      payment: notifData.loadDetails?.rate || 0,
-      weight: notifData.loadDetails?.weight?.toString() || '',
-      dimensions: `${notifData.loadDetails?.dimensions?.length || ''}x${notifData.loadDetails?.dimensions?.width || ''}x${notifData.loadDetails?.dimensions?.height || ''}`,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      poNumber: poNumber || '',
-    };
-    
-    // Validate that carrierId is not the same as shipperId
-    if (loadData.carrierId === loadData.shipperId) {
-      console.error('[updateLoadRequestStatus] carrierId cannot be the same as shipperId:', { 
-        carrierId: loadData.carrierId, 
-        shipperId: loadData.shipperId 
-      });
-      throw new Error('Invalid carrier assignment: carrierId matches shipperId');
-    }
-    
-    console.log('[updateLoadRequestStatus] Creating load for carrier:', loadData);
-    if (loadData.carrierId && loadData.shipperId && loadData.poNumber) {
-      await addDoc(loadsRef, loadData);
-      console.log('[updateLoadRequestStatus] Load successfully created for carrier with carrierId:', loadData.carrierId);
-    } else {
-      console.error('[updateLoadRequestStatus] Missing required fields for load:', loadData);
-      throw new Error('Missing required fields for load creation');
+    // First, update all loads with this poNumber to isMarketplace: false and status: 'active'
+    if (poNumber) {
+      const loadsQuery = query(collection(db, 'loads'), where('poNumber', '==', poNumber));
+      const loadsSnap = await getDocs(loadsQuery);
+      for (const loadDoc of loadsSnap.docs) {
+        await updateDoc(doc(db, 'loads', loadDoc.id), {
+          isMarketplace: false,
+          status: 'active',
+          shippingScheduleStatus: 'Active',
+          updatedAt: serverTimestamp(),
+        });
+      }
+      // Check for existing load for this carrier and poNumber
+      const carrierLoadQuery = query(collection(db, 'loads'), where('poNumber', '==', poNumber), where('carrierId', '==', notifData.carrierId));
+      const carrierLoadSnap = await getDocs(carrierLoadQuery);
+      if (carrierLoadSnap.empty) {
+        // Only create if not already present
+        const loadData = {
+          carrierId: notifData.carrierId,
+          shipperId: notifData.shipperId,
+          title: notifData.loadDetails?.shipperCompany || 'Load',
+          shipper: notifData.loadDetails?.shipperCompany || '',
+          pickup: {
+            location: notifData.loadDetails?.pickupLocation?.address || '',
+            time: notifData.loadDetails?.pickupLocation?.date || '',
+            status: 'pending'
+          },
+          delivery: {
+            location: notifData.loadDetails?.deliveryLocation?.address || '',
+            time: notifData.loadDetails?.deliveryLocation?.date || '',
+            status: 'pending'
+          },
+          status: 'active',
+          shippingScheduleStatus: 'Active',
+          payment: notifData.loadDetails?.rate || 0,
+          weight: notifData.loadDetails?.weight?.toString() || '',
+          dimensions: `${notifData.loadDetails?.dimensions?.length || ''}x${notifData.loadDetails?.dimensions?.width || ''}x${notifData.loadDetails?.dimensions?.height || ''}`,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          poNumber: poNumber || '',
+        };
+        // Validate that carrierId is not the same as shipperId
+        if (loadData.carrierId === loadData.shipperId) {
+          console.error('[updateLoadRequestStatus] carrierId cannot be the same as shipperId:', { 
+            carrierId: loadData.carrierId, 
+            shipperId: loadData.shipperId 
+          });
+          throw new Error('Invalid carrier assignment: carrierId matches shipperId');
+        }
+        await addDoc(collection(db, 'loads'), loadData);
+        console.log('[updateLoadRequestStatus] Load successfully created for carrier with carrierId:', loadData.carrierId);
+      } else {
+        console.log('[updateLoadRequestStatus] Carrier already has load for this PO, skipping duplicate.');
+      }
     }
     // Notify the shipper
     if (notifData?.shipperId) {
@@ -382,12 +396,16 @@ export const acceptLoadForPO = async (
     // Use selectedCarrier.id to determine if this is a partnered carrier request
     const poSelectedCarrier = poData.selectedCarrier;
     const isPartneredFinal = isPartnered || (poSelectedCarrier && poSelectedCarrier.id === carrierId);
+    let newStatus = 'Active';
+    let newShippingScheduleStatus = 'Active'; // Always set to 'Active' when carrier is assigned
     await updateDoc(doc(db, 'purchaseOrders', poId), {
-      shippingScheduleStatus: isPartneredFinal ? 'Active' : 'Carrier Review',
-      status: 'Active',
+      shippingScheduleStatus: newShippingScheduleStatus,
+      status: newStatus,
+      carrierOption: 'carrier',
+      selectedCarrier: carrierInfo,
       [isPartneredFinal ? 'approvedCarrier' : 'pendingCarrier']: carrierInfo
     });
-    console.log('[acceptLoadForPO] Updated PO with carrier info and status.');
+    console.log('[acceptLoadForPO] Updated PO with carrier info, status set to Active, and carrierOption/selectedCarrier.');
   } catch (err) {
     console.error('[acceptLoadForPO] Error updating PO:', err);
   }
@@ -412,12 +430,40 @@ export const acceptLoadForPO = async (
           });
         }
         
-        await updateDoc(loadDocRef, {
+        // Merge all relevant PO fields into the load, matching UI expectations
+        const pickupLocation = poData.pickupLocation || poData.vendorInfo || {};
+        const deliveryLocation = poData.deliveryLocation || poData.shipTo || {};
+        const pickup = {
+          location: pickupLocation.streetAddress || pickupLocation.address || '',
+          time: poData.date || pickupLocation.date || '',
+          status: 'pending',
+        };
+        const delivery = {
+          location: deliveryLocation.streetAddress || deliveryLocation.address || '',
+          time: poData.date || deliveryLocation.date || '',
+          status: 'pending',
+        };
+        const updateFields: any = {
           carrierId: carrierId,
           shippingScheduleStatus: 'Active',
-          updatedAt: serverTimestamp()
-        });
-        console.log('[acceptLoadForPO] Updated load with carrierId and status for permissions:', carrierId);
+          updatedAt: serverTimestamp(),
+          status: 'active',
+          poNumber: poData.poNumber || '',
+          shipperId: poData.userId || '',
+          shipper: poData.companyInfo?.name || poData.vendorInfo?.name || '',
+          pickup, // for UI
+          delivery, // for UI
+          payment: poData.rate || 0, // for UI
+          pickupLocation, // for backward compatibility
+          deliveryLocation, // for backward compatibility
+          rate: poData.rate || 0,
+          weight: poData.items?.reduce((sum: number, item: any) => sum + (item.weight || 0), 0) || '',
+          dimensions: poData.items && poData.items.length > 0
+            ? `${poData.items[0].length || ''}x${poData.items[0].width || ''}x${poData.items[0].height || ''}`
+            : '',
+        };
+        await updateDoc(loadDocRef, updateFields);
+        console.log('[acceptLoadForPO] Updated load with carrierId and merged PO fields for permissions:', carrierId);
       } else {
         console.warn('[acceptLoadForPO] No load found for poNumber:', poData.poNumber);
       }

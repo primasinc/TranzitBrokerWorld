@@ -8,6 +8,7 @@
     "@capacitor/core": "^7.3.0",
     "@capacitor/ios": "^7.3.0",
     "@mapbox/mapbox-gl-geocoder": "^5.0.3",
+    "@reach/dialog": "^0.18.0",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.2.0",

@@ -8,7 +8,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
+  z-index: 20001;
 }
 
 .modal {
@@ -24,7 +24,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 
 .modalHeader h2 {
@@ -34,11 +34,18 @@
 }
 
 .closeButton {
-  background: none;
+  background: #1976d2;
+  color: white;
+  font-weight: 600;
   border: none;
-  font-size: 24px;
-  cursor: pointer;
-  color: #666;
+  border-radius: 6px;
+  padding: 12px 0;
+  flex: 1;
+  font-size: 1rem;
+  transition: background 0.2s;
+}
+.closeButton:hover {
+  background: #125ea2;
 }
 
 .modalContent {
@@ -104,7 +111,7 @@
 .actions {
   display: flex;
   gap: 12px;
-  margin-top: 24px;
+  margin-top: 32px;
 }
 
 .button {
@@ -120,17 +127,28 @@
 .accept {
   background: #28a745;
   color: white;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  padding: 12px 0;
+  flex: 1;
+  font-size: 1rem;
+  transition: background 0.2s;
 }
-
 .accept:hover {
   background: #218838;
 }
-
 .reject {
   background: #dc3545;
   color: white;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  padding: 12px 0;
+  flex: 1;
+  font-size: 1rem;
+  transition: background 0.2s;
 }
-
 .reject:hover {
   background: #c82333;
 } 

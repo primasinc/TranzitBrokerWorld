@@ -769,3 +769,17 @@ input:checked + .toggleSlider:before {
     transform: rotate(360deg);
   }
 } 
+
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0,0,0,0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20001;
+  padding: 16px;
+} 

@@ -538,21 +538,28 @@ export const PurchaseOrderForm: React.FC<PurchaseOrderFormProps> = ({
             </span>
           </button>
         </div>
-
-        {selectedOption === 'carrier' && (
-          <div className={styles.carrierRateSection}>
-            <label htmlFor="carrierRate">Carrier Rate ($):</label>
-            <input
-              id="carrierRate"
-              type="number"
-              value={carrierRate}
-              onChange={(e) => setCarrierRate(e.target.value)}
-              placeholder="Enter rate"
-              step="0.01"
-              min="0"
-              disabled={readOnly}
-              required
-            />
+        {selectedOption && (
+          <div className={styles.carrierRateSection} style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 12 }}>
+            <label htmlFor="carrierRate" style={{ fontWeight: 700, fontSize: 17, color: '#222', marginRight: 8, display: 'inline-block', minWidth: 100 }}>Carrier Rate</label>
+            <div style={{ position: 'relative', display: 'inline-block' }}>
+              <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: '#222', pointerEvents: 'none' }}>$</span>
+              <input
+                id="carrierRate"
+                type="text"
+                value={carrierRate}
+                onChange={e => {
+                  // Only allow numbers and optional decimal
+                  const val = e.target.value.replace(/[^0-9.]/g, '');
+                  setCarrierRate(val);
+                }}
+                placeholder="Amount"
+                style={{ fontSize: 16, fontWeight: 500, width: 120, paddingLeft: 22 }}
+                disabled={readOnly}
+                required
+                inputMode="decimal"
+                pattern="^[0-9]*\.?[0-9]*$"
+              />
+            </div>
           </div>
         )}
 

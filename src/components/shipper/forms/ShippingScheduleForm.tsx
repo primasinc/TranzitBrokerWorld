@@ -5,7 +5,8 @@ import styles from './ShippingScheduleForm.module.css';
 import { sendLoadRequestToCarrier } from '../../../services/notificationService';
 import { useAuth } from '../../../contexts/AuthContext';
 import { db } from '../../../firebase';
-import { addDoc, collection, getDocs, query, where, updateDoc, doc } from 'firebase/firestore';
+import { addDoc, collection, getDocs, query, where, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { createPartnerRequest } from '../../../services/partnerRequestService';
 
 type CarrierOrMarketplace = 'carrier' | 'marketplace' | null;
 
@@ -297,6 +298,13 @@ const ShippingScheduleForm: React.FC = () => {
           poNumber
         };
         console.log('Sending partner request with loadDetails:', loadDetails);
+        await createPartnerRequest({
+          poNumber: poNumber,
+          loadId: id, // id is the shipping schedule id or load id
+          shipperId: user.uid,
+          carrierId: locationState.selectedCarrier.id,
+        });
+        // Send a notification to the carrier for alert
         await sendLoadRequestToCarrier(
           locationState.selectedCarrier.id,
           user.uid,
@@ -342,10 +350,11 @@ const ShippingScheduleForm: React.FC = () => {
           dimensions: data.cargoDetails.dimensions && (data.cargoDetails.dimensions.length || data.cargoDetails.dimensions.width || data.cargoDetails.dimensions.height)
             ? `${data.cargoDetails.dimensions.length || ''}x${data.cargoDetails.dimensions.width || ''}x${data.cargoDetails.dimensions.height || ''}`
             : '',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          isMarketplace: (selectedOption as CarrierOrMarketplace) === 'marketplace',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          isMarketplace: true, // Always boolean true for marketplace
         };
+        // Ensure carrierId is never set for marketplace loads
         await addDoc(collection(db, 'loads'), loadDoc);
         navigate('/shipper/loads');
       } else if (selectedOption === 'carrier') {
@@ -370,9 +379,10 @@ const ShippingScheduleForm: React.FC = () => {
           dimensions: data.cargoDetails.dimensions && (data.cargoDetails.dimensions.length || data.cargoDetails.dimensions.width || data.cargoDetails.dimensions.height)
             ? `${data.cargoDetails.dimensions.length || ''}x${data.cargoDetails.dimensions.width || ''}x${data.cargoDetails.dimensions.height || ''}`
             : '',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          isMarketplace: (selectedOption as CarrierOrMarketplace) === 'marketplace',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          isMarketplace: false, // Not a marketplace load
+          carrierId: locationState.selectedCarrier.id, // Only set for partner/assigned loads
         };
         await addDoc(collection(db, 'loads'), loadDoc);
         navigate('/shipper/loads');

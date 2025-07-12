@@ -89,6 +89,7 @@ const ShipperDashboard: React.FC = () => {
   const [isLocationReady, setIsLocationReady] = useState(false);
   const [isMapFullscreen, setIsMapFullscreen] = useState(false);
   const [mapZoom, setMapZoom] = useState(10);
+  const [hideMap, setHideMap] = useState(false);
 
   const handleMapLoad = useCallback((map: mapboxgl.Map) => {
     setMapInstance(map);
@@ -556,7 +557,7 @@ const ShipperDashboard: React.FC = () => {
           </div>
           
           <div className={`${styles.mapContainer} ${isMapFullscreen ? styles.mapFullscreen : ''}`}>
-            {isLocationReady ? (
+            {isLocationReady && !hideMap ? (
               <>
                 {isMobile && (
                   <button 
@@ -578,12 +579,12 @@ const ShipperDashboard: React.FC = () => {
                   onMapLoad={handleMapLoad}
                 />
               </>
-            ) : (
+            ) : !isLocationReady ? (
               <div className={styles.mapLoading}>
                 <div className={styles.spinner}></div>
                 <p>Locating...</p>
               </div>
-            )}
+            ) : null}
           </div>
           {/* Controls below the map, outside of .mapContainer */}
           {!showActiveShipments && (

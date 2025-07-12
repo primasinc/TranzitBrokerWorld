@@ -7,7 +7,7 @@ import LoadRequestCard from '../../components/carrier/LoadRequestCard';
 import { collection, query, where, onSnapshot, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase';
 import NotificationsTray, { useUnreadNotifications } from './NotificationsTray';
-import { useAvailableLoads } from '../../hooks/useAvailableLoads';
+import { useAvailableLoads, getFilteredMarketplaceLoads } from '../../hooks/useAvailableLoads';
 import { isValidPartnerRequest } from './AvailableLoads';
 import { useMobileOptimization } from '../../hooks/useMobileOptimization';
 import { usePartnerRequestLoads } from '../../hooks/usePartnerRequestLoads';
@@ -52,12 +52,12 @@ const HomeFeed: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [viewType, setViewType] = useState<'map' | 'list'>('map');
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
+  console.log('HomeFeed - isLoading:', isLoading, 'user:', user);
   const [userLocation, setUserLocation] = useState<[number, number]>([-87.6298, 41.8781]); // Default to Chicago
+  const [locationLoading, setLocationLoading] = useState(true); // Track if real location is set
   const [radiusMiles] = useState<number>(100); // You can make this configurable if needed
   const [activeTab, setActiveTab] = useState<TabType>('MARKETPLACE');
-  const [partnerRequests, setPartnerRequests] = useState<any[]>([]);
-  const [partnerLoading, setPartnerLoading] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
   const unreadCount = useUnreadNotifications();
   const [locationError, setLocationError] = useState<string | null>(null);
@@ -72,6 +72,31 @@ const HomeFeed: React.FC = () => {
     shouldFetchData 
   } = useMobileOptimization();
   const { partnerRequests: poPartnerRequests, loading: poPartnerLoading } = useCarrierPartnerRequests();
+
+  // Get real user location on mount
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation([position.coords.longitude, position.coords.latitude]);
+          setLocationError(null);
+          setLocationLoading(false);
+        },
+        (error) => {
+          setLocationError('Unable to get location, using default.');
+          setLocationLoading(false);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 300000,
+        }
+      );
+    } else {
+      setLocationError('Geolocation not supported, using default.');
+      setLocationLoading(false);
+    }
+  }, []);
 
   // Mobile detection
   useEffect(() => {
@@ -99,87 +124,13 @@ const HomeFeed: React.FC = () => {
     getOptimalPageSize(isLowBandwidth || isLowBattery ? 5 : 10) // Dynamic page size based on conditions
   );
 
-  useEffect(() => {
-    if (!user) return;
-    setPartnerLoading(true);
-    const q = query(
-      collection(db, 'notifications'),
-      where('carrierId', '==', user.uid),
-      orderBy('createdAt', 'desc')
-    );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const requests: any[] = [];
-      snapshot.forEach((doc) => {
-        requests.push({ id: doc.id, ...doc.data() });
-      });
-      setPartnerRequests(requests);
-      setPartnerLoading(false);
-    });
-    return () => unsubscribe();
-  }, [user]);
+  // Remove partnerRequests state and notification fetching logic
+  // const [partnerRequests, setPartnerRequests] = useState<any[]>([]);
+  // const [partnerLoading, setPartnerLoading] = useState(true);
+  // useEffect(() => { ... notification logic ... });
 
-  // Get user location - optional for carriers
-  useEffect(() => {
-    // Only request location if user is authenticated
-    if (!user) {
-      console.log('User not authenticated, skipping location request');
-      return;
-    }
-
-    let watchId: number | null = null;
-    function requestLocation() {
-      setLocationError(null);
-      if (navigator.geolocation) {
-        watchId = navigator.geolocation.watchPosition(
-          (position) => {
-            setUserLocation([position.coords.longitude, position.coords.latitude]);
-            setLocationError(null);
-          },
-          (error) => {
-            console.warn('Geolocation error:', error);
-            // Don't block the app - just use default location
-            setLocationError(null);
-          },
-          { 
-            enableHighAccuracy: true, // High accuracy for carriers
-            timeout: 10000,
-            maximumAge: 300000 // 5 minutes cache
-          }
-        );
-      } else {
-        console.log('Geolocation not supported, using default location');
-      }
-    }
-    requestLocation();
-    return () => {
-      if (watchId !== null && navigator.geolocation.clearWatch) {
-        navigator.geolocation.clearWatch(watchId);
-      }
-    };
-  }, [user]); // Only run when user changes
-
-  React.useEffect(() => {
-    let isMounted = true;
-    async function filterAndDedupe() {
-      const seen = new Set();
-      const valid: any[] = [];
-      for (const req of partnerRequests.filter(r => r.status === 'pending')) {
-        if (await isValidPartnerRequest(req)) {
-          const poNum = req.loadDetails?.poNumber || req.poNumber;
-          if (!seen.has(poNum)) {
-            seen.add(poNum);
-            valid.push(req);
-          }
-        }
-      }
-      if (isMounted) setValidRequests(valid);
-    }
-    filterAndDedupe();
-    return () => { isMounted = false; };
-  }, [partnerRequests]);
-
-  // After validRequests is set, use the hook to fetch authoritative load data
-  const { merged: mergedPartnerRequests, loading: mergedPartnerLoading, error: mergedPartnerError } = usePartnerRequestLoads(validRequests);
+  // Use the new hook for partner requests
+  const { merged: mergedPartnerRequests, loading: mergedPartnerLoading, error: mergedPartnerError } = usePartnerRequestLoads();
 
   // State for current load (mock data for now)
   const [currentLoad] = useState({
@@ -207,11 +158,40 @@ const HomeFeed: React.FC = () => {
   };
 
   // Filter out loads from marketplace if there is a matching partner request for this carrier
-  const partnerRequestPoNumbers = new Set(partnerRequests.map((req: any) => req.loadDetails?.poNumber || req.poNumber).filter(Boolean));
-  const partnerRequestLoadIds = new Set(partnerRequests.map((req: any) => req.loadId).filter(Boolean));
-  const filteredMarketplaceLoads = availableLoads.filter(load =>
-    !partnerRequestPoNumbers.has(load.poNumber) && !partnerRequestLoadIds.has(load.id)
+  const filteredMarketplaceLoads = React.useMemo(
+    () => {
+      const result = getFilteredMarketplaceLoads(availableLoads, poPartnerRequests);
+      console.log('HomeFeed - userLocation:', userLocation);
+      console.log('HomeFeed - availableLoads:', availableLoads);
+      console.log('HomeFeed - filteredMarketplaceLoads:', result);
+      return result;
+    },
+    [availableLoads, poPartnerRequests, userLocation]
   );
+
+  // Remove the full-page loading spinner. Always render the main UI.
+  // If loading, show a small non-blocking indicator only in the available loads section.
+  // If no loads, show a message only in that section.
+
+  // Debug: Log availableLoads and loading state
+  console.log('HomeFeed - availableLoads:', availableLoads);
+  console.log('HomeFeed - isLoading:', isLoading, 'locationLoading:', locationLoading);
+
+  // Fallback UI if no loads are found
+  if (!isLoading && !locationLoading && availableLoads.length === 0) {
+    return <div style={{textAlign: 'center', marginTop: 40}}>No available loads found in your area.</div>;
+  }
+
+  // Deduplicate mergedPartnerRequests by poNumber or loadId
+  function dedupePartnerRequests(requests: any[]) {
+    const seen = new Set();
+    return requests.filter(({ partnerRequest }) => {
+      const key = partnerRequest.poNumber || partnerRequest.loadId;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
 
   return (
     <div className={styles.container}>
@@ -358,51 +338,48 @@ const HomeFeed: React.FC = () => {
             </div>
             {activeTab === 'MARKETPLACE' ? (
               <div className={styles.listView}>
-                {loadsLoading ? (
-                  <div>Loading available loads...</div>
-                ) : loadsError ? (
+                {loadsError ? (
                   <div>Error loading loads: {loadsError}</div>
                 ) : filteredMarketplaceLoads.length === 0 ? (
-                  <div>No available loads in your area.</div>
+                  <div style={{ textAlign: 'center', margin: '20px 0', color: '#888' }}>No loads available</div>
                 ) : (
                   <>
                     {filteredMarketplaceLoads
                       .filter(load => load.isMarketplace === true && load && load.pickupLocation && load.deliveryLocation && load.pickupLocation.address && load.deliveryLocation.address)
-                      .map((load) => (
-                        <div key={load.id} className={styles.loadCard}>
-                          <h3>{load.title}</h3>
-                          <p>Pickup: {load.pickupLocation.address}</p>
-                          <p>Delivery: {load.deliveryLocation.address}</p>
-                          <p>Rate: {load.rate ? `$${load.rate.toLocaleString()}` : '—'}</p>
-                          <button onClick={() => console.log('View details:', load)}>
-                            View Details
-                          </button>
-                        </div>
-                      ))}
-                    {hasMoreLoads && (
-                      <button 
-                        onClick={loadMoreLoads}
-                        style={{
-                          width: '100%',
-                          padding: '12px',
-                          background: '#f8f9fa',
-                          border: '1px solid #dee2e6',
-                          borderRadius: '8px',
-                          cursor: 'pointer',
-                          marginTop: '12px'
-                        }}
-                      >
-                        Load More Loads
-                      </button>
-                    )}
+                      .map((load) => {
+                        // Always use companyInfo?.name as the Shipper Name
+                        const shipperName = (load as any).companyInfo && typeof (load as any).companyInfo === 'object' && 'name' in (load as any).companyInfo && typeof (load as any).companyInfo.name === 'string'
+                          ? (load as any).companyInfo.name
+                          : 'Unknown Shipper';
+                        return (
+                          <div key={load.id} className={styles.loadCard} style={{ marginBottom: 16, padding: 16, borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', background: '#fff', border: '1px solid #eee' }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: '#1976d2', marginBottom: 4 }}>
+                              PO Number: {load.poNumber || '-'}
+                            </div>
+                            <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 6 }}>{shipperName}</div>
+                            <div style={{ marginBottom: 6 }}>
+                              <span style={{ fontWeight: 600 }}>Pickup:</span> {load.pickupLocation.address}
+                            </div>
+                            <div style={{ marginBottom: 6 }}>
+                              <span style={{ fontWeight: 600 }}>Delivery:</span> {load.deliveryLocation.address}
+                            </div>
+                            <div style={{ marginBottom: 10 }}>
+                              <span style={{ fontWeight: 600 }}>Rate:</span> {load.rate ? `$${load.rate.toLocaleString()}` : '—'}
+                            </div>
+                            <button onClick={() => console.log('View details:', load)} style={{ background: '#1976d2', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 18px', fontWeight: 600, cursor: 'pointer' }}>
+                              View Details
+                            </button>
+                          </div>
+                        );
+                      })}
                   </>
                 )}
               </div>
             ) : (
               <div className={styles.listView}>
-                {partnerLoading ? (
+                {mergedPartnerLoading ? (
                   <div>Loading partner loads...</div>
-                ) : partnerRequests.length === 0 ? (
+                ) : mergedPartnerRequests.length === 0 ? (
                   <div>No partner loads at this time.</div>
                 ) : (
                   <table className={styles.partnerTable} style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 16 }}>
@@ -418,23 +395,23 @@ const HomeFeed: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {partnerRequests.filter(r => r.status === 'pending').map((notification) => (
-                        <tr key={notification.id} style={{ borderBottom: '1px solid #eee' }}>
+                      {dedupePartnerRequests(mergedPartnerRequests).map(({ partnerRequest, po }) => (
+                        <tr key={partnerRequest.id} style={{ borderBottom: '1px solid #eee' }}>
                           <td style={{ padding: '8px' }}>
                             <a
-                              href={`/carrier/available-loads#partner&po=${notification.loadDetails.poNumber}`}
+                              href={`/carrier/available-loads#partner&po=${po?.poNumber || partnerRequest.poNumber}`}
                               className={styles.poLink}
                               style={{ fontWeight: 600 }}
                             >
-                              {notification.loadDetails.poNumber || '-'}
+                              {po?.poNumber || partnerRequest.poNumber || '-'}
                             </a>
                           </td>
-                          <td style={{ padding: '8px' }}>{notification.loadDetails.shipperCompany || '-'}</td>
-                          <td style={{ padding: '8px' }}>{notification.loadDetails.pickupLocation?.address || '-'}</td>
-                          <td style={{ padding: '8px' }}>{notification.loadDetails.pickupLocation?.date || '-'}</td>
-                          <td style={{ padding: '8px' }}>{notification.loadDetails.deliveryLocation?.address || '-'}</td>
-                          <td style={{ padding: '8px' }}>{notification.loadDetails.deliveryLocation?.date || '-'}</td>
-                          <td style={{ padding: '8px', fontWeight: 600, color: '#1976d2' }}>{notification.loadDetails.rate ? `$${notification.loadDetails.rate}` : '-'}</td>
+                          <td style={{ padding: '8px' }}>{po?.shipperCompany || '-'}</td>
+                          <td style={{ padding: '8px' }}>{po?.pickupLocation?.address || '-'}</td>
+                          <td style={{ padding: '8px' }}>{po?.pickupLocation?.date || '-'}</td>
+                          <td style={{ padding: '8px' }}>{po?.deliveryLocation?.address || '-'}</td>
+                          <td style={{ padding: '8px' }}>{po?.deliveryLocation?.date || '-'}</td>
+                          <td style={{ padding: '8px', fontWeight: 600, color: '#1976d2' }}>{po?.rate ? `$${po.rate}` : '-'}</td>
                         </tr>
                       ))}
                     </tbody>

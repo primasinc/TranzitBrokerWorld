@@ -6,6 +6,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import styles from './CarrierPartners.module.css';
 import { getCarrier } from '../../services/carrierService';
 import { sendLoadRequestToCarrier } from '../../services/notificationService';
+import { createPartnerRequest } from '../../services/partnerRequestService';
 
 interface Partner {
   id: string;
@@ -188,32 +189,43 @@ const CarrierPartners: React.FC = () => {
           const dimensions = cargoDetails.dimensions || po.dimensions || (Array.isArray(po.items) && po.items[0]?.dimensions) || { length: 0, width: 0, height: 0 };
           const weight = cargoDetails.weight || (Array.isArray(po.items) && po.items[0]?.weight) || 0;
           const rate = orderData.carrierRate || po.rate || (Array.isArray(po.items) && po.items[0]?.rate) || 0;
+          const partnerRequestId = await createPartnerRequest({
+            poNumber: locationState.poData.poNumber || orderData.poNumber || '',
+            loadId: '', // If you have a loadId, provide it here
+            shipperId: userId,
+            carrierId: carrier.id,
+          });
+          // Send a notification to the carrier for alert
           await sendLoadRequestToCarrier(
             carrier.id,
             userId,
-            orderDoc.id,
+            '', // shippingScheduleId or loadId if available
             {
               pickupLocation: {
-                address: pickupLocation.streetAddress || pickupLocation.address || '',
-                city: pickupLocation.city || pickupLocation.cityStateZip?.split(',')[0]?.trim() || '',
-                state: pickupLocation.state || pickupLocation.cityStateZip?.split(',')[1]?.trim().split(' ')[0] || '',
-                zipCode: pickupLocation.zipCode || pickupLocation.cityStateZip?.split(' ').slice(-1)[0] || '',
-                date: pickupDate,
-                time: pickupLocation.time || ''
+                address: locationState.poData?.vendorInfo?.address || '',
+                city: locationState.poData?.vendorInfo?.city || '',
+                state: locationState.poData?.vendorInfo?.state || '',
+                zipCode: locationState.poData?.vendorInfo?.zipCode || '',
+                date: locationState.poData?.pickupDate || '',
+                time: locationState.poData?.pickupTime || '',
               },
               deliveryLocation: {
-                address: deliveryLocation.streetAddress || deliveryLocation.address || '',
-                city: deliveryLocation.city || deliveryLocation.cityStateZip?.split(',')[0]?.trim() || '',
-                state: deliveryLocation.state || deliveryLocation.cityStateZip?.split(',')[1]?.trim().split(' ')[0] || '',
-                zipCode: deliveryLocation.zipCode || deliveryLocation.cityStateZip?.split(' ').slice(-1)[0] || '',
-                date: deliveryDate,
-                time: deliveryLocation.time || ''
+                address: locationState.poData?.shipTo?.streetAddress || '',
+                city: locationState.poData?.shipTo?.city || '',
+                state: locationState.poData?.shipTo?.state || '',
+                zipCode: locationState.poData?.shipTo?.zipCode || '',
+                date: locationState.poData?.deliveryDate || '',
+                time: locationState.poData?.deliveryTime || '',
               },
-              dimensions,
-              weight,
-              rate,
-              shipperCompany,
-              poNumber: locationState.poData.poNumber || orderData.poNumber || ''
+              dimensions: {
+                length: locationState.poData?.cargoDetails?.dimensions?.length || 0,
+                width: locationState.poData?.cargoDetails?.dimensions?.width || 0,
+                height: locationState.poData?.cargoDetails?.dimensions?.height || 0,
+              },
+              weight: locationState.poData?.cargoDetails?.weight || 0,
+              rate: locationState.poData?.rate || 0,
+              shipperCompany: locationState.poData?.companyInfo?.name || '',
+              poNumber: locationState.poData.poNumber || orderData.poNumber || '',
             }
           );
         }

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, onSnapshot } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 
@@ -68,14 +68,53 @@ export const ShipmentsProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   useEffect(() => {
     // Listen for auth state changes
-    const unsubscribe = onAuthStateChanged(auth, (user: User | null) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (user: User | null) => {
       if (user) {
-        refreshShipments(); // Only fetch after login
+        // Set up real-time listener for purchaseOrders
+        const unsub = onSnapshot(collection(db, 'purchaseOrders'), (querySnapshot) => {
+          const statusMap: { [key: string]: ScheduledShipment['status'] } = {
+            'open': 'Open',
+            'carrier pending': 'Carrier Pending',
+            'carrier pending/approval': 'Carrier Pending',
+            'active': 'Active',
+            'completed': 'Completed',
+          };
+          const shipmentsData = querySnapshot.docs
+            .filter(doc => {
+              const s = (doc.data().shippingScheduleStatus || doc.data().status || '').toLowerCase();
+              return s !== 'cancelled';
+            })
+            .map(doc => {
+              const data = doc.data();
+              const normalizedStatus = (data.shippingScheduleStatus || data.status || '').toLowerCase();
+              const status: ScheduledShipment['status'] = statusMap[normalizedStatus] || 'Open';
+              return {
+                id: doc.id,
+                date: data.date || '',
+                time: data.scheduledTime || '',
+                destination: data.shipTo?.cityStateZip || '',
+                pickup: data.vendorInfo?.cityStateZip || data.pickupLocation?.address || '',
+                carrier: data.carrierOption === 'carrier'
+                  ? (typeof data.selectedCarrier === 'object'
+                      ? (data.selectedCarrier.companyName || data.selectedCarrier.id || 'TBD')
+                      : (data.selectedCarrier || 'TBD'))
+                  : 'Marketplace',
+                status,
+                type: data.type || 'Full Load',
+                shipTo: data.shipTo?.name || '',
+                cost: typeof data.rate === 'number' ? data.rate : (typeof data.total === 'number' ? data.total : 0),
+                poNumber: data.poNumber || '',
+              } as ScheduledShipment;
+            });
+          setShipments(shipmentsData);
+        });
+        // Clean up Firestore listener on logout
+        return () => unsub();
       } else {
         setShipments([]); // Clear if logged out
       }
     });
-    return () => unsubscribe();
+    return () => unsubscribeAuth();
   }, []);
 
   return (

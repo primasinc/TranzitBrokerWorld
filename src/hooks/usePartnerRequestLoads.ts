@@ -1,26 +1,41 @@
 import { useEffect, useState } from 'react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
+import { useAuth } from '../contexts/AuthContext';
+import { PartnerRequest } from '../services/partnerRequestService';
 
 /**
- * Hook to fetch authoritative load data for partner request notifications.
- * @param partnerRequests Array of partner request notifications
- * @returns { merged: { notification: any, load: any | null, po: any | null }[], loading: boolean, error: string | null }
+ * Hook to fetch authoritative load data for partner requests for the current carrier.
+ * @returns { merged: { partnerRequest: any, load: any | null, po: any | null }[], loading: boolean, error: string | null }
  */
-export function usePartnerRequestLoads(partnerRequests: any[]) {
-  const [merged, setMerged] = useState<{ notification: any, load: any | null, po: any | null }[]>([]);
+export function usePartnerRequestLoads() {
+  const { user } = useAuth();
+  const [merged, setMerged] = useState<{ partnerRequest: any, load: any | null, po: any | null }[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
-    async function fetchLoads() {
+    async function fetchPartnerRequests() {
+      if (!user || !user.uid) {
+        setMerged([]);
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       setError(null);
       try {
-        const results: { notification: any, load: any | null, po: any | null }[] = [];
-        for (const notification of partnerRequests) {
-          const poNumber = notification.loadDetails?.poNumber || notification.poNumber;
+        const partnerRequestsQ = query(
+          collection(db, 'partnerRequests'),
+          where('carrierId', '==', user.uid),
+          where('status', '==', 'pending')
+        );
+        const partnerRequestsSnap = await getDocs(partnerRequestsQ);
+        const partnerRequests = partnerRequestsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const results: { partnerRequest: any, load: any | null, po: any | null }[] = [];
+        for (const req of partnerRequests) {
+          const partnerReq = req as PartnerRequest;
+          const poNumber = partnerReq.poNumber;
           let load = null;
           let po = null;
           if (poNumber) {
@@ -35,7 +50,7 @@ export function usePartnerRequestLoads(partnerRequests: any[]) {
               po = poSnap.docs[0].data();
             }
           }
-          results.push({ notification, load, po });
+          results.push({ partnerRequest: partnerReq, load, po });
         }
         if (isMounted) setMerged(results);
       } catch (err) {
@@ -44,13 +59,9 @@ export function usePartnerRequestLoads(partnerRequests: any[]) {
         if (isMounted) setLoading(false);
       }
     }
-    if (partnerRequests && partnerRequests.length > 0) {
-      fetchLoads();
-    } else {
-      setMerged([]);
-    }
+    fetchPartnerRequests();
     return () => { isMounted = false; };
-  }, [JSON.stringify(partnerRequests)]);
+  }, [user]);
 
   return { merged, loading, error };
 } 

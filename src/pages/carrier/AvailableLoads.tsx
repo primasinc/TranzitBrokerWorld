@@ -2,12 +2,12 @@ import React, { useState, useEffect, useMemo } from 'react';
 import MapboxMap from '../../components/common/MapboxMap';
 import styles from './AvailableLoads.module.css';
 import { useNavigate } from 'react-router-dom';
-import { doc, getDoc, getDocs, query, where, collection, orderBy, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, getDocs, query, where, collection, orderBy, onSnapshot, addDoc } from 'firebase/firestore';
 import { db, auth } from '../../config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useAuth } from '../../contexts/AuthContext';
 import LoadRequestCard from '../../components/carrier/LoadRequestCard';
-import { useAvailableLoads, AvailableLoad } from '../../hooks/useAvailableLoads';
+import { useAvailableLoads, getFilteredMarketplaceLoads, AvailableLoad } from '../../hooks/useAvailableLoads';
 import mapboxgl from 'mapbox-gl';
 import { sendLoadRequestToCarrier, acceptLoadForPO } from '../../services/notificationService';
 import { useMobileOptimization } from '../../hooks/useMobileOptimization';
@@ -15,6 +15,10 @@ import { MobileOptimizedList } from '../../components/common/MobileOptimizedList
 import NotificationsTray, { useUnreadNotifications } from './NotificationsTray';
 import { useCarrierPartnerRequests } from '../../hooks/useCarrierPartnerRequests';
 import { usePartnerRequestLoads } from '../../hooks/usePartnerRequestLoads';
+import { createPartnerRequest } from '../../services/partnerRequestService';
+import { Dialog } from '@reach/dialog';
+import '@reach/dialog/styles.css';
+import { getPurchaseOrderByPONumber } from '../../services/firebase';
 
 interface Load {
   id: string;
@@ -32,14 +36,24 @@ interface PurchaseOrder {
   id?: string;
   poNumber?: string;
   date?: string;
-  vendorInfo?: { name?: string };
+  vendorInfo?: { 
+    name?: string;
+    streetAddress?: string;
+    cityStateZip?: string;
+  };
   companyInfo?: { name?: string };
-  shipTo?: { name?: string };
+  shipTo?: { 
+    name?: string;
+    streetAddress?: string;
+    cityStateZip?: string;
+    instructions?: string;
+  };
   status?: string;
   amount?: number;
   total?: number;
   items?: any[];
   shipperCompany?: string;
+  comments?: string;
   [key: string]: any;
 }
 
@@ -125,9 +139,14 @@ export async function isValidPartnerRequest(request: any): Promise<boolean> {
 }
 
 const AvailableLoads: React.FC = () => {
-  console.log('AvailableLoads component loaded');
+  console.log('AvailableLoads page mounted');
   const [viewType, setViewType] = useState<'map' | 'list'>('list');
   const [selectedLoad, setSelectedLoad] = useState<AvailableLoad | null>(null);
+  const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsError, setDetailsError] = useState<string | null>(null);
+  const [makeOfferValue, setMakeOfferValue] = useState('');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navigate = useNavigate();
   const [userLocation, setUserLocation] = useState<[number, number]>([-87.6298, 41.8781]);
@@ -142,9 +161,12 @@ const AvailableLoads: React.FC = () => {
   const [showNotifications, setShowNotifications] = useState(false);
   const unreadCount = useUnreadNotifications();
   const [isMobile, setIsMobile] = useState(false);
-  const [partnerRequests, setPartnerRequests] = useState<any[]>([]);
-  const [partnerLoading, setPartnerLoading] = useState(true);
-  const { merged: mergedPartnerRequests, loading: mergedPartnerLoading, error: mergedPartnerError } = usePartnerRequestLoads(partnerRequests.filter(r => r.status === 'pending'));
+  // Use the new hook for partner requests
+  const { merged: mergedPartnerRequests, loading: mergedPartnerLoading, error: mergedPartnerError } = usePartnerRequestLoads();
+  const [poCompanyNames, setPoCompanyNames] = useState<{ [poNumber: string]: string }>({});
+
+  // Confirmation state for Make Offer
+  const [offerConfirmation, setOfferConfirmation] = useState<string | null>(null);
 
   // Mobile detection
   useEffect(() => {
@@ -187,6 +209,15 @@ const AvailableLoads: React.FC = () => {
     loadMore 
   } = useAvailableLoads(userLocation, radiusMiles, optimalPageSize);
 
+  useEffect(() => {
+    console.log('AvailableLoads: availableLoads', availableLoads);
+  }, [availableLoads]);
+
+  // Debug: Log the current userLocation whenever it changes
+  useEffect(() => {
+    // console.log('AvailableLoads page - current userLocation:', userLocation);
+  }, [userLocation]);
+
   // Performance monitoring
   useEffect(() => {
     const startTime = performance.now();
@@ -204,22 +235,22 @@ const AvailableLoads: React.FC = () => {
         
         if (mapSection) {
           const sectionRect = mapSection.getBoundingClientRect();
-          console.log('Map section dimensions:', {
-            width: sectionRect.width,
-            height: sectionRect.height,
-            top: sectionRect.top,
-            left: sectionRect.left
-          });
+          // console.log('Map section dimensions:', {
+          //   width: sectionRect.width,
+          //   height: sectionRect.height,
+          //   top: sectionRect.top,
+          //   left: sectionRect.left
+          // });
         }
         
         if (mapContainer) {
           const containerRect = mapContainer.getBoundingClientRect();
-          console.log('Map container dimensions:', {
-            width: containerRect.width,
-            height: containerRect.height,
-            top: containerRect.top,
-            left: containerRect.left
-          });
+          // console.log('Map container dimensions:', {
+          //   width: containerRect.width,
+          //   height: containerRect.height,
+          //   top: containerRect.top,
+          //   left: containerRect.left
+          // });
         }
       };
 
@@ -233,7 +264,7 @@ const AvailableLoads: React.FC = () => {
   // Check if we should fetch data based on conditions
   useEffect(() => {
     if (!shouldFetchData('loads')) {
-      console.log('Skipping loads fetch due to poor conditions');
+      // console.log('Skipping loads fetch due to poor conditions');
       return;
     }
   }, [shouldFetchData]);
@@ -242,7 +273,7 @@ const AvailableLoads: React.FC = () => {
   useEffect(() => {
     // Only request location if user is authenticated
     if (!user) {
-      console.log('User not authenticated, skipping location request');
+      // console.log('User not authenticated, skipping location request');
       return;
     }
 
@@ -253,9 +284,9 @@ const AvailableLoads: React.FC = () => {
           setLocationError(null);
         },
         (error) => {
-          console.warn('Geolocation error:', error);
+          // console.warn('Geolocation error:', error);
           // Keep default location - don't block the app
-          console.log('Using default location due to geolocation error');
+          // console.log('Using default location due to geolocation error');
           setLocationError(null); // Don't show error, just use default
         },
         {
@@ -265,7 +296,7 @@ const AvailableLoads: React.FC = () => {
         }
       );
     } else {
-      console.log('Geolocation not supported, using default location');
+      // console.log('Geolocation not supported, using default location');
     }
   }, [user]); // Only run when user changes
 
@@ -275,26 +306,6 @@ const AvailableLoads: React.FC = () => {
       setActiveTab('PARTNER');
     }
   }, []);
-
-  // Fetch notifications for this carrier
-  useEffect(() => {
-    if (!user) return;
-    setPartnerLoading(true);
-    const q = query(
-      collection(db, 'notifications'),
-      where('carrierId', '==', user.uid),
-      orderBy('createdAt', 'desc')
-    );
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const requests: any[] = [];
-      snapshot.forEach((doc) => {
-        requests.push({ id: doc.id, ...doc.data() });
-      });
-      setPartnerRequests(requests);
-      setPartnerLoading(false);
-    });
-    return () => unsubscribe();
-  }, [user]);
 
   const handleLogout = () => navigate('/login');
   const handleProfile = () => navigate('/carrier/profile');
@@ -318,22 +329,32 @@ const AvailableLoads: React.FC = () => {
         }
       }
       if (!purchaseOrderId) {
-        console.error('Purchase Order not found for this load. Cannot send notification.');
+        // console.error('Purchase Order not found for this load. Cannot send notification.');
         alert('Purchase Order not found for this load. Please try again.');
         return;
       }
-      // Send notification to shipper with correct purchaseOrderId
-      await sendLoadRequestToCarrier(user.uid, shipperId, purchaseOrderId, {
-        pickupLocation: { address: load.pickup, city: '', state: '', zipCode: '', date: '', time: '' },
-        deliveryLocation: { address: load.delivery, city: '', state: '', zipCode: '', date: '', time: '' },
-        dimensions: { length: 0, width: 0, height: 0 },
-        weight: 0,
-        rate: load.rate,
-        shipperCompany: '',
-        poNumber: loadData.poNumber || ''
+      // Create a partner request in partnerRequests collection
+      await createPartnerRequest({
+        poNumber: loadData.poNumber || '',
+        loadId: load.id,
+        shipperId: shipperId,
+        carrierId: user.uid,
       });
-      // --- Ensure backend workflow is triggered for marketplace loads ---
-      await acceptLoadForPO(loadData.poNumber, user.uid, false);
+      // Send a notification to the shipper for alert
+      await sendLoadRequestToCarrier(
+        shipperId,
+        user.uid,
+        load.id,
+        {
+          pickupLocation: loadData.pickupLocation || {},
+          deliveryLocation: loadData.deliveryLocation || {},
+          dimensions: loadData.dimensions || {},
+          weight: loadData.weight || 0,
+          rate: loadData.rate || 0,
+          shipperCompany: loadData.shipperCompany || '',
+          poNumber: loadData.poNumber || '',
+        }
+      );
     } catch (err) {
       alert('Failed to accept load: ' + (err as Error).message);
     }
@@ -373,73 +394,210 @@ const AvailableLoads: React.FC = () => {
     }
   };
 
+  // Fetch PO for modal
+  const fetchPOForLoad = async (load: AvailableLoad) => {
+    setDetailsLoading(true);
+    setDetailsError(null);
+    setSelectedPO(null);
+    try {
+      if (!load.poNumber) throw new Error('No PO number for this load.');
+      const po = await getPurchaseOrderByPONumber(load.poNumber);
+      if (!po) throw new Error('Purchase Order not found.');
+      setSelectedPO(po);
+      setShowDetailsModal(true);
+    } catch (err: any) {
+      setDetailsError(err.message || 'Failed to fetch PO');
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
+  // Make Offer handler
+  const handleMakeOffer = async (load: AvailableLoad, offerValue: string) => {
+    if (!user || !user.uid) return;
+    if (!offerValue || isNaN(Number(offerValue))) {
+      setOfferConfirmation('Please enter a valid offer amount.');
+      return;
+    }
+    try {
+      // Fetch shipperId from the load
+      const loadDoc = await getDoc(doc(db, 'loads', load.id));
+      const loadData = loadDoc.data();
+      if (!loadData) throw new Error('Load data not found.');
+      const shipperId = loadData?.shipperId || loadData?.createdBy || '';
+      if (!shipperId) throw new Error('Shipper ID not found for this load.');
+      // Find the purchase order by poNumber
+      let purchaseOrderId = '';
+      if (loadData?.poNumber) {
+        const poSnapshot = await getDocs(query(collection(db, 'purchaseOrders'), where('poNumber', '==', loadData.poNumber)));
+        if (!poSnapshot.empty) {
+          purchaseOrderId = poSnapshot.docs[0].id;
+        }
+      }
+      if (!purchaseOrderId) {
+        setOfferConfirmation('Purchase Order not found for this load.');
+        return;
+      }
+      // Create a partner request in partnerRequests collection with offer
+      await createPartnerRequest({
+        poNumber: loadData.poNumber || '',
+        loadId: load.id,
+        shipperId: shipperId,
+        carrierId: user.uid,
+        offer: Number(offerValue),
+        type: 'make_offer',
+      });
+      // Fetch carrier profile for senderName
+      let senderName = user.displayName || '';
+      try {
+        const carrierProfileDoc = await getDoc(doc(db, 'users', user.uid));
+        if (carrierProfileDoc.exists()) {
+          const carrierProfile = carrierProfileDoc.data();
+          senderName = carrierProfile.companyName || carrierProfile.displayName || senderName;
+        }
+      } catch (err) {
+        // fallback to user.displayName
+      }
+      // Send a notification to the shipper for alert (mirroring partner request notification structure)
+      const notificationRef = collection(db, 'notifications');
+      const notificationData = {
+        carrierId: user.uid,
+        shipperId: shipperId,
+        recipientId: shipperId,
+        shippingScheduleId: load.id,
+        status: 'pending',
+        type: 'make_offer',
+        senderId: user.uid,
+        senderName,
+        message: `${senderName} has made an offer of $${Number(offerValue).toLocaleString()} on PO ${loadData.poNumber || ''}`,
+        loadDetails: {
+          pickupLocation: loadData.pickupLocation || {},
+          deliveryLocation: loadData.deliveryLocation || {},
+          dimensions: loadData.dimensions || {},
+          weight: loadData.weight || 0,
+          rate: Number(offerValue),
+          shipperCompany: loadData.shipperCompany || '',
+          poNumber: loadData.poNumber || '',
+        },
+        read: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        requiresAction: true
+      };
+      await addDoc(notificationRef, notificationData);
+      setOfferConfirmation('Offer sent to shipper!');
+      setMakeOfferValue('');
+    } catch (err) {
+      setOfferConfirmation('Failed to send offer: ' + (err as Error).message);
+    }
+  };
+
+  // Memoize filtered marketplace loads to ensure sync with data
+  const filteredMarketplaceLoads = React.useMemo(
+    () => availableLoads, // Don't filter marketplace loads by partner requests
+    [availableLoads]
+  );
+
+  // Fetch PO company names for all visible loads
+  useEffect(() => {
+    const fetchCompanyNames = async () => {
+      const missingPoNumbers = filteredMarketplaceLoads
+        .map(load => load.poNumber)
+        .filter(poNumber => poNumber && !(poNumber in poCompanyNames));
+      if (missingPoNumbers.length === 0) return;
+      const newNames: { [poNumber: string]: string } = {};
+      for (const poNumber of missingPoNumbers) {
+        if (!poNumber) continue;
+        const poSnapshot = await getDocs(query(collection(db, 'purchaseOrders'), where('poNumber', '==', poNumber)));
+        if (!poSnapshot.empty) {
+          const poData = poSnapshot.docs[0].data();
+          newNames[poNumber] = poData.companyInfo?.name || '—';
+        } else {
+          newNames[poNumber] = '—';
+        }
+      }
+      setPoCompanyNames(prev => ({ ...prev, ...newNames }));
+    };
+    fetchCompanyNames();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredMarketplaceLoads]);
+
+  // Deduplicate mergedPartnerRequests by poNumber or loadId
+  function dedupePartnerRequests(requests: any[]) {
+    const seen = new Set();
+    return requests.filter(({ partnerRequest }) => {
+      const key = partnerRequest.poNumber || partnerRequest.loadId;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
   // Render load item for mobile list
   const renderLoadItem = (load: AvailableLoad, index: number) => (
     <div 
       key={load.id}
       className={`${styles.loadCard} ${selectedLoad?.id === load.id ? styles.selected : ''}`}
-      onClick={() => handleLoadSelect(load)}
+      tabIndex={0}
+      aria-label={`Marketplace load from ${load.pickupLocation.address} to ${load.deliveryLocation.address}`}
+      style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.07)', borderRadius: 12, marginBottom: 24, background: '#fff', padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}
     >
-      <div className={styles.loadHeader}>
-        <h3>{load.title}</h3>
-        <span className={styles.rate}>${load.rate?.toLocaleString()}</span>
-      </div>
-      
-      <div className={styles.loadInfo}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
-          <label>Pickup:</label>
-          <span>{load.pickupLocation.address}</span>
+          <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>{load.title}</div>
+          <div style={{ fontSize: 14, color: '#666' }}>PO #: <strong>{load.poNumber || '—'}</strong></div>
+          <div style={{ fontSize: 14, color: '#666' }}>Shipper: <strong>{poCompanyNames[load.poNumber || ''] || '—'}</strong></div>
         </div>
-        <div>
-          <label>Delivery:</label>
-          <span>{load.deliveryLocation.address}</span>
+        <div style={{ fontSize: 22, fontWeight: 700, color: '#2196f3', minWidth: 100, textAlign: 'right' }}>
+          ${load.rate?.toLocaleString() || '—'}
         </div>
       </div>
-
-      <div className={styles.loadActions}>
+      <div style={{ display: 'flex', gap: 32, margin: '12px 0' }}>
+        <div>
+          <div style={{ fontSize: 13, color: '#888', fontWeight: 500 }}>Pickup</div>
+          <div style={{ fontSize: 15, fontWeight: 500 }}>{load.pickupLocation.address}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 13, color: '#888', fontWeight: 500 }}>Delivery</div>
+          <div style={{ fontSize: 15, fontWeight: 500 }}>{load.deliveryLocation.address}</div>
+        </div>
+      </div>
+      <div className={styles.actionRow}>
         <button 
-          className={styles.viewButton}
-          onClick={(e) => {
-            e.stopPropagation();
-            navigate(`/carrier/loads/${load.id}`);
-          }}
+          className={`${styles.viewButton} ${styles.actionControl}`}
+          onClick={e => { e.stopPropagation(); fetchPOForLoad(load); }}
         >
           View Details
         </button>
         <button 
-          className={styles.bookButton}
-          onClick={(e) => {
-            e.stopPropagation();
-            // Handle booking logic
-            console.log('Book load:', load.id);
-          }}
+          className={`${styles.bookButton} ${styles.actionControl}`}
+          onClick={e => { e.stopPropagation(); handleAcceptLoad(load as any); }}
         >
           Book Load
         </button>
+        <form style={{ display: 'flex', alignItems: 'center', gap: 0 }} onSubmit={e => { e.preventDefault(); handleMakeOffer(load, makeOfferValue); }}>
+          <div className={styles.offerInputWrapper} style={{ display: 'flex', alignItems: 'center', position: 'relative' }}>
+            {/* Show dollar sign if input has value */}
+            {makeOfferValue && (
+              <span className={styles.offerDollar} style={{ position: 'absolute', left: 8, color: '#1976d2', fontWeight: 700 }}>$</span>
+            )}
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              placeholder="Amount"
+              value={makeOfferValue}
+              onChange={e => setMakeOfferValue(e.target.value.replace(/[^0-9]/g, ''))}
+              className={`${styles.offerInput} ${styles.actionControl} ${makeOfferValue ? styles.hasValue : ''}`}
+              aria-label="Make Offer Amount"
+              style={{ paddingLeft: makeOfferValue ? 20 : 0, minWidth: 80 }}
+            />
+          </div>
+          <button type="submit" className={`${styles.offerButton} ${styles.actionControl}`}>Make Offer</button>
+        </form>
       </div>
     </div>
   );
-
-  // Use only poPartnerRequests for filtering
-  const partnerRequestPoNumbers = new Set(poPartnerRequests.map(({ po }) => po.poNumber).filter(Boolean));
-  const partnerRequestLoadIds = new Set(poPartnerRequests.map(({ load }) => load.id).filter(Boolean));
-  const filteredMarketplaceLoads = availableLoads.filter(load =>
-    !partnerRequestPoNumbers.has(load.poNumber) && !partnerRequestLoadIds.has(load.id)
-  );
-
-  // Show loading state
-  if (loadsLoading && availableLoads.length === 0) {
-    return (
-      <div className={styles.dashboard}>
-        <div className={styles.mainContent}>
-          <div className={styles.loading}>
-            <div className="loading-spinner"></div>
-            <p>Loading available loads...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   // Show error state
   if (loadsError) {
@@ -455,6 +613,333 @@ const AvailableLoads: React.FC = () => {
       </div>
     );
   }
+
+  // Modal for View Details
+  const detailsModal = showDetailsModal && (
+    <Dialog aria-label="Purchase Order Details" onDismiss={() => setShowDetailsModal(false)}>
+      {detailsLoading ? (
+        <div style={{ padding: 40, textAlign: 'center' }}>
+          <div className="loading-spinner"></div>
+          <p>Loading purchase order details...</p>
+        </div>
+      ) : detailsError ? (
+        <div style={{ padding: 40, textAlign: 'center', color: '#d32f2f' }}>
+          <h3>Error</h3>
+          <p>{detailsError}</p>
+        </div>
+      ) : selectedPO ? (
+        <div style={{ 
+          maxWidth: 700, 
+          maxHeight: '90vh', 
+          overflow: 'auto',
+          padding: 0,
+          borderRadius: 12,
+          background: '#fff'
+        }}>
+          {/* Header */}
+          <div style={{ 
+            background: 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)',
+            color: 'white',
+            padding: '24px 32px',
+            borderTopLeftRadius: 12,
+            borderTopRightRadius: 12,
+            position: 'relative'
+          }}>
+            <button 
+              onClick={() => setShowDetailsModal(false)}
+              style={{
+                position: 'absolute',
+                top: 16,
+                right: 16,
+                background: 'rgba(255,255,255,0.2)',
+                border: 'none',
+                color: 'white',
+                borderRadius: '50%',
+                width: 32,
+                height: 32,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 18
+              }}
+            >
+              ×
+            </button>
+            <h2 style={{ margin: 0, fontSize: 24, fontWeight: 600 }}>Purchase Order Details</h2>
+            <p style={{ margin: '8px 0 0 0', opacity: 0.9, fontSize: 16 }}>
+              PO #{selectedPO.poNumber} • {selectedPO.date || '—'}
+            </p>
+          </div>
+
+          {/* Content */}
+          <div style={{ padding: '32px' }}>
+            {/* Basic Info Section */}
+            <div style={{ marginBottom: 32 }}>
+              <h3 style={{ 
+                fontSize: 18, 
+                fontWeight: 600, 
+                margin: '0 0 16px 0',
+                color: '#333',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8
+              }}>
+                📋 Order Information
+              </h3>
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                gap: 16
+              }}>
+                <div style={{ background: '#f8f9fa', padding: 16, borderRadius: 8 }}>
+                  <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>Shipper</div>
+                  <div style={{ fontSize: 16, fontWeight: 500 }}>
+                    {selectedPO.shipperCompany || selectedPO.companyInfo?.name || '—'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Location Section */}
+            <div style={{ marginBottom: 32 }}>
+              <h3 style={{ 
+                fontSize: 18, 
+                fontWeight: 600, 
+                margin: '0 0 16px 0',
+                color: '#333',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8
+              }}>
+                📍 Locations
+              </h3>
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+                gap: 16
+              }}>
+                {/* Pickup */}
+                <div style={{ 
+                  background: '#e3f2fd', 
+                  padding: 20, 
+                  borderRadius: 8,
+                  border: '1px solid #bbdefb'
+                }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 8, 
+                    marginBottom: 12,
+                    color: '#1976d2',
+                    fontWeight: 600
+                  }}>
+                    🚚 Pickup Location
+                  </div>
+                  <div style={{ fontSize: 14, marginBottom: 8 }}>
+                    <strong>Vendor:</strong> {selectedPO.vendorInfo?.name || '—'}
+                  </div>
+                  <div style={{ fontSize: 14, marginBottom: 8 }}>
+                    <strong>Address:</strong> {selectedPO.pickupLocation?.address || selectedPO.vendorInfo?.streetAddress || '—'}
+                  </div>
+                  {selectedPO.vendorInfo?.cityStateZip && (
+                    <div style={{ fontSize: 14 }}>
+                      <strong>City/State:</strong> {selectedPO.vendorInfo.cityStateZip}
+                    </div>
+                  )}
+                </div>
+
+                {/* Delivery */}
+                <div style={{ 
+                  background: '#e8f5e8', 
+                  padding: 20, 
+                  borderRadius: 8,
+                  border: '1px solid #c8e6c9'
+                }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 8, 
+                    marginBottom: 12,
+                    color: '#2e7d32',
+                    fontWeight: 600
+                  }}>
+                    📦 Delivery Location
+                  </div>
+                  <div style={{ fontSize: 14, marginBottom: 8 }}>
+                    <strong>Ship To:</strong> {selectedPO.shipTo?.name || '—'}
+                  </div>
+                  <div style={{ fontSize: 14, marginBottom: 8 }}>
+                    <strong>Address:</strong> {selectedPO.deliveryLocation?.address || selectedPO.shipTo?.streetAddress || '—'}
+                  </div>
+                  {selectedPO.shipTo?.cityStateZip && (
+                    <div style={{ fontSize: 14 }}>
+                      <strong>City/State:</strong> {selectedPO.shipTo.cityStateZip}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Items Section */}
+            <div style={{ marginBottom: 32 }}>
+              <h3 style={{ 
+                fontSize: 18, 
+                fontWeight: 600, 
+                margin: '0 0 16px 0',
+                color: '#333',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8
+              }}>
+                📦 Items ({Array.isArray(selectedPO.items) ? selectedPO.items.length : 0})
+              </h3>
+              <div style={{ 
+                background: '#fafafa', 
+                borderRadius: 8,
+                overflow: 'hidden',
+                border: '1px solid #e0e0e0'
+              }}>
+                {Array.isArray(selectedPO.items) && selectedPO.items.length > 0 ? (
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                      <tr style={{ background: '#f5f5f5' }}>
+                        {/* Always show Item Name as first column if present */}
+                        {selectedPO.items[0]?.name && (
+                          <th style={{
+                            padding: '8px 12px',
+                            fontSize: 13,
+                            color: '#555',
+                            fontWeight: 600,
+                            borderBottom: '1px solid #e0e0e0',
+                            textTransform: 'capitalize',
+                            textAlign: 'left',
+                            background: '#f5f5f5'
+                          }}>Item Name</th>
+                        )}
+                        {Object.keys(selectedPO.items[0] || {})
+                          .filter(key => {
+                            const normalized = key.replace(/\s+/g, '').toLowerCase();
+                            return !['total', 'price', 'amount', 'name', 'itemnumber'].includes(normalized);
+                          })
+                          .map((key, idx) => (
+                            <th key={key} style={{
+                              padding: '8px 12px',
+                              fontSize: 13,
+                              color: '#555',
+                              fontWeight: 600,
+                              borderBottom: '1px solid #e0e0e0',
+                              textTransform: 'capitalize',
+                              textAlign: 'left',
+                              background: idx % 2 === 0 ? '#f5f5f5' : '#f0f0f0'
+                            }}>{key.replace(/([A-Z])/g, ' $1')}</th>
+                          ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedPO.items.map((item: any, idx: number) => (
+                        <tr key={idx} style={{ background: idx % 2 === 0 ? '#fff' : '#fafafa' }}>
+                          {/* Always show Item Name as first column if present */}
+                          {item.name && (
+                            <td style={{
+                              padding: '8px 12px',
+                              fontSize: 15,
+                              color: '#222',
+                              borderBottom: idx < (selectedPO.items?.length || 0) - 1 ? '1px solid #e0e0e0' : 'none',
+                              whiteSpace: 'pre-line'
+                            }}>{item.name}</td>
+                          )}
+                          {Object.keys(item)
+                            .filter(key => {
+                              const normalized = key.replace(/\s+/g, '').toLowerCase();
+                              return !['total', 'price', 'amount', 'name', 'itemnumber'].includes(normalized);
+                            })
+                            .map(key => (
+                              <td key={key} style={{
+                                padding: '8px 12px',
+                                fontSize: 15,
+                                color: '#222',
+                                borderBottom: idx < (selectedPO.items?.length || 0) - 1 ? '1px solid #e0e0e0' : 'none',
+                                whiteSpace: 'pre-line'
+                              }}>{item[key]}</td>
+                            ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div style={{ padding: 20, textAlign: 'center', color: '#666' }}>
+                    No items specified
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Additional Details */}
+            {(selectedPO.comments || selectedPO.shipTo?.instructions) && (
+              <div style={{ marginBottom: 32 }}>
+                <h3 style={{ 
+                  fontSize: 18, 
+                  fontWeight: 600, 
+                  margin: '0 0 16px 0',
+                  color: '#333',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8
+                }}>
+                  📝 Additional Information
+                </h3>
+                <div style={{ 
+                  background: '#fff3e0', 
+                  padding: 20, 
+                  borderRadius: 8,
+                  border: '1px solid #ffcc02'
+                }}>
+                  {selectedPO.comments && (
+                    <div style={{ marginBottom: selectedPO.shipTo?.instructions ? 16 : 0 }}>
+                      <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>Comments</div>
+                      <div style={{ fontSize: 14 }}>{selectedPO.comments}</div>
+                    </div>
+                  )}
+                  {selectedPO.shipTo?.instructions && (
+                    <div>
+                      <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>Delivery Instructions</div>
+                      <div style={{ fontSize: 14 }}>{selectedPO.shipTo.instructions}</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Footer */}
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'flex-end', 
+              gap: 12,
+              paddingTop: 24,
+              borderTop: '1px solid #e0e0e0'
+            }}>
+              <button 
+                onClick={() => setShowDetailsModal(false)}
+                style={{
+                  padding: '12px 24px',
+                  background: '#f5f5f5',
+                  border: '1px solid #ddd',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  fontSize: 14,
+                  fontWeight: 500,
+                  color: '#333'
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </Dialog>
+  );
 
   return (
     <div className={styles.dashboard}>
@@ -560,6 +1045,7 @@ const AvailableLoads: React.FC = () => {
             {viewType === 'map' ? (
               // Map view - mobile optimized
               <div className={styles.mapSection}>
+                
                 <div className={styles.mapContainer}>
                   <MapboxMap 
                     center={userLocation}
@@ -571,12 +1057,7 @@ const AvailableLoads: React.FC = () => {
                       icon: 'circle',
                       onClick: () => handleLoadSelect(load)
                     }))}
-                    onMapLoad={(map) => {
-                      console.log('Map loaded successfully on AvailableLoads page');
-                      console.log('Map container dimensions:', map.getContainer().getBoundingClientRect());
-                      console.log('Map center:', map.getCenter());
-                      console.log('Map zoom:', map.getZoom());
-                    }}
+                    onMapLoad={() => {}}
                   />
                   {/* Mobile map controls */}
                   <div className={styles.mapControls}>
@@ -626,28 +1107,16 @@ const AvailableLoads: React.FC = () => {
                 )}
               </div>
             ) : (
-              // List view - mobile optimized
+              // List view - always render, no spinner, just empty state if needed
               <div className={styles.listView}>
                 {filteredMarketplaceLoads.length === 0 ? (
                   <div className={styles.noLoads}>
-                    <h3>No Available Loads</h3>
-                    <p>No loads found in your area. Try expanding your search radius or check back later.</p>
+                    <h3>No loads available</h3>
                   </div>
                 ) : (
-                  <MobileOptimizedList
-                    items={filteredMarketplaceLoads}
-                    renderItem={renderLoadItem}
-                    keyExtractor={(item) => item.id}
-                    onLoadMore={loadMore}
-                    hasMore={hasMore}
-                    loading={loadsLoading}
-                    itemHeight={120}
-                    containerHeight={window.innerHeight - 200}
-                    enableVirtualization={!isLowBandwidth}
-                    enablePullToRefresh={true}
-                    onRefresh={handleRefresh}
-                    className={styles.mobileLoadsList}
-                  />
+                  <>
+                    {filteredMarketplaceLoads.map((load, idx) => renderLoadItem(load, idx))}
+                  </>
                 )}
               </div>
             )}
@@ -660,20 +1129,23 @@ const AvailableLoads: React.FC = () => {
               <div>No partner loads at this time.</div>
             ) : (
               <>
-                {mergedPartnerRequests.map(({ notification, po }) => (
+                {dedupePartnerRequests(mergedPartnerRequests).map(({ partnerRequest, po }) => (
                   <LoadRequestCard
-                    key={notification.id}
-                    notification={{ ...notification, loadDetails: {
-                      ...notification.loadDetails,
-                      ...po,
-                      pickupLocation: po?.pickupLocation || notification.loadDetails.pickupLocation,
-                      deliveryLocation: po?.deliveryLocation || notification.loadDetails.deliveryLocation,
-                      rate: po?.rate || notification.loadDetails.rate,
-                      weight: po?.weight || notification.loadDetails.weight,
-                      dimensions: po?.dimensions || notification.loadDetails.dimensions,
-                      shipperCompany: po?.shipperCompany || notification.loadDetails.shipperCompany,
-                      poNumber: po?.poNumber || notification.loadDetails.poNumber
-                    }}}
+                    key={partnerRequest.id}
+                    notification={{
+                      ...partnerRequest,
+                      loadDetails: {
+                        ...(partnerRequest.loadDetails || {}),
+                        ...(po || {}),
+                        pickupLocation: po?.pickupLocation || partnerRequest.loadDetails?.pickupLocation || {},
+                        deliveryLocation: po?.deliveryLocation || partnerRequest.loadDetails?.deliveryLocation || {},
+                        rate: po?.rate || partnerRequest.loadDetails?.rate || 0,
+                        weight: po?.weight || partnerRequest.loadDetails?.weight || 0,
+                        dimensions: po?.dimensions || partnerRequest.loadDetails?.dimensions || {},
+                        shipperCompany: po?.shipperCompany || partnerRequest.loadDetails?.shipperCompany || '',
+                        poNumber: po?.poNumber || partnerRequest.loadDetails?.poNumber || partnerRequest.poNumber || '',
+                      }
+                    }}
                     onStatusUpdate={() => {}}
                   />
                 ))}
@@ -690,6 +1162,15 @@ const AvailableLoads: React.FC = () => {
           </div>
         )}
       </div>
+      {detailsModal}
+      {offerConfirmation && (
+        <Dialog aria-label="Offer Confirmation" onDismiss={() => setOfferConfirmation(null)}>
+          <div style={{ padding: 32, textAlign: 'center' }}>
+            <h3>{offerConfirmation}</h3>
+            <button onClick={() => setOfferConfirmation(null)} style={{ marginTop: 16, padding: '8px 24px', borderRadius: 6, background: '#2196f3', color: '#fff', border: 'none', fontWeight: 600, fontSize: 16, cursor: 'pointer' }}>OK</button>
+          </div>
+        </Dialog>
+      )}
     </div>
   );
 };
