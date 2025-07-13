@@ -333,25 +333,13 @@ const AvailableLoads: React.FC = () => {
         alert('Purchase Order not found for this load. Please try again.');
         return;
       }
-      // If this is a marketplace load, assign it to the carrier and update isMarketplace
-      if (loadData.isMarketplace === true && !('carrierId' in loadData)) {
-        const updatePayload = {
-          isMarketplace: false,
-          carrierId: user.uid,
-          updatedAt: serverTimestamp(),
-          userId: loadData.userId // always include userId
-        };
-        console.log('[DEBUG] Booking marketplace load:', { loadData, updatePayload });
-        await updateDoc(loadDocRef, updatePayload);
-      }
-      // Create a partner request in partnerRequests collection
+      // Do NOT update the load directly here. Only create a partner request and send notification.
       await createPartnerRequest({
         poNumber: loadData.poNumber || '',
         loadId: load.id,
         userId: userId,
         carrierId: user.uid,
       });
-      // Send a notification to the shipper for alert
       await sendLoadRequestToCarrier(
         userId,
         user.uid,

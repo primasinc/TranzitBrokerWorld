@@ -45,16 +45,32 @@ export const sendLoadRequestToCarrier = async (
   shippingScheduleId: string,
   loadDetails: LoadRequestNotification['loadDetails']
 ) => {
+  // Fetch shipper profile for senderName
+  let senderName = '';
+  try {
+    const shipperDoc = await getDoc(doc(db, 'users', shipperId));
+    if (shipperDoc.exists()) {
+      const shipperProfile = shipperDoc.data();
+      senderName = shipperProfile.companyName || shipperProfile.displayName || '';
+    }
+  } catch (err) {
+    console.error('[sendLoadRequestToCarrier] Error fetching shipper profile:', err);
+  }
+
   const notificationRef = collection(db, 'notifications');
-  const notificationData: Omit<LoadRequestNotification, 'id'> & { recipientId: string } = {
+  const notificationData: Omit<LoadRequestNotification, 'id'> & { recipientId: string; type: string; message: string; senderName: string; read: boolean } = {
     carrierId,
     shipperId,
-    recipientId: shipperId, // Ensure shipper receives the notification
+    recipientId: carrierId, // Ensure carrier receives the notification
     shippingScheduleId,
     status: 'pending',
     loadDetails,
     createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp()
+    updatedAt: serverTimestamp(),
+    type: 'load_request',
+    message: 'You have a new load request.',
+    senderName,
+    read: false
   };
 
   const docRef = await addDoc(notificationRef, notificationData);
@@ -421,7 +437,6 @@ export const acceptLoadForPO = async (
       if (!loadsSnap.empty) {
         const loadDocRef = doc(db, 'loads', loadsSnap.docs[0].id);
         const loadData = loadsSnap.docs[0].data();
-        
         // Validate that we're not overwriting with the wrong carrierId
         if (loadData.carrierId && loadData.carrierId !== carrierId) {
           console.warn('[acceptLoadForPO] Load already has different carrierId:', { 
@@ -429,7 +444,6 @@ export const acceptLoadForPO = async (
             new: carrierId 
           });
         }
-        
         // Merge all relevant PO fields into the load, matching UI expectations
         const pickupLocation = poData.pickupLocation || poData.vendorInfo || {};
         const deliveryLocation = poData.deliveryLocation || poData.shipTo || {};
@@ -445,6 +459,7 @@ export const acceptLoadForPO = async (
         };
         const updateFields: any = {
           carrierId: carrierId,
+          isMarketplace: false, // Always set to false when assigning a carrier
           shippingScheduleStatus: 'Active',
           updatedAt: serverTimestamp(),
           status: 'active',
@@ -462,8 +477,12 @@ export const acceptLoadForPO = async (
             ? `${poData.items[0].length || ''}x${poData.items[0].width || ''}x${poData.items[0].height || ''}`
             : '',
         };
+        if (!updateFields.shipperId) {
+          console.error('[acceptLoadForPO] Missing shipperId for load update:', updateFields);
+          throw new Error('Missing shipperId for load update');
+        }
         await updateDoc(loadDocRef, updateFields);
-        console.log('[acceptLoadForPO] Updated load with carrierId and merged PO fields for permissions:', carrierId);
+        console.log('[acceptLoadForPO] Updated load with carrierId, isMarketplace=false, and merged PO fields for permissions:', carrierId);
       } else {
         console.warn('[acceptLoadForPO] No load found for poNumber:', poData.poNumber);
       }

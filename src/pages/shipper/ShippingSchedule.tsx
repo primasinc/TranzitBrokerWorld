@@ -250,11 +250,11 @@ const ShippingSchedule: React.FC = () => {
               ? `${poData.items[0].length || ''}x${poData.items[0].width || ''}x${poData.items[0].height || ''}`
               : '',
             poNumber: poData.poNumber || '',
-            shipper: shipperName
+            shipper: shipperName,
+            // Always set carrierId and isMarketplace: false after shipper approval
+            carrierId: reviewCarrierId,
+            isMarketplace: false
           };
-          if (!loadData.isMarketplace) {
-            updateData.carrierId = reviewCarrierId;
-          }
           await updateDoc(loadDocRef, updateData);
           console.log('[handleApproveCarrier] Updated load with carrierId:', reviewCarrierId);
         } else {

@@ -200,10 +200,6 @@ const CarrierPartners: React.FC = () => {
         const loadsSnapshot = await getDocs(query(collection(db, 'loads'), where('poNumber', '==', locationState.poData.poNumber)));
         if (!loadsSnapshot.empty) {
           const loadDoc = loadsSnapshot.docs[0];
-          await updateDoc(doc(db, 'loads', loadDoc.id), {
-            isMarketplace: false,
-            carrierId: partner.carrierId,
-          });
           try {
             await createPartnerRequest({
               poNumber: locationState.poData.poNumber,

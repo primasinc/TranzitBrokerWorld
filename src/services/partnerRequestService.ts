@@ -21,8 +21,13 @@ export const createPartnerRequest = async (data: Omit<PartnerRequest, 'id' | 'cr
   // Fetch the load to enforce canonical rule
   const loadSnap = await getDoc(doc(db, 'loads', data.loadId));
   const load = loadSnap.data();
-  if (!load || load.isMarketplace !== false || !load.carrierId) {
-    throw new Error('Cannot create partner request: load must have isMarketplace === false and a valid carrierId.');
+  if (!load) {
+    throw new Error('Cannot create partner request: load not found.');
+  }
+  const isMarketplace = load.isMarketplace === true && !load.carrierId;
+  const isPartner = load.isMarketplace === false && !!load.carrierId;
+  if (!isMarketplace && !isPartner) {
+    throw new Error('Cannot create partner request: load must be a marketplace load (isMarketplace === true, no carrier) or a partner load (isMarketplace === false, has carrier).');
   }
   const ref = collection(db, 'partnerRequests');
   const docRef = await addDoc(ref, {
