@@ -12,6 +12,7 @@ import { isValidPartnerRequest } from './AvailableLoads';
 import { useMobileOptimization } from '../../hooks/useMobileOptimization';
 import { usePartnerRequestLoads } from '../../hooks/usePartnerRequestLoads';
 import { useCarrierPartnerRequests } from '../../hooks/useCarrierPartnerRequests';
+import { getCarrierLocation } from '../../utils/getCarrierLocation';
 
 interface AvailableLoad {
   id: string;
@@ -53,7 +54,6 @@ const HomeFeed: React.FC = () => {
   const [viewType, setViewType] = useState<'map' | 'list'>('map');
   const navigate = useNavigate();
   const { user, isLoading } = useAuth();
-  console.log('HomeFeed - isLoading:', isLoading, 'user:', user);
   const [userLocation, setUserLocation] = useState<[number, number]>([-87.6298, 41.8781]); // Default to Chicago
   const [locationLoading, setLocationLoading] = useState(true); // Track if real location is set
   const [radiusMiles] = useState<number>(100); // You can make this configurable if needed
@@ -75,28 +75,33 @@ const HomeFeed: React.FC = () => {
 
   // Get real user location on mount
   useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserLocation([position.coords.longitude, position.coords.latitude]);
-          setLocationError(null);
-          setLocationLoading(false);
-        },
-        (error) => {
-          setLocationError('Unable to get location, using default.');
-          setLocationLoading(false);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 300000,
+    async function resolveLocation() {
+      if (user?.uid) {
+        // Try device geolocation first
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            async (position) => {
+              const loc: [number, number] = [position.coords.longitude, position.coords.latitude];
+              setUserLocation(loc);
+              // Optionally update Firestore for persistence
+            },
+            async (error) => {
+              console.warn('[HomeFeed] Device location error:', error);
+              // Fallback to Firestore lastLocation
+              const loc = await getCarrierLocation(user.uid);
+              setUserLocation(loc);
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+          );
+        } else {
+          // No geolocation API, fallback to Firestore
+          const loc = await getCarrierLocation(user.uid);
+          setUserLocation(loc);
         }
-      );
-    } else {
-      setLocationError('Geolocation not supported, using default.');
-      setLocationLoading(false);
+      }
     }
-  }, []);
+    resolveLocation();
+  }, [user]);
 
   // Mobile detection
   useEffect(() => {
@@ -122,6 +127,14 @@ const HomeFeed: React.FC = () => {
     userLocation, // Pass user location for location-based filtering
     100, // radiusMiles
     getOptimalPageSize(isLowBandwidth || isLowBattery ? 5 : 10) // Dynamic page size based on conditions
+  );
+
+  // Strict filtering for partner requests and marketplace loads
+  const partnerRequestLoads = availableLoads.filter(
+    load => load.isMarketplace === false && !!load.carrierId
+  );
+  const marketplaceLoads = availableLoads.filter(
+    load => load.isMarketplace === true && !('carrierId' in load)
   );
 
   // Remove partnerRequests state and notification fetching logic
@@ -161,9 +174,6 @@ const HomeFeed: React.FC = () => {
   const filteredMarketplaceLoads = React.useMemo(
     () => {
       const result = getFilteredMarketplaceLoads(availableLoads, poPartnerRequests);
-      console.log('HomeFeed - userLocation:', userLocation);
-      console.log('HomeFeed - availableLoads:', availableLoads);
-      console.log('HomeFeed - filteredMarketplaceLoads:', result);
       return result;
     },
     [availableLoads, poPartnerRequests, userLocation]
@@ -172,10 +182,6 @@ const HomeFeed: React.FC = () => {
   // Remove the full-page loading spinner. Always render the main UI.
   // If loading, show a small non-blocking indicator only in the available loads section.
   // If no loads, show a message only in that section.
-
-  // Debug: Log availableLoads and loading state
-  console.log('HomeFeed - availableLoads:', availableLoads);
-  console.log('HomeFeed - isLoading:', isLoading, 'locationLoading:', locationLoading);
 
   // Fallback UI if no loads are found
   // Remove this block:

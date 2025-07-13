@@ -147,7 +147,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ isOpen, onClose, load, user
         return;
       }
       const invDocRef = doc(db, 'invoices', invSnap.docs[0].id);
-      await updateDoc(invDocRef, { shipperId });
+      await updateDoc(invDocRef, { userId: shipperId });
       alert('Invoice sent to shipper successfully!');
     } catch (err) {
       alert('Failed to send invoice to shipper.');

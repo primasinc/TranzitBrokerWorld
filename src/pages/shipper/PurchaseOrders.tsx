@@ -93,32 +93,58 @@ const PurchaseOrders: React.FC = () => {
   };
   const handleDelete = (id: string) => setRemoveConfirmId(id);
   const handleRemoveFromList = async (id: string) => {
-    // Remove PO from Firestore and UI
     try {
+      console.log('Attempting to delete PO with id:', id);
+      if (typeof id !== 'string' || !id.trim()) {
+        alert('Invalid PO ID. Aborting deletion.');
+        return;
+      }
       // Find the PO to get its poNumber
       const poToDelete = orders.find(o => o.id === id);
-      const poNumber = poToDelete?.poNumber;
+      if (!poToDelete) {
+        alert('PO not found.');
+        return;
+      }
+      const poNumber = poToDelete.poNumber;
       // Delete all notifications with this poNumber
       if (poNumber) {
         const notificationsSnapshot = await getDocs(query(collection(db, 'notifications'), where('poNumber', '==', poNumber)));
         const deletePromises: Promise<void>[] = [];
         notificationsSnapshot.forEach(docSnap => {
-          deletePromises.push(deleteDoc(doc(db, 'notifications', docSnap.id)));
+          if (docSnap.exists() && docSnap.id && typeof docSnap.id === 'string' && docSnap.id.trim()) {
+            console.log('Deleting notification:', docSnap.id);
+            deletePromises.push(deleteDoc(doc(db, 'notifications', docSnap.id)));
+          } else {
+            console.warn('Skipping invalid notification doc:', docSnap.id);
+          }
         });
         await Promise.all(deletePromises);
-
         // Delete all loads with this poNumber
         const loadsSnapshot = await getDocs(query(collection(db, 'loads'), where('poNumber', '==', poNumber)));
         const loadDeletePromises: Promise<void>[] = [];
         loadsSnapshot.forEach(loadDoc => {
-          loadDeletePromises.push(deleteDoc(doc(db, 'loads', loadDoc.id)));
+          if (loadDoc.exists() && loadDoc.id && typeof loadDoc.id === 'string' && loadDoc.id.trim()) {
+            console.log('Deleting load:', loadDoc.id);
+            loadDeletePromises.push(deleteDoc(doc(db, 'loads', loadDoc.id)));
+          } else {
+            console.warn('Skipping invalid load doc:', loadDoc.id);
+          }
         });
         await Promise.all(loadDeletePromises);
       }
-      await deleteDoc(doc(db, 'purchaseOrders', id));
+      // Delete the PO itself
+      const poRef = doc(db, 'purchaseOrders', id);
+      const poDoc = await getDoc(poRef);
+      if (poDoc.exists()) {
+        console.log('Deleting PO:', id);
+        await deleteDoc(poRef);
+      } else {
+        alert('PO document not found in Firestore.');
+      }
       setOrders(orders => orders.filter(o => o.id !== id));
       setRemoveConfirmId(null);
     } catch (error) {
+      console.error('Failed to remove PO:', error);
       alert('Failed to remove PO.');
       setRemoveConfirmId(null);
     }

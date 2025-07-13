@@ -195,7 +195,29 @@ const CarrierPartners: React.FC = () => {
           alert('Failed to update purchase order. Please check your permissions.');
           return;
         }
-        
+        // --- FIX: Update the load and create partner request with correct loadId ---
+        // Find the load for this PO
+        const loadsSnapshot = await getDocs(query(collection(db, 'loads'), where('poNumber', '==', locationState.poData.poNumber)));
+        if (!loadsSnapshot.empty) {
+          const loadDoc = loadsSnapshot.docs[0];
+          await updateDoc(doc(db, 'loads', loadDoc.id), {
+            isMarketplace: false,
+            carrierId: partner.carrierId,
+          });
+          try {
+            await createPartnerRequest({
+              poNumber: locationState.poData.poNumber,
+              loadId: loadDoc.id,
+              userId: userId || '',
+              carrierId: partner.carrierId,
+            });
+          } catch (err) {
+            console.error('[ERROR] Failed to create partner request:', err);
+          }
+        } else {
+          console.error('[ERROR] No load found for PO when selecting carrier:', locationState.poData.poNumber);
+        }
+        // --- END FIX ---
         // Fetch order details to send notification
         const pickupLocation = orderData.pickupLocation || po.vendorInfo || {};
         const deliveryLocation = orderData.deliveryLocation || po.shipTo || {};
@@ -207,19 +229,6 @@ const CarrierPartners: React.FC = () => {
         const weight = cargoDetails.weight || (Array.isArray(po.items) && po.items[0]?.weight) || 0;
         const rate = orderData.carrierRate || po.rate || (Array.isArray(po.items) && po.items[0]?.rate) || 0;
         try {
-          // Debug log before creating partner request
-          console.log('[DEBUG] Creating partner request:', {
-            poNumber: locationState.poData.poNumber || orderData.poNumber || '',
-            loadId: '',
-            shipperId: userId || '',
-            carrierId: partner.carrierId
-          });
-          const partnerRequestId = await createPartnerRequest({
-            poNumber: locationState.poData.poNumber || orderData.poNumber || '',
-            loadId: '',
-            shipperId: userId || '',
-            carrierId: partner.carrierId, // Always use carrierId
-          });
           await sendLoadRequestToCarrier(
             partner.carrierId,
             userId || '',
@@ -253,7 +262,7 @@ const CarrierPartners: React.FC = () => {
             }
           );
         } catch (err) {
-          console.error('[ERROR] Failed to create partner request or send notification:', err);
+          console.error('[ERROR] Failed to send load request notification:', err);
         }
       }
     }

@@ -104,15 +104,31 @@ service cloud.firestore {
     match /loads/{loadId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (
+        resource.data.carrierId == request.auth.uid ||
+        resource.data.userId == request.auth.uid ||
+        (
+          resource.data.isMarketplace == true &&
+          request.resource.data.carrierId == request.auth.uid &&
+          request.resource.data.isMarketplace == false
+        )
+      );
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // Partner Requests collection
+    match /partnerRequests/{requestId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
       allow update, delete: if isAuthenticated() && (
         resource.data.carrierId == request.auth.uid ||
-        resource.data.userId == request.auth.uid // Allow PO owner to delete
+        resource.data.userId == request.auth.uid
       );
     }
 
     // Default deny
     match /{document=**} {
-      allow read, write: if false;
+      allow read: if isAuthenticated();
     }
   }
 } 

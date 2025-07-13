@@ -5,7 +5,7 @@ import { updateLoadRequestStatus } from '../../services/notificationService';
 interface LoadRequestNotification {
   id?: string;
   carrierId: string;
-  shipperId: string;
+  userId: string;
   shippingScheduleId: string;
   status: 'pending' | 'accepted' | 'rejected' | 'counter_offer';
   loadDetails: {

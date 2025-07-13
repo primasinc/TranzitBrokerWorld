@@ -4,7 +4,7 @@ export type ShipmentStatus = 'scheduled' | 'in_transit' | 'delivered' | 'delayed
 
 export interface ShipmentData {
   id: string;
-  shipperId: string;
+  userId: string;
   poNumber: string;
   origin: string;
   destination: string;
@@ -24,7 +24,7 @@ export interface ShipmentData {
 }
 
 export interface MetricsData {
-  shipperId: string;
+  userId: string;
   totalShipments: number;
   completedShipments: number;
   onTimeDeliveries: number;
@@ -52,7 +52,7 @@ export const calculateIsOnTime = (shipment: ShipmentData): boolean => {
 };
 
 // Helper function to calculate metrics from shipments
-export const calculateMetrics = (shipments: ShipmentData[]): Omit<MetricsData, 'shipperId' | 'lastUpdated'> => {
+export const calculateMetrics = (shipments: ShipmentData[]): Omit<MetricsData, 'userId' | 'lastUpdated'> => {
   const completedShipments = shipments.filter(s => s.status === 'delivered');
   const onTimeDeliveries = completedShipments.filter(s => s.isOnTime).length;
   const totalCost = shipments.reduce((sum, s) => sum + s.cost, 0);

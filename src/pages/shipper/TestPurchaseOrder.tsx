@@ -21,6 +21,7 @@ export const TestPurchaseOrder: React.FC = () => {
       // Geocode vendor (pickup) address
       let pickupPosition: [number, number] = [0, 0];
       let pickupAddress = '';
+      let pickupGeocodeSuccess = false;
       try {
         const vendor = data.vendorInfo || {};
         pickupAddress = `${vendor.streetAddress || ''}, ${vendor.cityStateZip || ''}`;
@@ -31,10 +32,17 @@ export const TestPurchaseOrder: React.FC = () => {
         const geoData = await response.json();
         if (geoData.features && geoData.features.length > 0) {
           pickupPosition = geoData.features[0].center;
+          pickupGeocodeSuccess = true;
         }
       } catch (err) {
         console.warn('Geocoding failed for pickup address:', pickupAddress, err);
       }
+      if (!pickupGeocodeSuccess || !Array.isArray(pickupPosition) || pickupPosition.length !== 2) {
+        alert('Could not determine pickup location coordinates for the address provided. Please check the address or enable location services.');
+        console.error('Pickup geocoding failed. Not saving bad coordinates.', { pickupAddress, pickupPosition });
+        return;
+      }
+      console.log('Final pickupPosition and address:', { pickupAddress, pickupPosition });
       // Geocode delivery address
       let deliveryPosition: [number, number] = [0, 0];
       let deliveryAddress = '';
@@ -89,15 +97,20 @@ export const TestPurchaseOrder: React.FC = () => {
             title: `${data.vendorInfo?.name || 'Pickup'} to ${data.shipTo?.name || 'Delivery'}`,
             status: data.carrierOption === 'carrier' ? 'pending' : (data.status || 'open'),
             updatedAt: new Date().toISOString(),
-            shipperId: user?.uid || '',
+            userId: user?.uid || '',
             isMarketplace: !(data.carrierOption === 'carrier' && data.selectedCarrier && data.selectedCarrier.id)
           };
           // Only set carrierId for partner-requested loads
           if (data.carrierOption === 'carrier' && data.selectedCarrier && data.selectedCarrier.id) {
             updateData.carrierId = data.selectedCarrier.id;
+            updateData.isMarketplace = false;
           } else {
-            // Remove carrierId for marketplace loads
-            updateData.carrierId = undefined;
+            // Ensure carrierId is never present for marketplace loads
+            if ('carrierId' in updateData) {
+              console.warn('[BUG] carrierId should not be present on marketplace load update:', updateData);
+              delete updateData.carrierId;
+            }
+            updateData.isMarketplace = true;
           }
           await updateDoc(doc(db, 'loads', loadDocSnap.id), updateData);
         }
@@ -118,7 +131,7 @@ export const TestPurchaseOrder: React.FC = () => {
             poNumber: data.poNumber,
             status: 'open',
             createdAt: new Date().toISOString(),
-            shipperId: user?.uid || '',
+            userId: user?.uid || '',
             isMarketplace: !(data.carrierOption === 'carrier' && data.selectedCarrier && data.selectedCarrier.id)
           };
           await addDoc(collection(db, 'loads'), newLoad);
@@ -157,15 +170,20 @@ export const TestPurchaseOrder: React.FC = () => {
             title: `${data.vendorInfo?.name || 'Pickup'} to ${data.shipTo?.name || 'Delivery'}`,
             status: data.carrierOption === 'carrier' ? 'pending' : (data.status || 'open'), // Partner requests: 'pending', Marketplace: existing or 'open'
             updatedAt: new Date().toISOString(),
-            shipperId: user?.uid || '',
+            userId: user?.uid || '',
             isMarketplace: !(data.carrierOption === 'carrier' && data.selectedCarrier && data.selectedCarrier.id)
           };
           // Only set carrierId for partner-requested loads
           if (data.carrierOption === 'carrier' && data.selectedCarrier && data.selectedCarrier.id) {
             updateData.carrierId = data.selectedCarrier.id;
+            updateData.isMarketplace = false;
           } else {
-            // Remove carrierId for marketplace loads
-            updateData.carrierId = undefined;
+            // Ensure carrierId is never present for marketplace loads
+            if ('carrierId' in updateData) {
+              console.warn('[BUG] carrierId should not be present on marketplace load update:', updateData);
+              delete updateData.carrierId;
+            }
+            updateData.isMarketplace = true;
           }
           await updateDoc(doc(db, 'loads', loadDocSnap.id), updateData);
         }
@@ -225,12 +243,20 @@ export const TestPurchaseOrder: React.FC = () => {
           poNumber,
           status: data.carrierOption === 'carrier' ? 'pending' : 'open',
           createdAt: new Date().toISOString(),
-          shipperId: user.uid,
+          userId: user?.uid || '',
           isMarketplace: !(data.carrierOption === 'carrier' && data.selectedCarrier && data.selectedCarrier.id)
         };
         // Only set carrierId for partner-requested loads
         if (data.carrierOption === 'carrier' && data.selectedCarrier && data.selectedCarrier.id) {
           newLoad.carrierId = data.selectedCarrier.id;
+          newLoad.isMarketplace = false;
+        } else {
+          // Ensure carrierId is never present for marketplace loads
+          if ('carrierId' in newLoad) {
+            console.warn('[BUG] carrierId should not be present on marketplace load creation:', newLoad);
+            delete newLoad.carrierId;
+          }
+          newLoad.isMarketplace = true;
         }
         await addDoc(collection(db, 'loads'), newLoad);
         alert('Purchase order created successfully.');

@@ -55,7 +55,9 @@ export function usePartnerRequestLoads() {
         }
         // Filter out invalid partner requests (missing PO or load)
         const filteredResults = results.filter(({ partnerRequest, load, po }) => {
-          return po && po.poNumber && load && load.pickupLocation && load.deliveryLocation;
+          return po && po.poNumber && load && load.pickupLocation && load.deliveryLocation &&
+                 // Safety check: only include loads that are truly partnered (not marketplace)
+                 load.isMarketplace === false && load.carrierId === user.uid;
         });
         if (isMounted) setMerged(filteredResults);
       } catch (err) {

@@ -652,12 +652,12 @@ const Payments: React.FC = () => {
           return;
         }
         const poData = poSnap.docs[0].data();
-        const shipperId = poData.userId;
-        if (!shipperId) {
-          alert('No shipperId found on the purchase order.');
+        const userId = poData.userId;
+        if (!userId) {
+          alert('No userId found on the purchase order.');
           return;
         }
-        updateObj.shipperId = shipperId;
+        updateObj.userId = userId;
       } else if (action === 'factor') {
         updateObj.factorRequested = true;
       }

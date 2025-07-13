@@ -1,5 +1,5 @@
 import { db } from '../config/firebase';
-import { collection, addDoc, updateDoc, doc, getDocs, query, where, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, doc, getDocs, query, where, serverTimestamp, getDoc } from 'firebase/firestore';
 
 // Strict type definition for partner request statuses
 export type PartnerRequestStatus = 'pending' | 'accepted' | 'declined' | 'cancelled';
@@ -8,7 +8,7 @@ export interface PartnerRequest {
   id?: string;
   poNumber: string;
   loadId: string;
-  shipperId: string;
+  userId: string;
   carrierId: string;
   status: PartnerRequestStatus; // Make required and strictly typed
   createdAt: any;
@@ -18,6 +18,12 @@ export interface PartnerRequest {
 }
 
 export const createPartnerRequest = async (data: Omit<PartnerRequest, 'id' | 'createdAt' | 'updatedAt' | 'status'>) => {
+  // Fetch the load to enforce canonical rule
+  const loadSnap = await getDoc(doc(db, 'loads', data.loadId));
+  const load = loadSnap.data();
+  if (!load || load.isMarketplace !== false || !load.carrierId) {
+    throw new Error('Cannot create partner request: load must have isMarketplace === false and a valid carrierId.');
+  }
   const ref = collection(db, 'partnerRequests');
   const docRef = await addDoc(ref, {
     ...data,

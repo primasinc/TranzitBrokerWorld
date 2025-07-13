@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import MapboxMap from '../../components/common/MapboxMap';
 import styles from './AvailableLoads.module.css';
 import { useNavigate } from 'react-router-dom';
-import { doc, getDoc, getDocs, query, where, collection, orderBy, onSnapshot, addDoc } from 'firebase/firestore';
+import { doc, getDoc, getDocs, query, where, collection, orderBy, onSnapshot, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../../config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useAuth } from '../../contexts/AuthContext';
@@ -314,12 +314,13 @@ const AvailableLoads: React.FC = () => {
   const handleAcceptLoad = async (load: Load) => {
     if (!user || !user.uid) return;
     try {
-      // Fetch shipperId from the load (assume it's stored in Firestore, or fetch from PO if needed)
-      const loadDoc = await getDoc(doc(db, 'loads', load.id));
+      // Fetch the load from Firestore
+      const loadDocRef = doc(db, 'loads', load.id);
+      const loadDoc = await getDoc(loadDocRef);
       const loadData = loadDoc.data();
       if (!loadData) throw new Error('Load data not found.');
-      const shipperId = loadData?.shipperId || loadData?.createdBy || '';
-      if (!shipperId) throw new Error('Shipper ID not found for this load.');
+      const userId = loadData?.userId || loadData?.createdBy || '';
+      if (!userId) throw new Error('User ID not found for this load.');
       // Find the purchase order by poNumber
       let purchaseOrderId = '';
       if (loadData?.poNumber) {
@@ -329,20 +330,30 @@ const AvailableLoads: React.FC = () => {
         }
       }
       if (!purchaseOrderId) {
-        // console.error('Purchase Order not found for this load. Cannot send notification.');
         alert('Purchase Order not found for this load. Please try again.');
         return;
+      }
+      // If this is a marketplace load, assign it to the carrier and update isMarketplace
+      if (loadData.isMarketplace === true && !('carrierId' in loadData)) {
+        const updatePayload = {
+          isMarketplace: false,
+          carrierId: user.uid,
+          updatedAt: serverTimestamp(),
+          userId: loadData.userId // always include userId
+        };
+        console.log('[DEBUG] Booking marketplace load:', { loadData, updatePayload });
+        await updateDoc(loadDocRef, updatePayload);
       }
       // Create a partner request in partnerRequests collection
       await createPartnerRequest({
         poNumber: loadData.poNumber || '',
         loadId: load.id,
-        shipperId: shipperId,
+        userId: userId,
         carrierId: user.uid,
       });
       // Send a notification to the shipper for alert
       await sendLoadRequestToCarrier(
-        shipperId,
+        userId,
         user.uid,
         load.id,
         {
@@ -356,6 +367,7 @@ const AvailableLoads: React.FC = () => {
         }
       );
     } catch (err) {
+      console.error('Failed to accept load:', err); // Log the full error object
       alert('Failed to accept load: ' + (err as Error).message);
     }
   };
@@ -420,12 +432,12 @@ const AvailableLoads: React.FC = () => {
       return;
     }
     try {
-      // Fetch shipperId from the load
+      // Fetch userId from the load
       const loadDoc = await getDoc(doc(db, 'loads', load.id));
       const loadData = loadDoc.data();
       if (!loadData) throw new Error('Load data not found.');
-      const shipperId = loadData?.shipperId || loadData?.createdBy || '';
-      if (!shipperId) throw new Error('Shipper ID not found for this load.');
+      const userId = loadData?.userId || loadData?.createdBy || '';
+      if (!userId) throw new Error('User ID not found for this load.');
       // Find the purchase order by poNumber
       let purchaseOrderId = '';
       if (loadData?.poNumber) {
@@ -442,7 +454,7 @@ const AvailableLoads: React.FC = () => {
       await createPartnerRequest({
         poNumber: loadData.poNumber || '',
         loadId: load.id,
-        shipperId: shipperId,
+        userId: userId, // use userId as the value for shipperId
         carrierId: user.uid,
         offer: Number(offerValue),
         type: 'make_offer',
@@ -462,8 +474,8 @@ const AvailableLoads: React.FC = () => {
       const notificationRef = collection(db, 'notifications');
       const notificationData = {
         carrierId: user.uid,
-        shipperId: shipperId,
-        recipientId: shipperId,
+        userId: userId,
+        recipientId: userId,
         shippingScheduleId: load.id,
         status: 'pending',
         type: 'make_offer',
@@ -496,6 +508,14 @@ const AvailableLoads: React.FC = () => {
   const filteredMarketplaceLoads = React.useMemo(
     () => availableLoads, // Don't filter marketplace loads by partner requests
     [availableLoads]
+  );
+
+  // Strict filtering for partner requests and marketplace loads
+  const partnerRequestLoads = availableLoads.filter(
+    load => load.isMarketplace === false && !!load.carrierId
+  );
+  const marketplaceLoads = availableLoads.filter(
+    load => load.isMarketplace === true && !('carrierId' in load)
   );
 
   // Fetch PO company names for all visible loads

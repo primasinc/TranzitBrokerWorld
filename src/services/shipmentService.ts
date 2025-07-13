@@ -19,9 +19,9 @@ import { ShipmentData, MetricsData, calculateMetrics } from '../types/shipment';
 const SHIPMENTS_COLLECTION = 'shipments';
 const METRICS_COLLECTION = 'metrics';
 
-export const getShipperMetrics = async (shipperId: string): Promise<MetricsData | null> => {
+export const getShipperMetrics = async (userId: string): Promise<MetricsData | null> => {
   try {
-    const metricsRef = doc(db, METRICS_COLLECTION, shipperId);
+    const metricsRef = doc(db, METRICS_COLLECTION, userId);
     const metricsSnap = await getDoc(metricsRef);
     
     if (metricsSnap.exists()) {
@@ -35,10 +35,10 @@ export const getShipperMetrics = async (shipperId: string): Promise<MetricsData 
 };
 
 export const subscribeToShipperMetrics = (
-  shipperId: string, 
+  userId: string, 
   onUpdate: (metrics: MetricsData) => void
 ) => {
-  const metricsRef = doc(db, METRICS_COLLECTION, shipperId);
+  const metricsRef = doc(db, METRICS_COLLECTION, userId);
   
   // Add error handling and retry logic
   const unsubscribe = onSnapshot(metricsRef, {
@@ -50,7 +50,7 @@ export const subscribeToShipperMetrics = (
         console.log('No metrics document exists, creating default metrics');
         // Initialize with default metrics if document doesn't exist
         const defaultMetrics: MetricsData = {
-          shipperId,
+          userId,
           totalShipments: 0,
           completedShipments: 0,
           onTimeDeliveries: 0,
@@ -67,19 +67,19 @@ export const subscribeToShipperMetrics = (
     error: (error) => {
       console.error('Error in metrics subscription:', error);
       // Attempt to reconnect after 5 seconds
-      setTimeout(() => subscribeToShipperMetrics(shipperId, onUpdate), 5000);
+      setTimeout(() => subscribeToShipperMetrics(userId, onUpdate), 5000);
     }
   });
   
   return unsubscribe;
 };
 
-export const updateShipperMetrics = async (shipperId: string) => {
+export const updateShipperMetrics = async (userId: string) => {
   try {
     // Get all shipments for this shipper
     const shipmentsQuery = query(
       collection(db, SHIPMENTS_COLLECTION),
-      where('shipperId', '==', shipperId),
+      where('userId', '==', userId),
       orderBy('createdAt', 'desc'),
       limit(1000) // Limit to last 1000 shipments for performance
     );
@@ -91,10 +91,10 @@ export const updateShipperMetrics = async (shipperId: string) => {
     const calculatedMetrics = calculateMetrics(shipments);
     
     // Update metrics document
-    const metricsRef = doc(db, METRICS_COLLECTION, shipperId);
+    const metricsRef = doc(db, METRICS_COLLECTION, userId);
     await setDoc(metricsRef, {
       ...calculatedMetrics,
-      shipperId,
+      userId,
       lastUpdated: Timestamp.now()
     }, { merge: true });
     
@@ -129,7 +129,7 @@ export const updateShipmentStatus = async (
     if (shipmentSnap.exists()) {
       const shipment = shipmentSnap.data() as ShipmentData;
       // Update metrics for this shipper
-      await updateShipperMetrics(shipment.shipperId);
+      await updateShipperMetrics(shipment.userId);
     }
 
     return true;
@@ -158,7 +158,7 @@ export interface ShipmentQueryResult {
 }
 
 export const getShipperShipments = async (
-  shipperId: string,
+  userId: string,
   filters: ShipmentFilters = {},
   pagination: PaginationParams = { page: 1, limit: 10 }
 ): Promise<ShipmentQueryResult> => {
@@ -166,7 +166,7 @@ export const getShipperShipments = async (
     // Start with base query
     let baseQuery = query(
       collection(db, SHIPMENTS_COLLECTION),
-      where('shipperId', '==', shipperId),
+      where('userId', '==', userId),
       orderBy('createdAt', 'desc')
     );
 
@@ -235,12 +235,12 @@ export const getShipperShipments = async (
   }
 };
 
-export const clearShipperData = async (shipperId: string): Promise<boolean> => {
+export const clearShipperData = async (userId: string): Promise<boolean> => {
   try {
     // Get all shipments for this shipper
     const shipmentsQuery = query(
       collection(db, SHIPMENTS_COLLECTION),
-      where('shipperId', '==', shipperId)
+      where('userId', '==', userId)
     );
     
     const shipmentsSnap = await getDocs(shipmentsQuery);
@@ -253,9 +253,9 @@ export const clearShipperData = async (shipperId: string): Promise<boolean> => {
     await Promise.all(deletePromises);
     
     // Reset metrics
-    const metricsRef = doc(db, METRICS_COLLECTION, shipperId);
+    const metricsRef = doc(db, METRICS_COLLECTION, userId);
     await setDoc(metricsRef, {
-      shipperId,
+      userId,
       totalShipments: 0,
       completedShipments: 0,
       onTimeDeliveries: 0,

@@ -13,35 +13,42 @@ admin.initializeApp({
 
 const db = admin.firestore();
 
-async function cleanupMarketplaceLoads() {
+async function auditMarketplaceLoads() {
   const loadsRef = db.collection('loads');
   const snapshot = await loadsRef.get();
 
   let count = 0;
-  let converted = 0;
   for (const doc of snapshot.docs) {
     const data = doc.data();
-    // Remove carrierId if present (regardless of value)
-    const updateData: any = {};
-    if ('carrierId' in data) {
-      updateData.carrierId = admin.firestore.FieldValue.delete();
+    if (data.isMarketplace && 'carrierId' in data) {
+      console.log(`Marketplace load with carrierId: ${doc.id}`, data);
       count++;
     }
-    // Convert string createdAt to Firestore Timestamp
-    if (typeof data.createdAt === 'string') {
-      const date = new Date(data.createdAt);
-      if (!isNaN(date.getTime())) {
-        updateData.createdAt = Timestamp.fromDate(date);
-        converted++;
-      }
-    }
-    if (Object.keys(updateData).length > 0) {
-      await doc.ref.update(updateData);
-    }
   }
-  console.log(`Removed carrierId from ${count} loads.`);
-  console.log(`Converted createdAt to Timestamp for ${converted} loads.`);
+  console.log(`Found ${count} marketplace loads with a carrierId field.`);
   process.exit(0);
 }
 
-cleanupMarketplaceLoads().catch(console.error); 
+async function migrateShipperIdToUserId() {
+  const loadsRef = db.collection('loads');
+  const snapshot = await loadsRef.get();
+  let migrated = 0;
+  for (const doc of snapshot.docs) {
+    const data = doc.data();
+    if ('shipperId' in data && !('userId' in data)) {
+      await doc.ref.update({
+        userId: data.shipperId,
+        shipperId: admin.firestore.FieldValue.delete()
+      });
+      console.log(`Migrated load ${doc.id}: set userId to ${data.shipperId} and removed shipperId.`);
+      migrated++;
+    }
+  }
+  console.log(`Migrated ${migrated} loads from shipperId to userId.`);
+  process.exit(0);
+}
+
+// Uncomment to run the migration
+migrateShipperIdToUserId();
+
+auditMarketplaceLoads(); 

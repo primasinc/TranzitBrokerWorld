@@ -51,7 +51,7 @@ const PayInvoices: React.FC = () => {
   useEffect(() => {
     const fetchInvoices = async () => {
       if (!user) return;
-      const q = query(collection(db, 'invoices'), where('shipperId', '==', user.uid));
+      const q = query(collection(db, 'invoices'), where('userId', '==', user.uid));
       const snapshot = await getDocs(q);
       const data = snapshot.docs.map(doc => {
         const d = doc.data();

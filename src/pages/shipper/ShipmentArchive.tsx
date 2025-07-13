@@ -146,7 +146,7 @@ const ShipmentArchive: React.FC = () => {
     scheduledPickup: po.scheduledPickup || po.pickupDate || po.createdAt || null,
     scheduledDelivery: po.scheduledDelivery || po.deliveryDate || po.updatedAt || null,
     status: po.status || 'archived',
-    shipperId: po.userId || '',
+    userId: po.userId || '',
     isOnTime: typeof po.isOnTime === 'boolean' ? po.isOnTime : false,
     createdAt: po.createdAt || null,
     updatedAt: po.updatedAt || null,

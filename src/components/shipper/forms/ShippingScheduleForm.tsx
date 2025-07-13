@@ -243,7 +243,15 @@ const ShippingScheduleForm: React.FC = () => {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           isMarketplace: (selectedOption as CarrierOrMarketplace) === 'marketplace',
-        };
+        } as any; // allow dynamic carrierId
+        if ((selectedOption as CarrierOrMarketplace) === 'carrier' && locationState?.selectedCarrier?.id) {
+          loadDoc.carrierId = locationState.selectedCarrier.id;
+        } else {
+          // Ensure carrierId is never present for marketplace loads
+          if ('carrierId' in loadDoc) {
+            delete loadDoc.carrierId;
+          }
+        }
         await addDoc(collection(db, 'loads'), loadDoc);
         // 2. Robust retry: fetch the load by poNumber with retries
         let pickupLocation, deliveryLocation;
@@ -301,7 +309,7 @@ const ShippingScheduleForm: React.FC = () => {
         await createPartnerRequest({
           poNumber: poNumber,
           loadId: id, // id is the shipping schedule id or load id
-          shipperId: user.uid,
+          userId: user.uid,
           carrierId: locationState.selectedCarrier.id,
         });
         // Send a notification to the carrier for alert
@@ -353,8 +361,13 @@ const ShippingScheduleForm: React.FC = () => {
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
           isMarketplace: true, // Explicitly mark as marketplace load
-        };
+        } as any; // allow dynamic carrierId
         // Ensure carrierId is never set for marketplace loads
+        if ('carrierId' in loadDoc) {
+          delete loadDoc.carrierId;
+        }
+        // Debug: Log the loadDoc object before saving
+        console.log('[DEBUG] loadDoc to be saved:', loadDoc);
         await addDoc(collection(db, 'loads'), loadDoc);
         navigate('/shipper/loads');
       } else if (selectedOption === 'carrier') {
@@ -383,7 +396,7 @@ const ShippingScheduleForm: React.FC = () => {
           updatedAt: serverTimestamp(),
           isMarketplace: false, // Not a marketplace load
           carrierId: locationState.selectedCarrier.id, // Only set for partner/assigned loads
-        };
+        } as any;
         await addDoc(collection(db, 'loads'), loadDoc);
         navigate('/shipper/loads');
       } else {

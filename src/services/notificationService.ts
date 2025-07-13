@@ -149,7 +149,6 @@ export const updateLoadRequestStatus = async (
       const loadsSnap = await getDocs(loadsQuery);
       for (const loadDoc of loadsSnap.docs) {
         await updateDoc(doc(db, 'loads', loadDoc.id), {
-          isMarketplace: false,
           status: 'active',
           shippingScheduleStatus: 'Active',
           updatedAt: serverTimestamp(),

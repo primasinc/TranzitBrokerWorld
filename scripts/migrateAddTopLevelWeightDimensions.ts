@@ -31,6 +31,10 @@ async function migrateLoads() {
         }
       }
     }
+    // Remove lingering carrierId from marketplace loads
+    if (data.isMarketplace && 'carrierId' in data) {
+      updateData.carrierId = admin.firestore.FieldValue.delete();
+    }
     if (Object.keys(updateData).length > 0) {
       await doc.ref.update(updateData);
       updatedCount++;

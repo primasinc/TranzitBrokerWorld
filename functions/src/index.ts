@@ -43,38 +43,39 @@ export const syncPresenceToFirestore = functionsV1.database
   });
 
 // Cloud Function: On partner request creation, set PO to Carrier Pending and remove from marketplace
-export const onPartnerRequestCreate = functions.firestore
-  .document('partnerRequests/{requestId}')
-  .onCreate(async (snap, context) => {
-    const request = snap.data();
-    const { poNumber, carrierId } = request;
-    if (!poNumber || !carrierId) return;
+// DISABLED: This function incorrectly sets isMarketplace: false on all loads, causing partnered loads to show up in both marketplace and partner request lists
+// export const onPartnerRequestCreate = functions.firestore
+//   .document('partnerRequests/{requestId}')
+//   .onCreate(async (snap, context) => {
+//     const request = snap.data();
+//     const { poNumber, carrierId } = request;
+//     if (!poNumber || !carrierId) return;
 
-    const db = admin.firestore();
-    // Find the PO
-    const poSnap = await db.collection('purchaseOrders').where('poNumber', '==', poNumber).get();
-    if (poSnap.empty) return;
-    const poRef = poSnap.docs[0].ref;
+//     const db = admin.firestore();
+//     // Find the PO
+//     const poSnap = await db.collection('purchaseOrders').where('poNumber', '==', poNumber).get();
+//     if (poSnap.empty) return;
+//     const poRef = poSnap.docs[0].ref;
 
-    // Get carrier info
-    const carrierSnap = await db.collection('users').doc(carrierId).get();
-    const carrierData = carrierSnap.exists ? carrierSnap.data() : {};
+//     // Get carrier info
+//     const carrierSnap = await db.collection('users').doc(carrierId).get();
+//     const carrierData = carrierSnap.exists ? carrierSnap.data() : {};
 
-    // Update PO
-    await poRef.update({
-      status: 'Carrier Pending',
-      shippingScheduleStatus: 'Carrier Pending',
-      pendingCarrier: {
-        id: carrierId,
-        companyName: carrierData.companyName || '',
-        email: carrierData.email || '',
-        status: 'pending'
-      }
-    });
+//     // Update PO
+//     await poRef.update({
+//       status: 'Carrier Pending',
+//       shippingScheduleStatus: 'Carrier Pending',
+//       pendingCarrier: {
+//         id: carrierId,
+//         companyName: carrierData.companyName || '',
+//         email: carrierData.email || '',
+//         status: 'pending'
+//       }
+//     });
 
-    // Update all loads for this PO to remove from marketplace
-    const loadsSnap = await db.collection('loads').where('poNumber', '==', poNumber).get();
-    for (const loadDoc of loadsSnap.docs) {
-      await loadDoc.ref.update({ isMarketplace: false });
-    }
-  });
+//     // Update all loads for this PO to remove from marketplace
+//     const loadsSnap = await db.collection('loads').where('poNumber', '==', poNumber).get();
+//     for (const loadDoc of loadsSnap.docs) {
+//       await loadDoc.ref.update({ isMarketplace: false });
+//     }
+//   });

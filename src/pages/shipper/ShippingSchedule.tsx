@@ -211,8 +211,8 @@ const ShippingSchedule: React.FC = () => {
       if (poData.poNumber) {
         // Fetch the shipper's name from the users collection
         let shipperName = '';
-        if (poData.shipperId) {
-          const shipperDoc = await getDoc(doc(db, 'users', poData.shipperId));
+        if (poData.userId) {
+          const shipperDoc = await getDoc(doc(db, 'users', poData.userId));
           if (shipperDoc.exists()) {
             const shipperData = shipperDoc.data();
             shipperName = shipperData.companyName || shipperData.displayName || '';
