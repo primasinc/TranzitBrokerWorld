@@ -159,9 +159,9 @@ const ShippingScheduleForm: React.FC = () => {
     try {
       // Set initial status based on the selected option
       if (selectedOption === 'marketplace') {
-        data.status = 'Open';
+        data.status = 'Open'; // Only marketplace loads should have 'Open' status
       } else if (selectedOption === 'carrier' && locationState?.selectedCarrier) {
-        data.status = 'Carrier Pending';
+        data.status = 'Carrier Pending'; // Partner requests should never have 'Open' status
         // Add carrier information to the shipping schedule
         data.carrier = {
           id: locationState.selectedCarrier.id,
@@ -236,7 +236,7 @@ const ShippingScheduleForm: React.FC = () => {
           pickupLocation: pickupLocationForLoad,
           deliveryLocation: deliveryLocationForLoad,
           rate: poData.rate || 0,
-          status: 'open',
+          status: (selectedOption as CarrierOrMarketplace) === 'marketplace' ? 'open' : 'pending', // Marketplace loads: 'open', Partner requests: 'pending'
           poNumber: poData.poNumber || '',
           weight: data.cargoDetails.weight ? data.cargoDetails.weight.toString() : '',
           dimensions: formattedDimensions,
@@ -344,7 +344,7 @@ const ShippingScheduleForm: React.FC = () => {
           pickupLocation,
           deliveryLocation,
           rate: poData.rate || 0,
-          status: 'open',
+          status: 'open', // Marketplace loads always get 'open' status
           poNumber: poData.poNumber || '',
           weight: data.cargoDetails.weight ? data.cargoDetails.weight.toString() : '',
           dimensions: data.cargoDetails.dimensions && (data.cargoDetails.dimensions.length || data.cargoDetails.dimensions.width || data.cargoDetails.dimensions.height)
@@ -352,7 +352,7 @@ const ShippingScheduleForm: React.FC = () => {
             : '',
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
-          isMarketplace: true, // Always boolean true for marketplace
+          isMarketplace: true, // Explicitly mark as marketplace load
         };
         // Ensure carrierId is never set for marketplace loads
         await addDoc(collection(db, 'loads'), loadDoc);

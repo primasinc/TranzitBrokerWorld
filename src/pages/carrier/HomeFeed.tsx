@@ -178,9 +178,10 @@ const HomeFeed: React.FC = () => {
   console.log('HomeFeed - isLoading:', isLoading, 'locationLoading:', locationLoading);
 
   // Fallback UI if no loads are found
-  if (!isLoading && !locationLoading && availableLoads.length === 0) {
-    return <div style={{textAlign: 'center', marginTop: 40}}>No available loads found in your area.</div>;
-  }
+  // Remove this block:
+  // if (!isLoading && !locationLoading && availableLoads.length === 0) {
+  //   return <div style={{textAlign: 'center', marginTop: 40}}>No available loads found in your area.</div>;
+  // }
 
   // Deduplicate mergedPartnerRequests by poNumber or loadId
   function dedupePartnerRequests(requests: any[]) {
@@ -341,37 +342,37 @@ const HomeFeed: React.FC = () => {
                 {loadsError ? (
                   <div>Error loading loads: {loadsError}</div>
                 ) : filteredMarketplaceLoads.length === 0 ? (
-                  <div style={{ textAlign: 'center', margin: '20px 0', color: '#888' }}>No loads available</div>
+                  <div style={{ textAlign: 'center', margin: '20px 0', color: '#888' }}>No available loads found in your area.</div>
                 ) : (
                   <>
-                    {filteredMarketplaceLoads
-                      .filter(load => load.isMarketplace === true && load && load.pickupLocation && load.deliveryLocation && load.pickupLocation.address && load.deliveryLocation.address)
-                      .map((load) => {
-                        // Always use companyInfo?.name as the Shipper Name
-                        const shipperName = (load as any).companyInfo && typeof (load as any).companyInfo === 'object' && 'name' in (load as any).companyInfo && typeof (load as any).companyInfo.name === 'string'
-                          ? (load as any).companyInfo.name
-                          : 'Unknown Shipper';
-                        return (
-                          <div key={load.id} className={styles.loadCard} style={{ marginBottom: 16, padding: 16, borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', background: '#fff', border: '1px solid #eee' }}>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: '#1976d2', marginBottom: 4 }}>
-                              PO Number: {load.poNumber || '-'}
-                            </div>
-                            <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 6 }}>{shipperName}</div>
-                            <div style={{ marginBottom: 6 }}>
-                              <span style={{ fontWeight: 600 }}>Pickup:</span> {load.pickupLocation.address}
-                            </div>
-                            <div style={{ marginBottom: 6 }}>
-                              <span style={{ fontWeight: 600 }}>Delivery:</span> {load.deliveryLocation.address}
-                            </div>
-                            <div style={{ marginBottom: 10 }}>
-                              <span style={{ fontWeight: 600 }}>Rate:</span> {load.rate ? `$${load.rate.toLocaleString()}` : '—'}
-                            </div>
-                            <button onClick={() => console.log('View details:', load)} style={{ background: '#1976d2', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 18px', fontWeight: 600, cursor: 'pointer' }}>
-                              View Details
-                            </button>
+                    {filteredMarketplaceLoads.map((load) => {
+                      const shipperName = (load as any).companyInfo && typeof (load as any).companyInfo === 'object' && 'name' in (load as any).companyInfo && typeof (load as any).companyInfo.name === 'string'
+                        ? (load as any).companyInfo.name
+                        : 'Unknown Shipper';
+                      return (
+                        <div key={load.id} className={styles.loadCard} style={{ marginBottom: 16, padding: 16, borderRadius: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.06)', background: '#fff', border: '1px solid #eee' }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: '#1976d2', marginBottom: 4 }}>
+                            PO Number: {load.poNumber || '-'}
                           </div>
-                        );
-                      })}
+                          <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 6 }}>{shipperName}</div>
+                          <div style={{ marginBottom: 6 }}>
+                            <span style={{ fontWeight: 600 }}>Pickup:</span> {load.pickupLocation?.address || '-'}
+                          </div>
+                          <div style={{ marginBottom: 6 }}>
+                            <span style={{ fontWeight: 600 }}>Delivery:</span> {load.deliveryLocation?.address || '-'}
+                          </div>
+                          <div style={{ marginBottom: 10 }}>
+                            <span style={{ fontWeight: 600 }}>Rate:</span> {load.rate ? `$${load.rate.toLocaleString()}` : '—'}
+                          </div>
+                          <button 
+                            onClick={() => navigate(`/carrier/available-loads#marketplace&load=${load.id}`)} 
+                            style={{ background: '#1976d2', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 18px', fontWeight: 600, cursor: 'pointer' }}
+                          >
+                            View Details
+                          </button>
+                        </div>
+                      );
+                    })}
                   </>
                 )}
               </div>
@@ -390,7 +391,6 @@ const HomeFeed: React.FC = () => {
                         <th style={{ textAlign: 'left', padding: '8px' }}>Pickup</th>
                         <th style={{ textAlign: 'left', padding: '8px' }}>Pickup Date</th>
                         <th style={{ textAlign: 'left', padding: '8px' }}>Delivery</th>
-                        <th style={{ textAlign: 'left', padding: '8px' }}>Delivery Date</th>
                         <th style={{ textAlign: 'left', padding: '8px' }}>Rate</th>
                       </tr>
                     </thead>
@@ -410,7 +410,6 @@ const HomeFeed: React.FC = () => {
                           <td style={{ padding: '8px' }}>{po?.pickupLocation?.address || '-'}</td>
                           <td style={{ padding: '8px' }}>{po?.pickupLocation?.date || '-'}</td>
                           <td style={{ padding: '8px' }}>{po?.deliveryLocation?.address || '-'}</td>
-                          <td style={{ padding: '8px' }}>{po?.deliveryLocation?.date || '-'}</td>
                           <td style={{ padding: '8px', fontWeight: 600, color: '#1976d2' }}>{po?.rate ? `$${po.rate}` : '-'}</td>
                         </tr>
                       ))}

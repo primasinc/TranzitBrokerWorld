@@ -934,3 +934,9 @@
   background: #ccc;
   transform: none;
 } 
+
+.listContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+} 

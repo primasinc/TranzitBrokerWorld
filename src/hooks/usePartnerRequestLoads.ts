@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { PartnerRequest } from '../services/partnerRequestService';
+import { PartnerRequest, PartnerRequestStatus } from '../services/partnerRequestService';
 
 /**
  * Hook to fetch authoritative load data for partner requests for the current carrier.
@@ -25,10 +25,11 @@ export function usePartnerRequestLoads() {
       setLoading(true);
       setError(null);
       try {
+        // Only query for valid partner request statuses
         const partnerRequestsQ = query(
           collection(db, 'partnerRequests'),
           where('carrierId', '==', user.uid),
-          where('status', '==', 'pending')
+          where('status', '==', 'pending' as PartnerRequestStatus)
         );
         const partnerRequestsSnap = await getDocs(partnerRequestsQ);
         const partnerRequests = partnerRequestsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -52,7 +53,11 @@ export function usePartnerRequestLoads() {
           }
           results.push({ partnerRequest: partnerReq, load, po });
         }
-        if (isMounted) setMerged(results);
+        // Filter out invalid partner requests (missing PO or load)
+        const filteredResults = results.filter(({ partnerRequest, load, po }) => {
+          return po && po.poNumber && load && load.pickupLocation && load.deliveryLocation;
+        });
+        if (isMounted) setMerged(filteredResults);
       } catch (err) {
         if (isMounted) setError((err as Error).message || 'Unknown error');
       } finally {

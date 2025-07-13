@@ -83,14 +83,23 @@ export const TestPurchaseOrder: React.FC = () => {
         // Update corresponding load
         const loadsSnapshot = await getDocs(query(collection(db, 'loads'), where('poNumber', '==', editingPO.poNumber)));
         for (const loadDocSnap of loadsSnapshot.docs) {
-          await updateDoc(doc(db, 'loads', loadDocSnap.id), {
+          const updateData = {
             ...poData,
             items: data.items || [],
             title: `${data.vendorInfo?.name || 'Pickup'} to ${data.shipTo?.name || 'Delivery'}`,
-            status: data.status || 'open',
+            status: data.carrierOption === 'carrier' ? 'pending' : (data.status || 'open'),
             updatedAt: new Date().toISOString(),
             shipperId: user?.uid || '',
-          });
+            isMarketplace: !(data.carrierOption === 'carrier' && data.selectedCarrier && data.selectedCarrier.id)
+          };
+          // Only set carrierId for partner-requested loads
+          if (data.carrierOption === 'carrier' && data.selectedCarrier && data.selectedCarrier.id) {
+            updateData.carrierId = data.selectedCarrier.id;
+          } else {
+            // Remove carrierId for marketplace loads
+            updateData.carrierId = undefined;
+          }
+          await updateDoc(doc(db, 'loads', loadDocSnap.id), updateData);
         }
         // If PO number changed, create new PO and load, and cancel old ones
         if (data.poNumber && data.poNumber !== editingPO.poNumber) {
@@ -142,14 +151,23 @@ export const TestPurchaseOrder: React.FC = () => {
         // Update corresponding load
         const loadsSnapshot = await getDocs(query(collection(db, 'loads'), where('poNumber', '==', poNumber)));
         for (const loadDocSnap of loadsSnapshot.docs) {
-          await updateDoc(doc(db, 'loads', loadDocSnap.id), {
+          const updateData = {
             ...poData,
             items: data.items || [],
             title: `${data.vendorInfo?.name || 'Pickup'} to ${data.shipTo?.name || 'Delivery'}`,
-            status: data.status || 'open',
+            status: data.carrierOption === 'carrier' ? 'pending' : (data.status || 'open'), // Partner requests: 'pending', Marketplace: existing or 'open'
             updatedAt: new Date().toISOString(),
             shipperId: user?.uid || '',
-          });
+            isMarketplace: !(data.carrierOption === 'carrier' && data.selectedCarrier && data.selectedCarrier.id)
+          };
+          // Only set carrierId for partner-requested loads
+          if (data.carrierOption === 'carrier' && data.selectedCarrier && data.selectedCarrier.id) {
+            updateData.carrierId = data.selectedCarrier.id;
+          } else {
+            // Remove carrierId for marketplace loads
+            updateData.carrierId = undefined;
+          }
+          await updateDoc(doc(db, 'loads', loadDocSnap.id), updateData);
         }
         alert('Purchase order updated successfully.');
         navigate('/shipper/orders');
@@ -175,13 +193,16 @@ export const TestPurchaseOrder: React.FC = () => {
             position: pickupPosition
           },
           pickupLocation: {
-            address: pickupAddress,
+            address: data.pickupLocation?.address || data.vendorInfo?.streetAddress || '',
+            date: data.date || '', // Always use main date for pickup date
             position: pickupPosition
           },
           deliveryLocation: {
-            address: deliveryAddress,
+            address: data.deliveryLocation?.address || data.shipTo?.streetAddress || '',
+            date: data.deliveryLocation?.date || data.deliveryDate || '',
             position: deliveryPosition
           },
+          shipperCompany: data.companyInfo?.name || '', // Always use companyInfo.name
           userId: user?.uid || ''
         };
         const poDocRef = await addDoc(collection(db, 'purchaseOrders'), newOrder);
@@ -191,20 +212,26 @@ export const TestPurchaseOrder: React.FC = () => {
           items: data.items || [],
           title: `${data.vendorInfo?.name || 'Pickup'} to ${data.shipTo?.name || 'Delivery'}`,
           pickupLocation: {
-            address: pickupAddress,
+            address: data.pickupLocation?.address || data.vendorInfo?.streetAddress || '',
+            date: data.date || '', // Always use main date for pickup date
             position: pickupPosition
           },
           deliveryLocation: {
-            address: deliveryAddress,
+            address: data.deliveryLocation?.address || data.shipTo?.streetAddress || '',
+            date: data.deliveryLocation?.date || data.deliveryDate || '',
             position: deliveryPosition
           },
           rate: data.rate || 0,
           poNumber,
-          status: 'open',
+          status: data.carrierOption === 'carrier' ? 'pending' : 'open',
           createdAt: new Date().toISOString(),
           shipperId: user.uid,
           isMarketplace: !(data.carrierOption === 'carrier' && data.selectedCarrier && data.selectedCarrier.id)
         };
+        // Only set carrierId for partner-requested loads
+        if (data.carrierOption === 'carrier' && data.selectedCarrier && data.selectedCarrier.id) {
+          newLoad.carrierId = data.selectedCarrier.id;
+        }
         await addDoc(collection(db, 'loads'), newLoad);
         alert('Purchase order created successfully.');
         if (data.carrierOption === 'carrier') {

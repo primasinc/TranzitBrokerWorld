@@ -116,14 +116,14 @@ export function useAvailableLoads(
             rate: typeof data.rate === 'number' ? data.rate : 0,
             poNumber: data.poNumber || '',
             carrierId: data.carrierId,
-            isMarketplace: true,
+            isMarketplace: data.isMarketplace,
             companyInfo: data.companyInfo,
           } as AvailableLoad;
         });
         // Debug: Log mapped loads
         console.log('[useAvailableLoads] MAPPED loads:', allLoads);
-        // Remove carrierId filtering - marketplace loads should not have carrierId at all
-        // allLoads = allLoads.filter(load => !load.carrierId);
+        // Debug: Log all loads fetched from Firestore before filtering
+        console.log('[DEBUG] ALL LOADS FROM FIRESTORE:', JSON.stringify(allLoads, null, 2));
       } else {
         // Fallback to sample data if Firestore is empty
         allLoads = [
@@ -245,15 +245,15 @@ export function getFilteredMarketplaceLoads(availableLoads: AvailableLoad[], par
   const result = availableLoads.filter(load => {
     const res =
       load.isMarketplace === true &&
+      !load.carrierId && // Exclude loads with carrierId
       load && load.pickupLocation && load.deliveryLocation && load.pickupLocation.address && load.deliveryLocation.address &&
       !partnerRequestPoNumbers.has(load.poNumber) &&
       !partnerRequestLoadIds.has(load.id);
-      // Remove carrierId filtering - marketplace loads should not have carrierId at all
-      // && !load.carrierId; // Exclude loads that have been accepted by a carrier
     if (!res) {
       console.log('FILTERED OUT:', {
         id: load.id,
         isMarketplace: load.isMarketplace,
+        carrierId: load.carrierId,
         pickupLocation: load.pickupLocation,
         deliveryLocation: load.deliveryLocation,
         poNumber: load.poNumber,
@@ -266,8 +266,6 @@ export function getFilteredMarketplaceLoads(availableLoads: AvailableLoad[], par
         isMarketplaceCheck: load.isMarketplace === true,
         poNumberCheck: !partnerRequestPoNumbers.has(load.poNumber),
         idCheck: !partnerRequestLoadIds.has(load.id),
-        // Remove carrierId check from debug logging
-        // carrierIdCheck: !load.carrierId,
       });
     }
     return res;

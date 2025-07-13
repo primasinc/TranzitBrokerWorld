@@ -109,5 +109,23 @@ export const loadService = {
       console.error('Error fetching load details:', error);
       throw error;
     }
+  },
+
+  bookLoad: async (poNumber: string, carrier: any) => {
+    try {
+      const response = await fetch('http://localhost:3001/api/po/book-load', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ poNumber, carrier })
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to book load');
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error booking load:', error);
+      throw error;
+    }
   }
 }; 

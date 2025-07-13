@@ -241,6 +241,7 @@ export const updateLoadRequestStatus = async (
     }
   } else if (status === 'rejected') {
     // Update the shipping schedule status to 'Open' (not Cancelled)
+    // Note: This 'Open' status is for purchase orders, not partner requests
     let openRef = null;
     if (poNumber) {
       const poSnapshot = await getDocs(query(collection(db, 'purchaseOrders'), where('poNumber', '==', poNumber)));

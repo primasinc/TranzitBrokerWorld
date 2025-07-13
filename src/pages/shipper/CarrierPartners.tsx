@@ -9,7 +9,7 @@ import { sendLoadRequestToCarrier } from '../../services/notificationService';
 import { createPartnerRequest } from '../../services/partnerRequestService';
 
 interface Partner {
-  id: string;
+  carrierId: string; // Always the Firebase Auth UID
   companyName: string;
   companyRep?: string;
   phoneNumber?: string;
@@ -19,7 +19,6 @@ interface Partner {
   trailerTypes?: string[];
   endorsements?: string[];
   addedAt?: any;
-  carrierId?: string;
   mcNumber?: string;
 }
 
@@ -47,25 +46,28 @@ const CarrierPartners: React.FC = () => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      console.log('[DEBUG] onAuthStateChanged user:', user);
       if (user) {
         setUserId(user.uid);
-        console.log('Current logged-in user UID:', user.uid);
         setLoading(true);
         try {
-          console.log('Fetching partners from Firestore...');
+          console.log('[DEBUG] Fetching partners from Firestore for user UID:', user.uid);
+          const partnersPath = `users/${user.uid}/partners`;
+          console.log('[DEBUG] Firestore path:', partnersPath);
           const partnersSnapshot = await getDocs(collection(db, 'users', user.uid, 'partners'));
-          console.log('Partners snapshot size:', partnersSnapshot.size);
+          console.log('[DEBUG] Partners snapshot size:', partnersSnapshot.size);
           const partnerList: Partner[] = [];
           partnersSnapshot.forEach(docSnap => {
             const data = docSnap.data();
-            console.log('Raw partner doc:', docSnap.id, data);
+            console.log('[DEBUG] Raw partner doc:', docSnap.id, data);
             // Validate required fields
             if (!data.companyName) {
-              console.warn('Partner document missing required companyName field:', docSnap.id);
+              console.warn('[DEBUG] Partner document missing required companyName field:', docSnap.id);
               return;
             }
+            // Use docSnap.id as the UID
             const partner: Partner = {
-              id: docSnap.id,
+              carrierId: docSnap.id, // Always use the UID
               companyName: data.companyName,
               addedAt: data.addedAt
             };
@@ -77,24 +79,25 @@ const CarrierPartners: React.FC = () => {
             if (data.loadTypes) partner.loadTypes = data.loadTypes;
             if (data.trailerTypes) partner.trailerTypes = data.trailerTypes;
             if (data.endorsements) partner.endorsements = data.endorsements;
+            if (data.mcNumber) partner.mcNumber = data.mcNumber;
             partnerList.push(partner);
           });
-          console.log('Final partner list:', partnerList);
+          console.log('[DEBUG] Final partner list:', partnerList);
           setPartners(partnerList);
         } catch (error) {
-          console.error('Error fetching partners:', error);
+          console.error('[DEBUG] Error fetching partners:', error);
           alert('There was an error loading your partners. Please try refreshing the page.');
         } finally {
           setLoading(false);
         }
       } else {
-        console.log('No user logged in');
+        console.warn('[DEBUG] No user authenticated. Skipping Firestore call.');
+        setPartners([]);
         setLoading(false);
-        navigate('/login');
       }
     });
     return () => unsubscribe();
-  }, [navigate]);
+  }, []);
 
   const filteredPartners = partners.filter(partner => {
     const matchesSearch = partner.companyName.toLowerCase().includes(searchTerm.toLowerCase());
@@ -114,20 +117,20 @@ const CarrierPartners: React.FC = () => {
 
     try {
       console.log('Starting partner removal process...');
-      console.log('Removing partner:', partner.id);
+      console.log('Removing partner:', partner.carrierId);
       
       // Remove from current user's partners
-      const userPartnerRef = doc(db, 'users', userId, 'partners', partner.id);
+      const userPartnerRef = doc(db, 'users', userId, 'partners', partner.carrierId);
       console.log('Removing from user partners:', userPartnerRef.path);
       await deleteDoc(userPartnerRef);
       
       // Remove current user from partner's partners
-      const partnerPartnerRef = doc(db, 'users', partner.id, 'partners', userId);
+      const partnerPartnerRef = doc(db, 'users', partner.carrierId, 'partners', userId);
       console.log('Removing from partner partners:', partnerPartnerRef.path);
       await deleteDoc(partnerPartnerRef);
       
       // Update local state
-      setPartners(prev => prev.filter(p => p.id !== partner.id));
+      setPartners(prev => prev.filter(p => p.carrierId !== partner.carrierId));
       console.log('Partner removed successfully');
     } catch (error) {
       console.error('Error removing partner:', error);
@@ -158,7 +161,7 @@ const CarrierPartners: React.FC = () => {
     setShowProfileModal(true);
   };
 
-  const handleSelectCarrier = async (carrier: Partner) => {
+  const handleSelectCarrier = async (partner: Partner) => {
     if (locationState?.poData?.poNumber) {
       // Find the order by poNumber
       const q = query(
@@ -168,38 +171,59 @@ const CarrierPartners: React.FC = () => {
       const querySnapshot = await getDocs(q);
       if (!querySnapshot.empty) {
         const orderDoc = querySnapshot.docs[0];
-        await updateDoc(doc(db, 'purchaseOrders', orderDoc.id), {
-          status: 'Active',
-          shippingScheduleStatus: 'Carrier Pending',
-          selectedCarrier: carrier,
-        });
+        const orderData = orderDoc.data();
+        const po = locationState?.poData || {};
+        if (orderData.userId !== userId) {
+          console.error('[ERROR] User does not own PO:', { userId, poUserId: orderData.userId, poNumber: locationState.poData.poNumber });
+          alert('You do not have permission to update this purchase order.');
+          return;
+        }
+        try {
+          await updateDoc(doc(db, 'purchaseOrders', orderDoc.id), {
+            status: 'Active',
+            shippingScheduleStatus: 'Carrier Pending',
+            selectedCarrier: partner,
+          });
+        } catch (err) {
+          console.error('[ERROR] Failed to update PO:', {
+            poId: orderDoc.id,
+            poNumber: locationState.poData.poNumber,
+            userId,
+            poUserId: orderData.userId,
+            error: err
+          });
+          alert('Failed to update purchase order. Please check your permissions.');
+          return;
+        }
         
         // Fetch order details to send notification
-        const orderData = orderDoc.data();
-        if (orderData && userId) {
-          // Safe access for cargo details
-          const po = locationState?.poData || {};
-          // Map vendorInfo and shipTo to pickup/delivery
-          const pickupLocation = orderData.pickupLocation || po.vendorInfo || {};
-          const deliveryLocation = orderData.deliveryLocation || po.shipTo || {};
-          const shipperCompany = orderData.shipperCompany || po.companyInfo?.name || orderData.shipperName || '';
-          const pickupDate = orderData.pickupDate || orderData.date || po.date || (Array.isArray(po.items) && po.items[0]?.pickupDate) || '';
-          const deliveryDate = orderData.deliveryDate || po.deliveryDate || (Array.isArray(po.items) && po.items[0]?.deliveryDate) || pickupDate || '';
-          const cargoDetails = orderData.cargoDetails || po.cargoDetails || {};
-          const dimensions = cargoDetails.dimensions || po.dimensions || (Array.isArray(po.items) && po.items[0]?.dimensions) || { length: 0, width: 0, height: 0 };
-          const weight = cargoDetails.weight || (Array.isArray(po.items) && po.items[0]?.weight) || 0;
-          const rate = orderData.carrierRate || po.rate || (Array.isArray(po.items) && po.items[0]?.rate) || 0;
+        const pickupLocation = orderData.pickupLocation || po.vendorInfo || {};
+        const deliveryLocation = orderData.deliveryLocation || po.shipTo || {};
+        const shipperCompany = orderData.shipperCompany || po.companyInfo?.name || orderData.shipperName || '';
+        const pickupDate = orderData.pickupDate || orderData.date || po.date || (Array.isArray(po.items) && po.items[0]?.pickupDate) || '';
+        const deliveryDate = orderData.deliveryDate || po.deliveryDate || (Array.isArray(po.items) && po.items[0]?.deliveryDate) || pickupDate || '';
+        const cargoDetails = orderData.cargoDetails || po.cargoDetails || {};
+        const dimensions = cargoDetails.dimensions || po.dimensions || (Array.isArray(po.items) && po.items[0]?.dimensions) || { length: 0, width: 0, height: 0 };
+        const weight = cargoDetails.weight || (Array.isArray(po.items) && po.items[0]?.weight) || 0;
+        const rate = orderData.carrierRate || po.rate || (Array.isArray(po.items) && po.items[0]?.rate) || 0;
+        try {
+          // Debug log before creating partner request
+          console.log('[DEBUG] Creating partner request:', {
+            poNumber: locationState.poData.poNumber || orderData.poNumber || '',
+            loadId: '',
+            shipperId: userId || '',
+            carrierId: partner.carrierId
+          });
           const partnerRequestId = await createPartnerRequest({
             poNumber: locationState.poData.poNumber || orderData.poNumber || '',
-            loadId: '', // If you have a loadId, provide it here
-            shipperId: userId,
-            carrierId: carrier.id,
+            loadId: '',
+            shipperId: userId || '',
+            carrierId: partner.carrierId, // Always use carrierId
           });
-          // Send a notification to the carrier for alert
           await sendLoadRequestToCarrier(
-            carrier.id,
-            userId,
-            '', // shippingScheduleId or loadId if available
+            partner.carrierId,
+            userId || '',
+            '',
             {
               pickupLocation: {
                 address: locationState.poData?.vendorInfo?.address || '',
@@ -228,6 +252,8 @@ const CarrierPartners: React.FC = () => {
               poNumber: locationState.poData.poNumber || orderData.poNumber || '',
             }
           );
+        } catch (err) {
+          console.error('[ERROR] Failed to create partner request or send notification:', err);
         }
       }
     }
@@ -267,7 +293,7 @@ const CarrierPartners: React.FC = () => {
           </div>
         ) : (
           filteredPartners.map((partner) => (
-            <div key={partner.id} className={styles.carrierCard}>
+            <div key={partner.carrierId} className={styles.carrierCard}>
               <div className={styles.cardHeader}>
                 <h3>{partner.companyName}</h3>
               </div>
@@ -283,7 +309,7 @@ const CarrierPartners: React.FC = () => {
               <div className={styles.actions}>
                 <button 
                   className={styles.actionButton}
-                  onClick={() => handleViewDetails(partner.carrierId || partner.id, partner.mcNumber)}
+                  onClick={() => handleViewDetails(partner.carrierId, partner.mcNumber)}
                 >
                   View Details
                 </button>
