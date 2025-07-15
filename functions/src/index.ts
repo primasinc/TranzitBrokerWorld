@@ -2,6 +2,7 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import * as firestoreV1 from "firebase-functions/v1/firestore";
 import * as functionsV1 from "firebase-functions/v1";
+import { google } from "googleapis";
 
 admin.initializeApp();
 
@@ -79,3 +80,90 @@ export const syncPresenceToFirestore = functionsV1.database
 //       await loadDoc.ref.update({ isMarketplace: false });
 //     }
 //   });
+
+// For production, use Firebase environment config instead of hardcoding:
+// const CLIENT_ID = functions.config().gmail.client_id;
+// const CLIENT_SECRET = functions.config().gmail.client_secret;
+// const REFRESH_TOKEN = functions.config().gmail.refresh_token;
+const CLIENT_ID = "243323136379-7m2p94rulrdrpnqvp7ksgrf156avomka.apps.googleusercontent.com";
+const CLIENT_SECRET = "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";
+const REFRESH_TOKEN = "1//04mLVKPil_eTdCgYIARAAGAQSNwF-L9IrW3GE1yM0tUCYkGTeTyp7zG5MnyawRGogQIQgDERUqM3qvSc-JW3RQft09px6vMu1tDg";
+const ADMIN_EMAIL = "srose@norwalkls.com";
+
+const oAuth2Client = new google.auth.OAuth2(
+  CLIENT_ID,
+  CLIENT_SECRET,
+  "https://developers.google.com/oauthplayground"
+);
+oAuth2Client.setCredentials({ refresh_token: REFRESH_TOKEN });
+
+export const sendAdminEmail = functions.https.onCall(async (data, context) => {
+  const { subject, message } = data;
+
+  const gmail = google.gmail({ version: "v1", auth: oAuth2Client });
+
+  const rawMessage = [
+    `To: ${ADMIN_EMAIL}`,
+    "Subject: " + subject,
+    "Content-Type: text/html; charset=utf-8",
+    "",
+    message,
+  ].join("\n");
+
+  const encodedMessage = Buffer.from(rawMessage)
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+
+  await gmail.users.messages.send({
+    userId: "me",
+    requestBody: {
+      raw: encodedMessage,
+    },
+  });
+
+  return { success: true };
+});
+
+export const sendDiscountEmail = functions.https.onCall(async (data, context) => {
+  const { email } = data;
+  if (!email) {
+    throw new functions.https.HttpsError('invalid-argument', 'Email is required');
+  }
+
+  const gmail = google.gmail({ version: "v1", auth: oAuth2Client });
+
+  const subject = "Your 20% Discount for Tranzit.io";
+  const message = `
+    <h2>Thank you for subscribing to Tranzit.io!</h2>
+    <p>As promised, here is your <b>20% discount</b> for your first year with us.</p>
+    <p>Use code <b>WELCOME20</b> at signup or mention it to your onboarding specialist.</p>
+    <p>We appreciate your feedback and look forward to helping your business grow!</p>
+    <br>
+    <small>If you have any questions, reply to this email.</small>
+  `;
+
+  const rawMessage = [
+    `To: ${email}`,
+    `Subject: ${subject}`,
+    "Content-Type: text/html; charset=utf-8",
+    "",
+    message,
+  ].join("\n");
+
+  const encodedMessage = Buffer.from(rawMessage)
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+
+  await gmail.users.messages.send({
+    userId: "me",
+    requestBody: {
+      raw: encodedMessage,
+    },
+  });
+
+  return { success: true };
+});

@@ -5,6 +5,7 @@ import { db } from '../config/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import logoImg from '../assets/logo.png'; // Place your logo image in src/assets/logo.png
 import { useMobileOptimization } from '../hooks/useMobileOptimization';
+import SubscribeWithSurvey from '../components/SubscribeWithSurvey';
 
 const LandingPage: React.FC = () => {
   const navigate = useNavigate();
@@ -113,6 +114,10 @@ const LandingPage: React.FC = () => {
           <button className={styles.ctaButton} onClick={() => navigate('/register')}>Get Started</button>
         </div>
       </main>
+      {/* Insert subscribe CTA just below hero */}
+      <div style={{ margin: '32px 0' }}>
+        <SubscribeWithSurvey />
+      </div>
       <section className={styles.pointsSection}>
         <div className={styles.pointsHeaderRow}>
           <div className={styles.pointBlock}>
@@ -128,26 +133,6 @@ const LandingPage: React.FC = () => {
             <p>The freight transportation sector is facing challenges that necessitate enhancements. We are convinced that enhancing transportation requires a dependable network of operators upon whom shippers can rely and establish partnerships, similar to those they have with their existing brokerage firms. Such an approach is crucial for tackling prevalent issues like misinformation, theft, and other problems impacting the industry.</p>
           </div>
         </div>
-      </section>
-      <section className={styles.subscribeSection}>
-        <h2>Stay Connected</h2>
-        <p>Get updates and be the first to know when Tranzit.io goes live.</p>
-        <form className={styles.subscribeForm} onSubmit={handleSubscribe}>
-          <input
-            type="email"
-            placeholder="Enter your email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            className={styles.emailInput}
-            disabled={subscribed}
-            style={{ color: '#222' }}
-          />
-          <button type="submit" className={styles.subscribeButton} disabled={subscribed}>
-            {subscribed ? 'Subscribed!' : 'Subscribe'}
-          </button>
-        </form>
-        {error && <div className={styles.errorMsg}>{error}</div>}
-        {subscribed && <div className={styles.successMsg}>Thank you for subscribing!</div>}
       </section>
       <footer className={styles.footer}>
         <div className={styles.footerLinks}>
