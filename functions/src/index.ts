@@ -1,7 +1,7 @@
+import { onDocumentDeleted, onDocumentCreated } from "firebase-functions/v2/firestore";
+import { onValueUpdated } from "firebase-functions/v2/database";
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
-import * as firestoreV1 from "firebase-functions/v1/firestore";
-import * as functionsV1 from "firebase-functions/v1";
 import { google } from "googleapis";
 
 admin.initializeApp();
@@ -11,37 +11,32 @@ export const testFunction = functions.https.onRequest((request, response) => {
 });
 
 // Cloud Function to delete related shipping schedule entries when a purchase order is deleted
-export const onPurchaseOrderDelete = firestoreV1
-  .document("purchaseOrders/{purchaseOrderId}")
-  .onDelete(async (snap: FirebaseFirestore.DocumentSnapshot, context) => {
-    const purchaseOrderId = context.params.purchaseOrderId;
-    const db = admin.firestore();
-    const schedulesRef = db.collection("shippingSchedules");
-    const relatedSchedules = await schedulesRef.where("purchaseOrderId", "==", purchaseOrderId).get();
-    const deletePromises: Promise<FirebaseFirestore.WriteResult>[] = [];
-    relatedSchedules.forEach(doc => {
-      deletePromises.push(doc.ref.delete());
-    });
-    await Promise.all(deletePromises);
-    return null;
+export const onPurchaseOrderDelete = onDocumentDeleted("purchaseOrders/{purchaseOrderId}", async (event) => {
+  const purchaseOrderId = event.params.purchaseOrderId;
+  const db = admin.firestore();
+  const schedulesRef = db.collection("shippingSchedules");
+  const relatedSchedules = await schedulesRef.where("purchaseOrderId", "==", purchaseOrderId).get();
+  const deletePromises: Promise<FirebaseFirestore.WriteResult>[] = [];
+  relatedSchedules.forEach(doc => {
+    deletePromises.push(doc.ref.delete());
   });
+  await Promise.all(deletePromises);
+  return null;
+});
 
 // Cloud Function to sync presence from Realtime Database to Firestore
-export const syncPresenceToFirestore = functionsV1.database
-  .ref("/status/{userId}")
-  .onUpdate(async (change: any, context: any) => {
-    const eventStatus = change.after.val();
-    const userId = context.params.userId;
-    // Update the user's Firestore document with the new status
-    await admin.firestore().collection("users").doc(userId).set(
-      {
-        status: eventStatus.state,
-        lastChanged: new Date(eventStatus.last_changed)
-      },
-      { merge: true }
-    );
-    return null;
-  });
+export const syncPresenceToFirestore = onValueUpdated("/status/{userId}", async (event) => {
+  const eventStatus = event.data.after.val();
+  const userId = event.params.userId;
+  await admin.firestore().collection("users").doc(userId).set(
+    {
+      status: eventStatus.state,
+      lastChanged: new Date(eventStatus.last_changed)
+    },
+    { merge: true }
+  );
+  return null;
+});
 
 // Cloud Function: On partner request creation, set PO to Carrier Pending and remove from marketplace
 // DISABLED: This function incorrectly sets isMarketplace: false on all loads, causing partnered loads to show up in both marketplace and partner request lists
@@ -97,7 +92,7 @@ const oAuth2Client = new google.auth.OAuth2(
 );
 oAuth2Client.setCredentials({ refresh_token: REFRESH_TOKEN });
 
-export const sendAdminEmail = functions.https.onCall(async (data, context) => {
+export const sendAdminEmail = functions.https.onCall(async (data: any, context) => {
   const { subject, message } = data;
 
   const gmail = google.gmail({ version: "v1", auth: oAuth2Client });
@@ -126,7 +121,7 @@ export const sendAdminEmail = functions.https.onCall(async (data, context) => {
   return { success: true };
 });
 
-export const sendDiscountEmail = functions.https.onCall(async (data, context) => {
+export const sendDiscountEmail = functions.https.onCall(async (data: any, context) => {
   const { email } = data;
   if (!email) {
     throw new functions.https.HttpsError('invalid-argument', 'Email is required');
@@ -166,4 +161,205 @@ export const sendDiscountEmail = functions.https.onCall(async (data, context) =>
   });
 
   return { success: true };
+});
+
+// Cloud Function to handle new user registration approval
+export const onUserCreate = onDocumentCreated("users/{userId}", async (event) => {
+  const snap = event.data;
+  const userData = snap?.data();
+  const userId = event.params.userId;
+
+  console.log('onUserCreate triggered for userId:', userId);
+  console.log('User data received:', userData);
+
+  if (!userData || !snap) {
+    console.error('No user data found for userId:', userId);
+    return null;
+  }
+
+  // Set user status to pending approval
+  await snap.ref.update({
+    status: 'pending',
+    approvalStatus: 'pending',
+    createdAt: admin.firestore.FieldValue.serverTimestamp()
+  });
+
+  // Send admin notification email
+  try {
+    const gmail = google.gmail({ version: "v1", auth: oAuth2Client });
+
+    const subject = "New User Registration - Approval Required";
+    const message = `
+      <h2>New User Registration</h2>
+      <p>A new user has registered and requires approval:</p>
+      <ul>
+        <li><strong>Company:</strong> ${userData.companyName || 'N/A'}</li>
+        <li><strong>Email:</strong> ${userData.email || 'N/A'}</li>
+        <li><strong>Phone:</strong> ${userData.phoneNumber || 'N/A'}</li>
+        <li><strong>User Type:</strong> ${userData.userType || 'N/A'}</li>
+        <li><strong>User ID:</strong> ${userId}</li>
+      </ul>
+      <p>Please review and approve this user in the admin dashboard.</p>
+    `;
+
+    const rawMessage = [
+      `To: ${ADMIN_EMAIL}`,
+      `Subject: ${subject}`,
+      "Content-Type: text/html; charset=utf-8",
+      "",
+      message,
+    ].join("\n");
+
+    const encodedMessage = Buffer.from(rawMessage)
+      .toString("base64")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+
+    await gmail.users.messages.send({
+      userId: "me",
+      requestBody: {
+        raw: encodedMessage,
+      },
+    });
+
+    console.log('Admin notification sent for new user:', userId);
+  } catch (error) {
+    console.error('Failed to send admin notification:', error);
+  }
+
+  return null;
+});
+
+// Cloud Function to approve users
+export const approveUser = functions.https.onCall(async (data: any, context) => {
+  const { userId } = data;
+
+  if (!userId) {
+    throw new functions.https.HttpsError('invalid-argument', 'User ID is required');
+  }
+
+  const db = admin.firestore();
+
+  try {
+    // Update user status to approved
+    await db.collection('users').doc(userId).update({
+      status: 'approved',
+      approvalStatus: 'approved',
+      approvedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    // Send approval email to user
+    const userDoc = await db.collection('users').doc(userId).get();
+    const userData = userDoc.data();
+
+    if (userData && userData.email) {
+      const gmail = google.gmail({ version: "v1", auth: oAuth2Client });
+
+      const subject = "Your Tranzit.io Account Has Been Approved!";
+      const message = `
+        <h2>Welcome to Tranzit.io!</h2>
+        <p>Your account has been approved and you can now access the platform.</p>
+        <p><strong>Company:</strong> ${userData.companyName || 'N/A'}</p>
+        <p><strong>User Type:</strong> ${userData.userType || 'N/A'}</p>
+        <p>You can now log in to your account and start using Tranzit.io.</p>
+        <br>
+        <p>If you have any questions, please contact support.</p>
+      `;
+
+      const rawMessage = [
+        `To: ${userData.email}`,
+        `Subject: ${subject}`,
+        "Content-Type: text/html; charset=utf-8",
+        "",
+        message,
+      ].join("\n");
+
+      const encodedMessage = Buffer.from(rawMessage)
+        .toString("base64")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "");
+
+      await gmail.users.messages.send({
+        userId: "me",
+        requestBody: {
+          raw: encodedMessage,
+        },
+      });
+    }
+
+    return { success: true, message: 'User approved successfully' };
+  } catch (error) {
+    console.error('Error approving user:', error);
+    throw new functions.https.HttpsError('internal', 'Failed to approve user');
+  }
+});
+
+// Cloud Function to set admin role (one-time setup)
+export const setupAdminRole = functions.https.onCall(async (data: any, context: any) => {
+  try {
+    console.log('setupAdminRole called with data:', data);
+    
+    const { email } = data;
+    if (!email || email !== 'srose@norwalkls.com') {
+      throw new functions.https.HttpsError('invalid-argument', 'Only srose@norwalkls.com can be set as admin');
+    }
+    
+    // Find the user with the provided email
+    const userRecord = await admin.auth().getUserByEmail(email);
+    console.log('Found user:', userRecord.uid);
+    
+    // Set custom claims for admin role
+    await admin.auth().setCustomUserClaims(userRecord.uid, { 
+      role: 'admin',
+      isAdmin: true 
+    });
+    
+    console.log('Admin role set successfully for:', email);
+    return { success: true, message: `Admin role set successfully for ${email}` };
+  } catch (error) {
+    console.error('Error setting admin role:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+});
+
+// Cloud Function to check if user is admin
+export const checkAdminStatus = functions.https.onCall(async (data: any, context: any) => {
+  if (!context?.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  const userEmail = context.auth.token.email;
+  
+  // Only srose@norwalkls.com is admin
+  const isAdmin = userEmail === 'srose@norwalkls.com';
+  
+  return { isAdmin, email: userEmail };
+});
+
+// Cloud Function to get all admin users (for future expansion)
+export const getAdminUsers = functions.https.onCall(async (data: any, context: any) => {
+  if (!context?.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  try {
+    // List all users and check for admin claims
+    const listUsersResult = await admin.auth().listUsers();
+    const adminUsers = listUsersResult.users.filter(user => 
+      user.customClaims?.role === 'admin' || user.customClaims?.isAdmin === true
+    );
+
+    return { 
+      adminUsers: adminUsers.map(user => ({
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName
+      }))
+    };
+  } catch (error) {
+    console.error('Error getting admin users:', error);
+    throw new functions.https.HttpsError('internal', 'Failed to get admin users');
+  }
 });

@@ -54,6 +54,10 @@ import TechnologyPage from './pages/TechnologyPage';
 import AboutPage from './pages/AboutPage';
 import OAuthCallback from './pages/OAuthCallback';
 import { LocationProvider } from './contexts/LocationContext';
+import AdminDashboard from './pages/AdminDashboard';
+import AdminRoute from './components/common/AdminRoute';
+import AdminSetup from './pages/AdminSetup';
+import AdminManagement from './pages/AdminManagement';
 
 const ViewProfileWrapper = () => {
   const { id } = useParams();
@@ -195,6 +199,15 @@ function App() {
                 {/* Auth Routes */}
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
+
+                {/* Admin Routes */}
+                <Route path="/admin" element={
+                  <AdminRoute>
+                    <AdminDashboard />
+                  </AdminRoute>
+                } />
+                <Route path="/admin-setup" element={<AdminSetup />} />
+                <Route path="/admin-management" element={<AdminManagement />} />
 
                 {/* Shared Routes */}
                 <Route path="/profile/:id" element={<ViewProfileWrapper />} />

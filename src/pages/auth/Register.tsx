@@ -23,6 +23,7 @@ const Register: React.FC = () => {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
 
   useEffect(() => {
     // Check for invite token in URL
@@ -93,8 +94,8 @@ const Register: React.FC = () => {
 
       console.log('Registered user:', userCredential.user);
 
-      // Navigate to login page after successful registration
-      navigate('/login');
+      // Show success message instead of navigating to login
+      setRegistrationSuccess(true);
     } catch (err) {
       console.error('Registration error:', err);
       setError('Failed to create account. Please try again.');
@@ -102,6 +103,28 @@ const Register: React.FC = () => {
       setLoading(false);
     }
   };
+
+  if (registrationSuccess) {
+    return (
+      <div className={styles.loginContainer}>
+        <div className={styles.loginBox}>
+          <h1>Registration Successful!</h1>
+          <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+            <p>Thank you for registering with Tranzit.io!</p>
+            <p>Your account has been created and is pending approval.</p>
+            <p>You will receive an email notification once your account is approved.</p>
+            <p>This process typically takes 24-48 hours.</p>
+          </div>
+          <button 
+            className={styles.loginButton}
+            onClick={() => navigate('/login')}
+          >
+            Return to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.loginContainer}>

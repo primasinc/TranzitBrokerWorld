@@ -79,6 +79,17 @@ const Login: React.FC = () => {
         return;
       }
 
+      // Check approval status
+      if (userData.approvalStatus === 'pending') {
+        setError('Your account is pending approval. You will receive an email notification once approved.');
+        return;
+      }
+
+      if (userData.approvalStatus === 'rejected') {
+        setError('Your account has been rejected. Please contact support for more information.');
+        return;
+      }
+
       // 2FA logic
       if (userData && userData["2faEnabled"]) {
         setShow2FAModal(true);
