@@ -111,8 +111,11 @@ const Login: React.FC = () => {
         return;
       }
 
-      // Normal navigation
-      if (userData && userData.userType === 'shipper') {
+      // Normal navigation - Check admin status FIRST
+      if (userData && (userData.isAdmin || userData.isSuperAdmin)) {
+        // Admin authentication - highest priority
+        navigate('/admin');
+      } else if (userData && userData.userType === 'shipper') {
         navigate('/shipper/dashboard');
         setTimeout(() => {
           if (!locationCheckRef.current) {
@@ -153,8 +156,10 @@ const Login: React.FC = () => {
         setTwoFALoading(false);
         return;
       }
-      // Success: proceed to dashboard
-      if (pendingUser.userData.userType === 'shipper') {
+      // Success: proceed to dashboard - Check admin status FIRST
+      if (pendingUser.userData.isAdmin || pendingUser.userData.isSuperAdmin) {
+        navigate('/admin');
+      } else if (pendingUser.userData.userType === 'shipper') {
         navigate('/shipper/dashboard');
       } else if (pendingUser.userData.userType === 'carrier') {
         navigate('/carrier/home');

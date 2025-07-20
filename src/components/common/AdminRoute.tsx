@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { getFunctions, httpsCallable } from 'firebase/functions';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../config/firebase';
 import { Navigate } from 'react-router-dom';
 
 interface AdminRouteProps {
@@ -12,9 +13,6 @@ const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const functions = getFunctions();
-  const checkAdminStatus = httpsCallable(functions, 'checkAdminStatus');
-
   useEffect(() => {
     const checkAdmin = async () => {
       if (!user) {
@@ -24,9 +22,15 @@ const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
       }
 
       try {
-        const result = await checkAdminStatus({});
-        const { isAdmin: adminStatus } = result.data as { isAdmin: boolean };
-        setIsAdmin(adminStatus);
+        const userRef = doc(db, 'users', user.uid);
+        const userDoc = await getDoc(userRef);
+        const userData = userDoc.data();
+        
+        if (userData?.isAdmin || userData?.isSuperAdmin) {
+          setIsAdmin(true);
+        } else {
+          setIsAdmin(false);
+        }
       } catch (error) {
         console.error('Error checking admin status:', error);
         setIsAdmin(false);
@@ -36,7 +40,7 @@ const AdminRoute: React.FC<AdminRouteProps> = ({ children }) => {
     };
 
     checkAdmin();
-  }, [user, checkAdminStatus]);
+  }, [user]);
 
   if (loading) {
     return <div>Loading...</div>;

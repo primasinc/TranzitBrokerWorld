@@ -3,8 +3,12 @@ import { onValueUpdated } from "firebase-functions/v2/database";
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { google } from "googleapis";
+import * as cors from "cors";
 
 admin.initializeApp();
+
+// Initialize CORS middleware
+const corsHandler = cors({ origin: true });
 
 export const testFunction = functions.https.onRequest((request, response) => {
   response.send("Hello from Firebase!");
@@ -301,14 +305,29 @@ export const setupAdminRole = functions.https.onCall(async (data: any, context: 
   try {
     console.log('setupAdminRole called with data:', data);
     
-    const { email } = data;
-    if (!email || email !== 'srose@norwalkls.com') {
-      throw new functions.https.HttpsError('invalid-argument', 'Only srose@norwalkls.com can be set as admin');
+    // Check if user is authenticated
+    if (!context?.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
     }
     
-    // Find the user with the provided email
-    const userRecord = await admin.auth().getUserByEmail(email);
-    console.log('Found user:', userRecord.uid);
+    const { email } = data;
+    if (!email) {
+      throw new functions.https.HttpsError('invalid-argument', 'Email is required');
+    }
+    
+    // For now, only allow srose@norwalkls.com to be set as admin
+    if (email !== 'srose@norwalkls.com') {
+      throw new functions.https.HttpsError('permission-denied', 'Only srose@norwalkls.com can be set as admin');
+    }
+    
+    // Check if user exists in Firebase Auth
+    let userRecord;
+    try {
+      userRecord = await admin.auth().getUserByEmail(email);
+      console.log('Found user:', userRecord.uid);
+    } catch (error) {
+      throw new functions.https.HttpsError('not-found', `User with email ${email} not found in Firebase Auth`);
+    }
     
     // Set custom claims for admin role
     await admin.auth().setCustomUserClaims(userRecord.uid, { 
@@ -317,10 +336,21 @@ export const setupAdminRole = functions.https.onCall(async (data: any, context: 
     });
     
     console.log('Admin role set successfully for:', email);
-    return { success: true, message: `Admin role set successfully for ${email}` };
+    return { 
+      success: true, 
+      message: `Admin role set successfully for ${email}`,
+      uid: userRecord.uid
+    };
   } catch (error) {
     console.error('Error setting admin role:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    
+    // If it's already a Firebase HttpsError, re-throw it
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    
+    // Otherwise, wrap it in a generic error
+    throw new functions.https.HttpsError('internal', error instanceof Error ? error.message : 'Unknown error');
   }
 });
 
@@ -361,5 +391,112 @@ export const getAdminUsers = functions.https.onCall(async (data: any, context: a
   } catch (error) {
     console.error('Error getting admin users:', error);
     throw new functions.https.HttpsError('internal', 'Failed to get admin users');
+  }
+});
+
+// Cloud Function to add personnel
+export const addPersonnel = functions.https.onCall(async (data: any, context: any) => {
+  if (!context?.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  const { email, name, role, department, isActive } = data;
+
+  if (!email || !name || !role) {
+    throw new functions.https.HttpsError('invalid-argument', 'Email, name, and role are required');
+  }
+
+  try {
+    const db = admin.firestore();
+    
+    // Check if personnel already exists
+    const personnelRef = db.collection('personnel');
+    const existingPersonnel = await personnelRef.where('email', '==', email).get();
+    
+    if (!existingPersonnel.empty) {
+      throw new functions.https.HttpsError('already-exists', 'Personnel with this email already exists');
+    }
+
+    // Add new personnel
+    const newPersonnel = await personnelRef.add({
+      email,
+      name,
+      role,
+      department: department || '',
+      isActive: isActive !== false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    console.log('Personnel added successfully:', newPersonnel.id);
+    return {
+      success: true,
+      message: 'Personnel added successfully',
+      id: newPersonnel.id
+    };
+  } catch (error) {
+    console.error('Error adding personnel:', error);
+    
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    
+    throw new functions.https.HttpsError('internal', 'Failed to add personnel');
+  }
+});
+
+// Cloud Function to update personnel status
+export const updatePersonnelStatus = functions.https.onCall(async (data: any, context: any) => {
+  if (!context?.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  const { personnelId, isActive } = data;
+
+  if (!personnelId) {
+    throw new functions.https.HttpsError('invalid-argument', 'Personnel ID is required');
+  }
+
+  try {
+    const db = admin.firestore();
+    const personnelRef = db.collection('personnel').doc(personnelId);
+    
+    await personnelRef.update({
+      isActive: isActive,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    return {
+      success: true,
+      message: 'Personnel status updated successfully'
+    };
+  } catch (error) {
+    console.error('Error updating personnel status:', error);
+    throw new functions.https.HttpsError('internal', 'Failed to update personnel status');
+  }
+});
+
+// Cloud Function to get all personnel
+export const getPersonnel = functions.https.onCall(async (data: any, context: any) => {
+  if (!context?.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  try {
+    const db = admin.firestore();
+    const personnelRef = db.collection('personnel');
+    const querySnapshot = await personnelRef.orderBy('createdAt', 'desc').get();
+    
+    const personnel = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    return {
+      success: true,
+      personnel
+    };
+  } catch (error) {
+    console.error('Error getting personnel:', error);
+    throw new functions.https.HttpsError('internal', 'Failed to get personnel');
   }
 });

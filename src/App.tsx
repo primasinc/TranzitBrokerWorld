@@ -207,7 +207,11 @@ function App() {
                   </AdminRoute>
                 } />
                 <Route path="/admin-setup" element={<AdminSetup />} />
-                <Route path="/admin-management" element={<AdminManagement />} />
+                <Route path="/admin-management" element={
+                  <AdminRoute>
+                    <AdminManagement />
+                  </AdminRoute>
+                } />
 
                 {/* Shared Routes */}
                 <Route path="/profile/:id" element={<ViewProfileWrapper />} />

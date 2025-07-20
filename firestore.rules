@@ -126,6 +126,27 @@ service cloud.firestore {
       );
     }
 
+    // Personnel collection (admin only)
+    match /personnel/{personnelId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // Code Change Requests collection
+    match /codeChangeRequests/{requestId} {
+      allow read: if isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+      allow create: if isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+      allow update, delete: if isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isSuperAdmin == true;
+    }
+
     // Default deny
     match /{document=**} {
       allow read: if isAuthenticated();
