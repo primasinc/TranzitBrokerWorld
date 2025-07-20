@@ -12,6 +12,20 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    // Helper function to check if user is super admin
+    function isSuperAdmin() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isSuperAdmin == true;
+    }
+
     // Locations collection
     match /locations/{userId} {
       allow read: if isAuthenticated();
@@ -35,7 +49,9 @@ service cloud.firestore {
     // User profiles and their subcollections
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow write: if isOwner(userId);
+      allow create: if isAuthenticated();
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isOwner(userId) || isSuperAdmin();
       
       // Partners subcollection (open to all authenticated users)
       match /partners/{partnerId} {
@@ -129,22 +145,14 @@ service cloud.firestore {
     // Personnel collection (admin only)
     match /personnel/{personnelId} {
       allow read: if isAuthenticated();
-      allow create, update, delete: if isAuthenticated() && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+      allow create, update, delete: if isAdmin();
     }
 
     // Code Change Requests collection
     match /codeChangeRequests/{requestId} {
-      allow read: if isAuthenticated() && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
-      allow create: if isAuthenticated() && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
-      allow update, delete: if isAuthenticated() && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isSuperAdmin == true;
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if isSuperAdmin();
     }
 
     // Default deny

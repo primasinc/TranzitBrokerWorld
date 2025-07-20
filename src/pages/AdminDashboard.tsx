@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, doc, updateDoc, addDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, addDoc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -57,6 +57,8 @@ const AdminDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [approving, setApproving] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'approvals' | 'admins' | 'shippers' | 'carriers'>('overview');
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -76,8 +78,30 @@ const AdminDashboard: React.FC = () => {
   const [filteredUsers, setFilteredUsers] = useState<any[]>([]);
 
   useEffect(() => {
-    loadDashboardData();
-  }, []);
+    if (user) {
+      checkAdminStatus();
+      loadDashboardData();
+    }
+  }, [user]);
+
+  const checkAdminStatus = async () => {
+    if (!user) return;
+    
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      const userDoc = await getDoc(userRef);
+      const userData = userDoc.data();
+      
+      if (userData?.isAdmin) {
+        setIsAdmin(true);
+      }
+      if (userData?.isSuperAdmin) {
+        setIsSuperAdmin(true);
+      }
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+    }
+  };
 
   const loadDashboardData = async () => {
     setLoading(true);
@@ -232,6 +256,16 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleApproveUser = async (userId: string) => {
+    if (!user) {
+      alert('Please log in first');
+      return;
+    }
+
+    if (!isAdmin) {
+      alert('Access denied. Admin privileges required.');
+      return;
+    }
+
     try {
       setApproving(userId);
       
@@ -258,6 +292,16 @@ const AdminDashboard: React.FC = () => {
   };
 
   const handleRejectUser = async (userId: string) => {
+    if (!user) {
+      alert('Please log in first');
+      return;
+    }
+
+    if (!isAdmin) {
+      alert('Access denied. Admin privileges required.');
+      return;
+    }
+
     try {
       setApproving(userId);
       
@@ -296,6 +340,11 @@ const AdminDashboard: React.FC = () => {
       return;
     }
 
+    if (!isAdmin) {
+      alert('Access denied. Admin privileges required.');
+      return;
+    }
+
     try {
       // Add code change request to Firestore
       await addDoc(collection(db, 'codeChangeRequests'), {
@@ -318,58 +367,40 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleSearch = (userType: 'shippers' | 'carriers') => {
-    const users = userType === 'shippers' ? shippers : carriers;
-    let filtered = users;
-
-    // Filter by state if selected
-    if (selectedState) {
-      filtered = filtered.filter(user => 
-        user.address?.state === selectedState || 
-        user.state === selectedState
-      );
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate('/login');
+    } catch (error) {
+      console.error('Error logging out:', error);
     }
+  };
 
-    // Filter by search term
+  // Filter users based on search term and state
+  useEffect(() => {
+    let filtered = [...shippers];
+    
     if (searchTerm) {
       filtered = filtered.filter(user => 
         user.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.companyRep?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.id?.toLowerCase().includes(searchTerm.toLowerCase())
+        user.email?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
-
+    
+    if (selectedState) {
+      filtered = filtered.filter(user => user.state === selectedState);
+    }
+    
     setFilteredUsers(filtered);
-  };
+  }, [shippers, searchTerm, selectedState]);
 
-  const handleStateChange = (state: string, userType: 'shippers' | 'carriers') => {
-    setSelectedState(state);
-    handleSearch(userType);
-  };
+  if (!user) {
+    return <div className={styles.adminDashboard}>Please log in to access the admin dashboard.</div>;
+  }
 
-  const handleSearchChange = (term: string, userType: 'shippers' | 'carriers') => {
-    setSearchTerm(term);
-    handleSearch(userType);
-  };
-
-  const handleLogout = () => {
-    // Sign out from Firebase Auth
-    signOut(auth);
-    // Navigate to login page
-    navigate('/login');
-  };
-
-  // US States array
-  const usStates = [
-    'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut', 'Delaware',
-    'Florida', 'Georgia', 'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky',
-    'Louisiana', 'Maine', 'Maryland', 'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi',
-    'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey', 'New Mexico',
-    'New York', 'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma', 'Oregon', 'Pennsylvania',
-    'Rhode Island', 'South Carolina', 'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont',
-    'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming'
-  ];
+  if (!isAdmin) {
+    return <div className={styles.adminDashboard}>Access denied. Admin privileges required.</div>;
+  }
 
   if (loading) {
     return <div className={styles.adminDashboard}>Loading dashboard...</div>;
@@ -500,11 +531,11 @@ const AdminDashboard: React.FC = () => {
           </div>
 
           <div style={{ marginBottom: '30px' }}>
-            <h2>Code Change Requests</h2>
-            <form onSubmit={handleSubmitCodeRequest} style={{ maxWidth: '500px' }}>
+            <h3>Code Change Requests</h3>
+            <form onSubmit={handleSubmitCodeRequest} style={{ maxWidth: '600px' }}>
               <div style={{ marginBottom: '15px' }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                  Request Title *
+                  Title
                 </label>
                 <input
                   type="text"
@@ -512,29 +543,20 @@ const AdminDashboard: React.FC = () => {
                   onChange={(e) => setCodeRequestForm({ ...codeRequestForm, title: e.target.value })}
                   className={styles.input}
                   style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-                  placeholder="Brief description of the change needed"
-                  required
+                  placeholder="Enter request title"
                 />
               </div>
               
               <div style={{ marginBottom: '15px' }}>
                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                  Detailed Description *
+                  Description
                 </label>
                 <textarea
                   value={codeRequestForm.description}
                   onChange={(e) => setCodeRequestForm({ ...codeRequestForm, description: e.target.value })}
                   className={styles.input}
-                  style={{ 
-                    width: '100%', 
-                    padding: '8px', 
-                    border: '1px solid #ddd', 
-                    borderRadius: '4px',
-                    minHeight: '100px',
-                    resize: 'vertical'
-                  }}
-                  placeholder="Describe the issue, what needs to be changed, and why it's needed"
-                  required
+                  style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', minHeight: '100px' }}
+                  placeholder="Describe the code change needed"
                 />
               </div>
               
@@ -682,63 +704,49 @@ const AdminDashboard: React.FC = () => {
       {activeTab === 'shippers' && (
         <div>
           <h2>Shippers ({shippers.length})</h2>
+          
           <div style={{ marginBottom: '20px' }}>
-            <label htmlFor="shipperStateFilter" style={{ marginRight: '10px', fontWeight: 'bold' }}>Filter by State:</label>
+            <input
+              type="text"
+              placeholder="Search shippers..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ padding: '8px', marginRight: '10px', border: '1px solid #ddd', borderRadius: '4px' }}
+            />
             <select
-              id="shipperStateFilter"
               value={selectedState}
-              onChange={(e) => handleStateChange(e.target.value, 'shippers')}
+              onChange={(e) => setSelectedState(e.target.value)}
               style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
             >
               <option value="">All States</option>
-              {usStates.map(state => (
-                <option key={state} value={state}>{state}</option>
-              ))}
+              <option value="CA">California</option>
+              <option value="TX">Texas</option>
+              <option value="NY">New York</option>
+              {/* Add more states as needed */}
             </select>
           </div>
-          <div style={{ marginBottom: '20px' }}>
-            <label htmlFor="shipperSearchTerm" style={{ marginRight: '10px', fontWeight: 'bold' }}>Search:</label>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <input
-                type="text"
-                id="shipperSearchTerm"
-                value={searchTerm}
-                onChange={(e) => handleSearchChange(e.target.value, 'shippers')}
-                style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px', flex: 1 }}
-                placeholder="Search shippers by name, email, or ID"
-              />
-              <button
-                onClick={() => handleSearch('shippers')}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: '#007bff',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold'
-                }}
-              >
-                Search
-              </button>
-            </div>
-          </div>
+          
           {filteredUsers.length === 0 ? (
-            <p>No shippers found matching your criteria.</p>
+            <p>No shippers found.</p>
           ) : (
             <div className={styles.usersList}>
               {filteredUsers.map((shipper) => (
                 <div key={shipper.id} className={styles.userCard}>
                   <div className={styles.userInfo}>
-                    <h3>{shipper.companyName || shipper.companyRep || 'N/A'}</h3>
-                    <p><strong>Email:</strong> {shipper.email || 'N/A'}</p>
+                    <h3>{shipper.companyName}</h3>
+                    <p><strong>Email:</strong> {shipper.email}</p>
                     <p><strong>Phone:</strong> {shipper.phoneNumber || 'N/A'}</p>
-                    <p><strong>Address:</strong> {shipper.address?.street || 'N/A'}, {shipper.address?.city || 'N/A'}, {shipper.address?.state || 'N/A'} {shipper.address?.zipCode || ''}</p>
-                    <p><strong>User ID:</strong> {shipper.id}</p>
-                    <p><strong>User Type:</strong> {shipper.userType}</p>
-                    <p><strong>Status:</strong> {shipper.status}</p>
-                    <p><strong>Approval Status:</strong> {shipper.approvalStatus}</p>
-                    <p><strong>Created At:</strong> {shipper.createdAt?.toDate?.()?.toLocaleDateString() || 'N/A'}</p>
+                    <p><strong>State:</strong> {shipper.state || 'N/A'}</p>
+                    <p><strong>Status:</strong> 
+                      <span style={{ 
+                        color: shipper.approvalStatus === 'approved' ? '#28a745' : 
+                               shipper.approvalStatus === 'rejected' ? '#dc3545' : '#ffc107',
+                        fontWeight: 'bold',
+                        marginLeft: '5px'
+                      }}>
+                        {shipper.approvalStatus || 'pending'}
+                      </span>
+                    </p>
                   </div>
                 </div>
               ))}
@@ -751,63 +759,27 @@ const AdminDashboard: React.FC = () => {
       {activeTab === 'carriers' && (
         <div>
           <h2>Carriers ({carriers.length})</h2>
-          <div style={{ marginBottom: '20px' }}>
-            <label htmlFor="carrierStateFilter" style={{ marginRight: '10px', fontWeight: 'bold' }}>Filter by State:</label>
-            <select
-              id="carrierStateFilter"
-              value={selectedState}
-              onChange={(e) => handleStateChange(e.target.value, 'carriers')}
-              style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-            >
-              <option value="">All States</option>
-              {usStates.map(state => (
-                <option key={state} value={state}>{state}</option>
-              ))}
-            </select>
-          </div>
-          <div style={{ marginBottom: '20px' }}>
-            <label htmlFor="carrierSearchTerm" style={{ marginRight: '10px', fontWeight: 'bold' }}>Search:</label>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <input
-                type="text"
-                id="carrierSearchTerm"
-                value={searchTerm}
-                onChange={(e) => handleSearchChange(e.target.value, 'carriers')}
-                style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px', flex: 1 }}
-                placeholder="Search carriers by name, email, or ID"
-              />
-              <button
-                onClick={() => handleSearch('carriers')}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: '#007bff',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold'
-                }}
-              >
-                Search
-              </button>
-            </div>
-          </div>
-          {filteredUsers.length === 0 ? (
-            <p>No carriers found matching your criteria.</p>
+          
+          {carriers.length === 0 ? (
+            <p>No carriers found.</p>
           ) : (
             <div className={styles.usersList}>
-              {filteredUsers.map((carrier) => (
+              {carriers.map((carrier) => (
                 <div key={carrier.id} className={styles.userCard}>
                   <div className={styles.userInfo}>
-                    <h3>{carrier.companyName || carrier.companyRep || 'N/A'}</h3>
-                    <p><strong>Email:</strong> {carrier.email || 'N/A'}</p>
+                    <h3>{carrier.companyName}</h3>
+                    <p><strong>Email:</strong> {carrier.email}</p>
                     <p><strong>Phone:</strong> {carrier.phoneNumber || 'N/A'}</p>
-                    <p><strong>Address:</strong> {carrier.address?.street || 'N/A'}, {carrier.address?.city || 'N/A'}, {carrier.address?.state || 'N/A'} {carrier.address?.zipCode || ''}</p>
-                    <p><strong>User ID:</strong> {carrier.id}</p>
-                    <p><strong>User Type:</strong> {carrier.userType}</p>
-                    <p><strong>Status:</strong> {carrier.status}</p>
-                    <p><strong>Approval Status:</strong> {carrier.approvalStatus}</p>
-                    <p><strong>Created At:</strong> {carrier.createdAt?.toDate?.()?.toLocaleDateString() || 'N/A'}</p>
+                    <p><strong>Status:</strong> 
+                      <span style={{ 
+                        color: carrier.approvalStatus === 'approved' ? '#28a745' : 
+                               carrier.approvalStatus === 'rejected' ? '#dc3545' : '#ffc107',
+                        fontWeight: 'bold',
+                        marginLeft: '5px'
+                      }}>
+                        {carrier.approvalStatus || 'pending'}
+                      </span>
+                    </p>
                   </div>
                 </div>
               ))}
