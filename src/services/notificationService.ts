@@ -295,6 +295,41 @@ export const acceptLoadForPO = async (
     console.error('[acceptLoadForPO] Error updating load with carrierId:', err);
     throw new Error('Failed to update load with carrier assignment');
   }
+
+  // 7. Create shipment document for Driver Updates page
+  try {
+    const shipmentData = {
+      shipperId: poData.userId,
+      carrierId: carrierId,
+      poNumber: poData.poNumber,
+      status: 'in_progress' as const, // This status will show in Driver Updates page
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      pickup: {
+        location: poData.pickupLocation?.streetAddress || poData.vendorInfo?.address || '',
+        time: poData.date || '',
+        status: 'pending',
+      },
+      delivery: {
+        location: poData.deliveryLocation?.streetAddress || poData.shipTo?.address || '',
+        time: poData.date || '',
+        status: 'pending',
+      },
+      payment: poData.rate || 0,
+      weight: poData.items?.reduce((sum: number, item: any) => sum + (item.weight || 0), 0) || 0,
+      dimensions: poData.items && poData.items.length > 0
+        ? `${poData.items[0].length || ''}x${poData.items[0].width || ''}x${poData.items[0].height || ''}`
+        : '',
+      shipper: poData.companyInfo?.name || poData.vendorInfo?.name || '',
+      carrier: carrierProfile.companyName || '',
+    };
+
+    await addDoc(collection(db, 'shipments'), shipmentData);
+    console.log('[acceptLoadForPO] Created shipment document for Driver Updates page:', poData.poNumber);
+  } catch (err) {
+    console.error('[acceptLoadForPO] Error creating shipment document:', err);
+    // Don't throw error here as the main workflow should still succeed
+  }
 };
 
 // New poNumber-driven functions
@@ -374,20 +409,12 @@ const handleLoadAcceptance = async (poNumber: string, notificationId: string) =>
       throw new Error('No carrierId found in notification data');
     }
 
-    // 1. Update load status and assign carrier
-    const loadsQuery = query(collection(db, 'loads'), where('poNumber', '==', poNumber));
-    const loadsSnap = await getDocs(loadsQuery);
-    
-    for (const loadDoc of loadsSnap.docs) {
-      await updateDoc(doc(db, 'loads', loadDoc.id), {
-        status: 'active',
-        carrierId: notifData.carrierId, // Assign the carrier
-        updatedAt: serverTimestamp(),
-      });
-    }
-    console.log('[handleLoadAcceptance] Load assigned to carrier');
+    // Use the complete acceptLoadForPO function instead of incomplete updates
+    // This ensures both PO and load are properly updated with carrier info
+    await acceptLoadForPO(poNumber, notifData.carrierId, false);
+    console.log('[handleLoadAcceptance] Used acceptLoadForPO for complete workflow');
 
-    // 2. Create notification record for shipper
+    // Create notification record for shipper
     if (notifData.shipperId) {
       const shipperNotificationRef = collection(db, 'notifications');
       await addDoc(shipperNotificationRef, {

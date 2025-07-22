@@ -163,7 +163,7 @@
 .status {
   padding: 4px 8px;
   border-radius: 4px;
-  font-size: 0.9em;
+  font-size: inherit;
 }
 
 .intransit {
@@ -182,13 +182,15 @@
 }
 
 .actionButton {
-  margin: 0 4px;
+  margin: 0 2px;
   padding: 6px 12px;
   border: none;
   border-radius: 4px;
   background-color: #007bff;
   color: white;
   cursor: pointer;
+  display: inline-block;
+  white-space: nowrap;
 }
 
 .actionButton:hover {

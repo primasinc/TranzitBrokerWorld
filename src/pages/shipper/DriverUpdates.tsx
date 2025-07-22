@@ -6,8 +6,7 @@ import { db, auth } from '../../config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Timestamp } from 'firebase/firestore';
 import MapboxMap from '../../components/common/MapboxMap';
-import { useMobileOptimization } from '../../hooks/useMobileOptimization';
-import { MobileOptimizedList } from '../../components/common/MobileOptimizedList';
+
 
 interface DriverUpdate {
   driverId: string;
@@ -48,22 +47,10 @@ const DriverUpdates: React.FC = () => {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [detailsView, setDetailsView] = useState<'map' | 'location'>('map');
 
-  // Mobile optimization
-  const { 
-    isLowBandwidth, 
-    isLowBattery, 
-    getOptimalPageSize, 
-    shouldFetchData, 
-    measurePerformance 
-  } = useMobileOptimization({
-    enableOfflineMode: true,
-    enableLowBandwidthMode: true,
-    enableBatteryOptimization: true
-  });
+
 
   // Mobile detection
   const [isMobile, setIsMobile] = useState(false);
-  const [viewType, setViewType] = useState<'table' | 'cards'>('table');
 
   // Mobile detection effect
   useEffect(() => {
@@ -72,11 +59,6 @@ const DriverUpdates: React.FC = () => {
       const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
       const isMobileScreen = window.innerWidth <= 768;
       setIsMobile(isMobileDevice || isMobileScreen);
-      
-      // Auto-switch to cards view on mobile
-      if (isMobileDevice || isMobileScreen) {
-        setViewType('cards');
-      }
     };
 
     checkMobile();
@@ -221,51 +203,95 @@ const DriverUpdates: React.FC = () => {
               } else {
                 console.warn('[DriverUpdates] No carrier profile found for carrierId:', load.carrierId);
               }
-              // 1. Try ELD location
-              const eldLocRef = doc(db, 'eldLocations', load.carrierId);
-              const eldLocSnap = await getDoc(eldLocRef);
-              if (eldLocSnap.exists()) {
-                const eldLoc = eldLocSnap.data();
-                if (eldLoc.lat && eldLoc.lng) {
-                  coordinates = [eldLoc.lng, eldLoc.lat];
-                  location = eldLoc.city && eldLoc.state ? `${eldLoc.city}, ${eldLoc.state}` : `${eldLoc.lat.toFixed(4)}, ${eldLoc.lng.toFixed(4)}`;
+              // 1. Try mobile app location (PRIMARY)
+              const mobLocRef = doc(db, 'locations', load.carrierId);
+              const mobLocSnap = await getDoc(mobLocRef);
+              if (mobLocSnap.exists()) {
+                const mobLoc = mobLocSnap.data();
+                // Support both lat/lng fields and position array
+                let lat = mobLoc.lat;
+                let lng = mobLoc.lng;
+                if ((lat === undefined || lng === undefined) && Array.isArray(mobLoc.position) && mobLoc.position.length === 2) {
+                  lng = mobLoc.position[0];
+                  lat = mobLoc.position[1];
                 }
-              } else {
-                // 2. Fallback to mobile app location
-                const mobLocRef = doc(db, 'locations', load.carrierId);
-                const mobLocSnap = await getDoc(mobLocRef);
-                if (mobLocSnap.exists()) {
-                  const mobLoc = mobLocSnap.data();
-                  // Support both lat/lng fields and position array
-                  let lat = mobLoc.lat;
-                  let lng = mobLoc.lng;
-                  if ((lat === undefined || lng === undefined) && Array.isArray(mobLoc.position) && mobLoc.position.length === 2) {
-                    lng = mobLoc.position[0];
-                    lat = mobLoc.position[1];
-                  }
-                  if (lat !== undefined && lng !== undefined) {
-                    coordinates = [lng, lat];
-                    if (mobLoc.city && mobLoc.state) {
-                      location = `${mobLoc.city}, ${mobLoc.state}`;
-                    } else {
-                      // Try reverse geocoding to get city/state
-                      try {
-                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
-                        if (response.ok) {
-                          const geoData = await response.json();
-                          const address = geoData.address || {};
-                          const city = address.city || address.town || address.village || address.hamlet || '';
-                          const state = address.state || '';
-                          if (city && state) {
-                            location = `${city}, ${state}`;
+                if (lat !== undefined && lng !== undefined) {
+                  coordinates = [lng, lat];
+                  if (mobLoc.city && mobLoc.state) {
+                    location = `${mobLoc.city}, ${mobLoc.state}`;
+                  } else {
+                    // Try reverse geocoding to get city/state
+                    try {
+                      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10`);
+                      if (response.ok) {
+                        const geoData = await response.json();
+                        const address = geoData.address || {};
+                        const city = address.city || address.town || address.village || address.hamlet || address.county || '';
+                        const state = address.state || address.county || '';
+                        if (city && state) {
+                          location = `${city}, ${state}`;
+                        } else if (city) {
+                          location = city;
+                        } else {
+                          // If no city/state found, try a more detailed lookup
+                          const detailedResponse = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=8`);
+                          if (detailedResponse.ok) {
+                            const detailedGeoData = await detailedResponse.json();
+                            const detailedAddress = detailedGeoData.address || {};
+                            const detailedCity = detailedAddress.city || detailedAddress.town || detailedAddress.village || detailedAddress.county || '';
+                            const detailedState = detailedAddress.state || '';
+                            if (detailedCity && detailedState) {
+                              location = `${detailedCity}, ${detailedState}`;
+                            } else if (detailedCity) {
+                              location = detailedCity;
+                            } else {
+                              location = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                            }
                           } else {
                             location = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
                           }
+                        }
+                      } else {
+                        location = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                      }
+                    } catch (err) {
+                      console.warn('[DriverUpdates] Reverse geocoding failed:', err);
+                      location = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                    }
+                  }
+                }
+              } else {
+                // 2. Fallback to ELD location (SECONDARY)
+                const eldLocRef = doc(db, 'eldLocations', load.carrierId);
+                const eldLocSnap = await getDoc(eldLocRef);
+                if (eldLocSnap.exists()) {
+                  const eldLoc = eldLocSnap.data();
+                  if (eldLoc.lat && eldLoc.lng) {
+                    coordinates = [eldLoc.lng, eldLoc.lat];
+                    if (eldLoc.city && eldLoc.state) {
+                      location = `${eldLoc.city}, ${eldLoc.state}`;
+                    } else {
+                      // Try reverse geocoding to get city/state
+                      try {
+                        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${eldLoc.lat}&lon=${eldLoc.lng}&zoom=10`);
+                        if (response.ok) {
+                          const geoData = await response.json();
+                          const address = geoData.address || {};
+                          const city = address.city || address.town || address.village || address.hamlet || address.county || '';
+                          const state = address.state || address.county || '';
+                          if (city && state) {
+                            location = `${city}, ${state}`;
+                          } else if (city) {
+                            location = city;
+                          } else {
+                            location = `${eldLoc.lat.toFixed(4)}, ${eldLoc.lng.toFixed(4)}`;
+                          }
                         } else {
-                          location = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                          location = `${eldLoc.lat.toFixed(4)}, ${eldLoc.lng.toFixed(4)}`;
                         }
                       } catch (err) {
-                        location = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                        console.warn('[DriverUpdates] ELD reverse geocoding failed:', err);
+                        location = `${eldLoc.lat.toFixed(4)}, ${eldLoc.lng.toFixed(4)}`;
                       }
                     }
                   }
@@ -340,76 +366,18 @@ const DriverUpdates: React.FC = () => {
     setShowDetailsModal(true);
   };
 
-  // Mobile card component
-  const renderMobileCard = (update: DriverUpdate) => (
-    <div key={update.driverId} className={styles.mobileCard}>
-      <div className={styles.cardHeader}>
-        <h3>{update.driverName}</h3>
-        <span className={`${styles.status} ${styles[update.status.toLowerCase()]}`}>
-          {update.status}
-        </span>
-      </div>
-      <div className={styles.cardContent}>
-        <div className={styles.cardRow}>
-          <label>Location:</label>
-          <span>{update.location}</span>
-        </div>
-        <div className={styles.cardRow}>
-          <label>Last Update:</label>
-          <span>{update.lastUpdate}</span>
-        </div>
-        <div className={styles.cardRow}>
-          <label>ETA:</label>
-          <span>{update.eta}</span>
-        </div>
-        <div className={styles.cardRow}>
-          <label>PO Number:</label>
-          <span>{update.load}</span>
-        </div>
-      </div>
-      <div className={styles.cardActions}>
-        <button 
-          className={styles.mobileActionButton} 
-          onClick={() => handleContactClick(update.carrierId, update.driverName)}
-        >
-          Contact
-        </button>
-        <button 
-          className={styles.mobileActionButton} 
-          onClick={() => handleViewDetailsClick(update.driverId, update.pickupCoords, update.deliveryCoords)}
-        >
-          View Details
-        </button>
-      </div>
-    </div>
-  );
+
 
   return (
     <div className={styles.container}>
-      <div className={styles.header}>
+            <div className={styles.header}>
         <h1>Driver Updates</h1>
-        {!isMobile && (
-          <div className={styles.viewToggle}>
-            <button 
-              className={`${styles.toggleButton} ${viewType === 'table' ? styles.active : ''}`}
-              onClick={() => setViewType('table')}
-            >
-              Table View
-            </button>
-            <button 
-              className={`${styles.toggleButton} ${viewType === 'cards' ? styles.active : ''}`}
-              onClick={() => setViewType('cards')}
-            >
-              Card View
-            </button>
-          </div>
-        )}
       </div>
       
       <div className={styles.updatesTable}>
         {loading ? (
           <div className={styles.loading}>Loading...</div>
-        ) : viewType === 'table' ? (
+        ) : (
           <table>
             <thead>
               <tr>
@@ -447,27 +415,6 @@ const DriverUpdates: React.FC = () => {
               )}
             </tbody>
           </table>
-        ) : (
-          <div className={styles.mobileCardsContainer}>
-            {updates.length === 0 ? (
-              <div className={styles.noData}>No active carrier partners or shipments found.</div>
-            ) : (
-              <MobileOptimizedList
-                items={updates}
-                renderItem={renderMobileCard}
-                keyExtractor={(update) => update.driverId}
-                itemHeight={180}
-                containerHeight={isMobile ? 400 : 500}
-                enableVirtualization={isMobile}
-                enablePullToRefresh={isMobile}
-                onRefresh={async () => {
-                  // Refresh updates data
-                  await new Promise(resolve => setTimeout(resolve, 1000));
-                }}
-                className={styles.mobileUpdatesList}
-              />
-            )}
-          </div>
         )}
       </div>
 
@@ -532,13 +479,7 @@ const DriverUpdates: React.FC = () => {
         </div>
       )}
       
-      {/* Mobile performance indicator */}
-      {(isLowBandwidth || isLowBattery) && (
-        <div className={styles.performanceIndicator}>
-          {isLowBandwidth && <span>📶 Slow connection - Optimized loading</span>}
-          {isLowBattery && <span>🔋 Low battery - Reduced animations</span>}
-        </div>
-      )}
+
     </div>
   );
 };
