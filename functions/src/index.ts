@@ -1,4 +1,4 @@
-import { onDocumentDeleted, onDocumentCreated } from "firebase-functions/v2/firestore";
+import { onDocumentDeleted, onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { onValueUpdated } from "firebase-functions/v2/database";
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
@@ -44,41 +44,199 @@ export const syncPresenceToFirestore = onValueUpdated("/status/{userId}", async 
 
 // Cloud Function: On partner request creation, set PO to Carrier Pending and remove from marketplace
 // DISABLED: This function incorrectly sets isMarketplace: false on all loads, causing partnered loads to show up in both marketplace and partner request lists
-// export const onPartnerRequestCreate = functions.firestore
-//   .document('partnerRequests/{requestId}')
-//   .onCreate(async (snap, context) => {
-//     const request = snap.data();
-//     const { poNumber, carrierId } = request;
-//     if (!poNumber || !carrierId) return;
+// export const onPartnerRequestCreate = onDocumentCreated("partnerRequests/{requestId}", async (event) => {
+//   const startTime = Date.now();
+//   const request = event.data?.data();
+//   if (!request) {
+//     console.error('[onPartnerRequestCreate] No data in partner request');
+//     return;
+//   }
+//   
+//   const { poNumber, carrierId, loadId, userId } = request;
+//   
+//   if (!poNumber || !carrierId || !userId) {
+//     console.error('[onPartnerRequestCreate] Missing required fields:', { poNumber, carrierId, userId });
+//     return;
+//   }
 
-//     const db = admin.firestore();
-//     // Find the PO
+//   const db = admin.firestore();
+//   
+//   try {
+//     console.log('[onPartnerRequestCreate] Processing partner request:', { poNumber, carrierId, userId });
+//     
+//     // 1. Find and update the PO
 //     const poSnap = await db.collection('purchaseOrders').where('poNumber', '==', poNumber).get();
-//     if (poSnap.empty) return;
+//     if (poSnap.empty) {
+//       console.error('[onPartnerRequestCreate] PO not found for poNumber:', poNumber);
+//       return;
+//     }
 //     const poRef = poSnap.docs[0].ref;
+//     const poData = poSnap.docs[0].data();
 
-//     // Get carrier info
+//     // Get carrier info for notification
 //     const carrierSnap = await db.collection('users').doc(carrierId).get();
 //     const carrierData = carrierSnap.exists ? carrierSnap.data() : {};
 
-//     // Update PO
+//     // Update PO with carrier pending status
 //     await poRef.update({
 //       status: 'Carrier Pending',
 //       shippingScheduleStatus: 'Carrier Pending',
 //       pendingCarrier: {
 //         id: carrierId,
-//         companyName: carrierData.companyName || '',
-//         email: carrierData.email || '',
-//         status: 'pending'
+//         companyName: carrierData?.companyName || carrierData?.displayName || '',
+//         email: carrierData?.email || '',
+//         status: 'pending',
+//         createdAt: admin.firestore.FieldValue.serverTimestamp()
+//       },
+//       updatedAt: admin.firestore.FieldValue.serverTimestamp()
+//     });
+
+//     // 2. Update all loads for this PO to remove from marketplace
+//     const loadsSnap = await db.collection('loads').where('poNumber', '==', poNumber).get();
+//     let updatedLoads = 0;
+//     const loadUpdatePromises = loadsSnap.docs.map(async (loadDoc) => {
+//       const loadData = loadDoc.data();
+//       
+//       // Only update if it's currently a marketplace load (no carrierId)
+//       if (loadData.isMarketplace === true && !loadData.carrierId) {
+//         console.log('[onPartnerRequestCreate] Updating load to partner:', loadDoc.id);
+//         updatedLoads++;
+//         return loadDoc.ref.update({
+//           isMarketplace: false,
+//           carrierId: carrierId,
+//           status: 'pending',
+//           updatedAt: admin.firestore.FieldValue.serverTimestamp()
+//         });
+//       } else {
+//         console.log('[onPartnerRequestCreate] Load already partnered or invalid state:', loadDoc.id, loadData);
 //       }
 //     });
 
-//     // Update all loads for this PO to remove from marketplace
-//     const loadsSnap = await db.collection('loads').where('poNumber', '==', poNumber).get();
-//     for (const loadDoc of loadsSnap.docs) {
-//       await loadDoc.ref.update({ isMarketplace: false });
+//     await Promise.all(loadUpdatePromises);
+
+//     // 3. Create notification for shipper
+//     await db.collection('notifications').add({
+//       userId: userId,
+//       carrierId: carrierId,
+//       recipientId: userId,
+//       poNumber: poNumber,
+//       status: 'pending',
+//       type: 'partner_request',
+//       message: `${carrierData?.companyName || carrierData?.displayName || 'A carrier'} has requested to partner on PO ${poNumber}`,
+//       createdAt: admin.firestore.FieldValue.serverTimestamp(),
+//       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+//       requiresAction: true
+//     });
+
+//     const duration = Date.now() - startTime;
+//     console.log(`[onPartnerRequestCreate] Successfully processed partner request for PO: ${poNumber} (${updatedLoads} loads updated, ${duration}ms)`);
+//     
+//     // Production monitoring: Log success metrics
+//     await db.collection('metrics').doc('partnerRequests').set({
+//       totalProcessed: admin.firestore.FieldValue.increment(1),
+//       lastProcessed: admin.firestore.FieldValue.serverTimestamp(),
+//       averageProcessingTime: duration
+//     }, { merge: true });
+//     
+//   } catch (error) {
+//     const duration = Date.now() - startTime;
+//     console.error(`[onPartnerRequestCreate] Error processing partner request (${duration}ms):`, error);
+//     
+//     // Production monitoring: Log error metrics
+//     await db.collection('metrics').doc('partnerRequests').set({
+//       totalErrors: admin.firestore.FieldValue.increment(1),
+//       lastError: {
+//         timestamp: admin.firestore.FieldValue.serverTimestamp(),
+//         error: error instanceof Error ? error.message : String(error),
+//         poNumber,
+//         carrierId
+//       }
+//     }, { merge: true });
+//     
+//     // In production, you might want to send this to an error monitoring service
+//     throw error;
+//   }
+// });
+
+// Cloud Function: On partner request status change
+// DISABLED: This function may conflict with existing workflows
+// export const onPartnerRequestStatusChange = onDocumentUpdated("partnerRequests/{requestId}", async (event) => {
+//   const beforeData = event.data?.before.data();
+//   const afterData = event.data?.after.data();
+//   
+//   if (!beforeData || !afterData) {
+//     console.error('[onPartnerRequestStatusChange] No data in partner request');
+//     return;
+//   }
+//   
+//   // Only process if status changed
+//   if (beforeData.status === afterData.status) {
+//     return;
+//   }
+
+//   const { poNumber, carrierId, userId } = afterData;
+//   if (!poNumber || !carrierId || !userId) {
+//     return;
+//   }
+
+//   const db = admin.firestore();
+
+//   try {
+//     if (afterData.status === 'accepted') {
+//       // Update PO to Active
+//       const poSnap = await db.collection('purchaseOrders').where('poNumber', '==', poNumber).get();
+//       if (!poSnap.empty) {
+//         await poSnap.docs[0].ref.update({
+//           status: 'Active',
+//           shippingScheduleStatus: 'Active',
+//           selectedCarrier: {
+//             id: carrierId,
+//             status: 'active'
+//           },
+//           updatedAt: admin.firestore.FieldValue.serverTimestamp()
+//         });
+//       }
+
+//       // Update loads to Active
+//       const loadsSnap = await db.collection('loads').where('poNumber', '==', poNumber).get();
+//       const loadUpdatePromises = loadsSnap.docs.map(loadDoc => 
+//         loadDoc.ref.update({
+//           status: 'active',
+//           updatedAt: admin.firestore.FieldValue.serverTimestamp()
+//         })
+//       );
+//       await Promise.all(loadUpdatePromises);
+
+//     } else if (afterData.status === 'rejected' || afterData.status === 'cancelled') {
+//       // Reset loads back to marketplace
+//       const loadsSnap = await db.collection('loads').where('poNumber', '==', poNumber).get();
+//       const loadUpdatePromises = loadsSnap.docs.map(loadDoc => 
+//         loadDoc.ref.update({
+//           isMarketplace: true,
+//           carrierId: null,
+//           status: 'open',
+//           updatedAt: admin.firestore.FieldValue.serverTimestamp()
+//         })
+//       );
+//       await Promise.all(loadUpdatePromises);
+
+//       // Reset PO status
+//       const poSnap = await db.collection('purchaseOrders').where('poNumber', '==', poNumber).get();
+//       if (!poSnap.empty) {
+//         await poSnap.docs[0].ref.update({
+//           status: 'Open',
+//           shippingScheduleStatus: 'Open',
+//           pendingCarrier: null,
+//           selectedCarrier: null,
+//           updatedAt: admin.firestore.FieldValue.serverTimestamp()
+//         });
+//       }
 //     }
-//   });
+//   } catch (error) {
+//     console.error('[onPartnerRequestStatusChange] Error processing status change:', error);
+//     throw error;
+//   }
+// });
 
 // For production, use Firebase environment config instead of hardcoding:
 // const CLIENT_ID = functions.config().gmail.client_id;

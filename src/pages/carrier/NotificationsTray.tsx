@@ -160,7 +160,7 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ onClose }) => {
   const handleAcceptCounterOffer = async () => {
     if (selectedNotification?.id) {
       try {
-        await updateLoadRequestStatus(selectedNotification.id, 'accepted', selectedNotification.loadDetails?.poNumber || '');
+        await updateLoadRequestStatus(selectedNotification.loadDetails?.poNumber || '', 'accepted');
         setShowCounterOfferModal(false);
         // Refresh notifications
         const notificationRef = doc(db, 'notifications', selectedNotification.id);
@@ -178,7 +178,7 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ onClose }) => {
   const handleRejectCounterOffer = async () => {
     if (selectedNotification?.id) {
       try {
-        await updateLoadRequestStatus(selectedNotification.id, 'rejected', selectedNotification.loadDetails?.poNumber || '');
+        await updateLoadRequestStatus(selectedNotification.loadDetails?.poNumber || '', 'rejected');
         setShowCounterOfferModal(false);
         // Refresh notifications
         const notificationRef = doc(db, 'notifications', selectedNotification.id);
@@ -302,7 +302,7 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ onClose }) => {
               <button style={{ background: '#28a745', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 18px', fontWeight: 600, fontSize: 16, flex: 1, cursor: 'pointer' }}
                 onClick={async () => {
                   try {
-                    await updateLoadRequestStatus(detailsNotification.id, 'accepted', detailsNotification.loadDetails?.poNumber || '');
+                    await updateLoadRequestStatus(detailsNotification.loadDetails?.poNumber || '', 'accepted');
                     setShowDetailsModal(false);
                     // Refresh notifications
                     const notificationRef = doc(db, 'notifications', detailsNotification.id);
@@ -317,7 +317,7 @@ const NotificationsTray: React.FC<NotificationsTrayProps> = ({ onClose }) => {
               <button style={{ background: '#dc3545', color: '#fff', border: 'none', borderRadius: 6, padding: '10px 18px', fontWeight: 600, fontSize: 16, flex: 1, cursor: 'pointer' }}
                 onClick={async () => {
                   try {
-                    await updateLoadRequestStatus(detailsNotification.id, 'rejected', detailsNotification.loadDetails?.poNumber || '');
+                    await updateLoadRequestStatus(detailsNotification.loadDetails?.poNumber || '', 'rejected');
                     setShowDetailsModal(false);
                     // Refresh notifications
                     const notificationRef = doc(db, 'notifications', detailsNotification.id);

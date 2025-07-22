@@ -167,6 +167,9 @@ const AvailableLoads: React.FC = () => {
 
   // Confirmation state for Make Offer
   const [offerConfirmation, setOfferConfirmation] = useState<string | null>(null);
+  
+  // Action feedback state for partner request updates
+  const [actionFeedback, setActionFeedback] = useState<string | null>(null);
 
   // Mobile detection
   useEffect(() => {
@@ -492,18 +495,31 @@ const AvailableLoads: React.FC = () => {
     }
   };
 
-  // Memoize filtered marketplace loads to ensure sync with data
-  const filteredMarketplaceLoads = React.useMemo(
-    () => availableLoads, // Don't filter marketplace loads by partner requests
-    [availableLoads]
-  );
-
   // Strict filtering for partner requests and marketplace loads
   const partnerRequestLoads = availableLoads.filter(
-    load => load.isMarketplace === false && !!load.carrierId
+    load => load.isMarketplace === false && 'carrierId' in load
   );
   const marketplaceLoads = availableLoads.filter(
-    load => load.isMarketplace === true && !('carrierId' in load)
+    load => {
+      // Must be explicitly marketplace
+      if (load.isMarketplace !== true) return false;
+      // Must NOT have carrierId field at all
+      if ('carrierId' in load) return false;
+      // Additional check: exclude loads that are partner requests
+      if (mergedPartnerRequests && mergedPartnerRequests.length > 0) {
+        const isPartnerRequest = mergedPartnerRequests.some(({ partnerRequest }) => 
+          partnerRequest.poNumber === load.poNumber
+        );
+        if (isPartnerRequest) return false;
+      }
+      return true;
+    }
+  );
+
+  // Memoize filtered marketplace loads to ensure sync with data
+  const filteredMarketplaceLoads = React.useMemo(
+    () => marketplaceLoads, // Use the properly filtered marketplace loads
+    [marketplaceLoads]
   );
 
   // Fetch PO company names for all visible loads
@@ -540,6 +556,27 @@ const AvailableLoads: React.FC = () => {
       return true;
     });
   }
+
+  // Add handler for partner request status updates
+  const handlePartnerRequestStatusUpdate = (status: string) => {
+    console.log('[AvailableLoads] Partner request status updated:', status);
+    
+    // Show immediate feedback to user
+    setActionFeedback(`Action completed: ${status}`);
+    
+    // Clear feedback after 3 seconds
+    setTimeout(() => {
+      setActionFeedback(null);
+    }, 3000);
+    
+    // Force refresh of partner requests to update the list
+    // The real-time listener should handle this automatically, but we can force a refresh
+    if (status === 'rejected' || status === 'accepted') {
+      // Trigger a refresh of the partner requests
+      // This will be handled by the real-time listener, but we can add a manual trigger if needed
+      console.log('[AvailableLoads] Triggering partner request refresh');
+    }
+  };
 
   // Render load item for mobile list
   const renderLoadItem = (load: AvailableLoad, index: number) => (
@@ -1137,26 +1174,31 @@ const AvailableLoads: React.FC = () => {
               <div>No partner loads at this time.</div>
             ) : (
               <>
-                {dedupePartnerRequests(mergedPartnerRequests).map(({ partnerRequest, po }) => (
-                  <LoadRequestCard
-                    key={partnerRequest.id}
-                    notification={{
-                      ...partnerRequest,
-                      loadDetails: {
-                        ...(partnerRequest.loadDetails || {}),
-                        ...(po || {}),
-                        pickupLocation: po?.pickupLocation || partnerRequest.loadDetails?.pickupLocation || {},
-                        deliveryLocation: po?.deliveryLocation || partnerRequest.loadDetails?.deliveryLocation || {},
-                        rate: po?.rate || partnerRequest.loadDetails?.rate || 0,
-                        weight: po?.weight || partnerRequest.loadDetails?.weight || 0,
-                        dimensions: po?.dimensions || partnerRequest.loadDetails?.dimensions || {},
-                        shipperCompany: po?.shipperCompany || partnerRequest.loadDetails?.shipperCompany || '',
-                        poNumber: po?.poNumber || partnerRequest.loadDetails?.poNumber || partnerRequest.poNumber || '',
-                      }
-                    }}
-                    onStatusUpdate={() => {}}
-                  />
-                ))}
+                {dedupePartnerRequests(mergedPartnerRequests).map(({ partnerRequest, po }) => {
+                  const poNumber = po?.poNumber || partnerRequest.loadDetails?.poNumber || partnerRequest.poNumber || '';
+                  
+                  return (
+                    <LoadRequestCard
+                      key={partnerRequest.id}
+                      notification={{
+                        ...partnerRequest,
+                        poNumber: poNumber, // Add poNumber at the top level
+                        loadDetails: {
+                          ...(partnerRequest.loadDetails || {}),
+                          ...(po || {}),
+                          pickupLocation: po?.pickupLocation || partnerRequest.loadDetails?.pickupLocation || {},
+                          deliveryLocation: po?.deliveryLocation || partnerRequest.loadDetails?.deliveryLocation || {},
+                          rate: po?.rate || partnerRequest.loadDetails?.rate || 0,
+                          weight: po?.weight || partnerRequest.loadDetails?.weight || 0,
+                          dimensions: po?.dimensions || partnerRequest.loadDetails?.dimensions || {},
+                          shipperCompany: po?.shipperCompany || partnerRequest.loadDetails?.shipperCompany || '',
+                          poNumber: poNumber, // Also in loadDetails
+                        }
+                      }}
+                      onStatusUpdate={handlePartnerRequestStatusUpdate}
+                    />
+                  );
+                })}
               </>
             )}
           </div>
@@ -1167,6 +1209,13 @@ const AvailableLoads: React.FC = () => {
           <div className={styles.performanceIndicator}>
             {isLowBandwidth && <span>📶 Slow connection</span>}
             {isLowBattery && <span>🔋 Low battery</span>}
+          </div>
+        )}
+        
+        {/* Action feedback for partner request updates */}
+        {actionFeedback && (
+          <div className={styles.actionFeedback}>
+            {actionFeedback}
           </div>
         )}
       </div>

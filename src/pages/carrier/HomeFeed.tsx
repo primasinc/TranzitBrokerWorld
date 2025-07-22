@@ -131,7 +131,7 @@ const HomeFeed: React.FC = () => {
 
   // Strict filtering for partner requests and marketplace loads
   const partnerRequestLoads = availableLoads.filter(
-    load => load.isMarketplace === false && !!load.carrierId
+    load => load.isMarketplace === false && 'carrierId' in load
   );
   const marketplaceLoads = availableLoads.filter(
     load => load.isMarketplace === true && !('carrierId' in load)

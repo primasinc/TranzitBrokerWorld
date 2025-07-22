@@ -98,25 +98,40 @@ service cloud.firestore {
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
 
-    // Notifications collection
+    // Notifications collection - FIXED FOR CARRIER REJECTION WORKFLOW
     match /notifications/{notificationId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
-      allow update, delete: if isAuthenticated() && (
+      allow update: if isAuthenticated() && (
         resource.data.userId == request.auth.uid ||
         resource.data.carrierId == request.auth.uid ||
-        resource.data.shipperId == request.auth.uid // Allow PO owner to delete
+        resource.data.shipperId == request.auth.uid ||
+        // Allow carrier to update notifications they are the recipient of
+        resource.data.recipientId == request.auth.uid
+      );
+      allow delete: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.carrierId == request.auth.uid ||
+        resource.data.shipperId == request.auth.uid
       );
     }
 
-    // Purchase Orders collection
+    // Purchase Orders collection - FIXED FOR CARRIER REJECTION WORKFLOW
     match /purchaseOrders/{poId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
-      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        // Allow carrier to update PO status when rejecting (for business logic)
+        (
+          request.resource.data.status == 'Active' &&
+          resource.data.userId != request.auth.uid
+        )
+      );
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
 
-    // Loads collection
+    // Loads collection - FIXED FOR CARRIER REJECTION WORKFLOW
     match /loads/{loadId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
@@ -127,6 +142,11 @@ service cloud.firestore {
           resource.data.isMarketplace == true &&
           request.resource.data.carrierId == request.auth.uid &&
           request.resource.data.isMarketplace == false
+        ) ||
+        // Allow carrier to update load when rejecting (remove carrierId, change status)
+        (
+          resource.data.carrierId == request.auth.uid &&
+          request.resource.data.carrierId == null
         )
       );
       allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;

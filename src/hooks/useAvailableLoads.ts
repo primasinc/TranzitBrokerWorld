@@ -100,9 +100,19 @@ export function useAvailableLoads(
         });
       }
       console.log('[DEBUG] All loads fetched:', allLoads);
-      // Filter by status (exclude cancelled or completed)
+      
+      // Validate data consistency
+      const inconsistent = allLoads.filter(load => 
+        (load.isMarketplace === true && 'carrierId' in load) ||
+        (load.isMarketplace === false && !('carrierId' in load))
+      );
+      if (inconsistent.length > 0) {
+        console.warn('[DATA INCONSISTENCY] Found loads with inconsistent flags:', inconsistent);
+      }
+      
+      // Filter by status (exclude cancelled, completed, or rejected)
       let filtered = allLoads.filter(load => 
-        !['cancelled', 'completed'].includes((load.status || '').toLowerCase())
+        !['cancelled', 'completed', 'rejected'].includes((load.status || '').toLowerCase())
       );
       console.log('[DEBUG] After status filter:', filtered);
       if (carrierLocation) {
@@ -176,8 +186,23 @@ export function useAvailableLoads(
  * @param partnerRequests Array of partner requests (with poNumber and loadId)
  */
 export function getFilteredMarketplaceLoads(availableLoads: AvailableLoad[], partnerRequests: any[]): AvailableLoad[] {
-  // Strictly filter by isMarketplace === true and no carrierId field
-  return availableLoads.filter(
-    load => load.isMarketplace === true && !('carrierId' in load)
-  );
+  // Marketplace loads: isMarketplace: true, NO carrierId field at all
+  return availableLoads.filter(load => {
+    // Must be explicitly marketplace
+    if (load.isMarketplace !== true) return false;
+    // Must NOT have carrierId field at all
+    if ('carrierId' in load) {
+      console.warn('[DATA INCONSISTENCY] Marketplace load has carrierId field:', load);
+      return false;
+    }
+    // Additional check: exclude loads that are partner requests
+    if (partnerRequests && partnerRequests.length > 0) {
+      const isPartnerRequest = partnerRequests.some(req => req.poNumber === load.poNumber);
+      if (isPartnerRequest) {
+        console.warn('[FILTER] Excluding partner request load from marketplace:', load);
+        return false;
+      }
+    }
+    return true;
+  });
 } 

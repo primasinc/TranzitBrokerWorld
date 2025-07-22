@@ -213,82 +213,24 @@ const ShippingScheduleForm: React.FC = () => {
       // If a carrier was selected, send them a notification
       if (selectedOption === 'carrier' && locationState?.selectedCarrier && user) {
         const poData = locationState?.poData || {};
-        // 1. Create the load first
-        const pickupLocationForLoad = {
-          ...data.pickupLocation,
-          position: poData.vendorInfo?.position || [0, 0],
+        
+        // Prepare load details for notification (no load creation here - that happens later)
+        const pickupLocation = {
+          address: data.pickupLocation.address || poData.vendorInfo?.streetAddress || 'N/A',
+          city: data.pickupLocation.city || poData.vendorInfo?.city || 'N/A',
+          state: data.pickupLocation.state || poData.vendorInfo?.state || 'N/A',
+          zipCode: data.pickupLocation.zipCode || poData.vendorInfo?.zipCode || 'N/A',
+          date: data.pickupLocation.date || poData.date || 'N/A',
+          time: ''
         };
-        const deliveryLocationForLoad = {
-          ...data.deliveryLocation,
-          position: poData.shipTo?.position || [0, 0],
+        const deliveryLocation = {
+          address: data.deliveryLocation.address || poData.shipTo?.streetAddress || 'N/A',
+          city: data.deliveryLocation.city || poData.shipTo?.city || 'N/A',
+          state: data.deliveryLocation.state || poData.shipTo?.state || 'N/A',
+          zipCode: data.deliveryLocation.zipCode || poData.shipTo?.zipCode || 'N/A',
+          date: data.deliveryLocation.date || poData.date || 'N/A',
+          time: ''
         };
-        // Set title based on selectedOption
-        let loadTitle = poData.title || poData.poNumber || '';
-        if (!loadTitle) {
-          loadTitle = (selectedOption as CarrierOrMarketplace) === 'marketplace' ? 'Marketplace Load' : 'Partner Request Load';
-        }
-        // Format dimensions as string for top-level field
-        const formattedDimensions = data.cargoDetails.dimensions && (data.cargoDetails.dimensions.length || data.cargoDetails.dimensions.width || data.cargoDetails.dimensions.height)
-          ? `${data.cargoDetails.dimensions.length || ''}x${data.cargoDetails.dimensions.width || ''}x${data.cargoDetails.dimensions.height || ''}`
-          : '';
-        const loadDoc = {
-          title: loadTitle,
-          pickupLocation: pickupLocationForLoad,
-          deliveryLocation: deliveryLocationForLoad,
-          rate: poData.rate || 0,
-          status: (selectedOption as CarrierOrMarketplace) === 'marketplace' ? 'open' : 'pending', // Marketplace loads: 'open', Partner requests: 'pending'
-          poNumber: poData.poNumber || '',
-          weight: data.cargoDetails.weight ? data.cargoDetails.weight.toString() : '',
-          dimensions: formattedDimensions,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          isMarketplace: (selectedOption as CarrierOrMarketplace) === 'marketplace',
-        } as any; // allow dynamic carrierId
-        if ((selectedOption as CarrierOrMarketplace) === 'carrier' && locationState?.selectedCarrier?.id) {
-          loadDoc.carrierId = locationState.selectedCarrier.id;
-        } else {
-          // Ensure carrierId is never present for marketplace loads
-          if ('carrierId' in loadDoc) {
-            delete loadDoc.carrierId;
-          }
-        }
-        await addDoc(collection(db, 'loads'), loadDoc);
-        // 2. Robust retry: fetch the load by poNumber with retries
-        let pickupLocation, deliveryLocation;
-        const maxAttempts = 5;
-        const delayMs = 300;
-        let found = false;
-        for (let attempt = 0; attempt < maxAttempts; attempt++) {
-          const loadsQuery = query(collection(db, 'loads'), where('poNumber', '==', poData.poNumber || ''));
-          const loadsSnap = await getDocs(loadsQuery);
-          if (!loadsSnap.empty) {
-            const loadData = loadsSnap.docs[0].data();
-            pickupLocation = loadData.pickupLocation || {};
-            deliveryLocation = loadData.deliveryLocation || {};
-            found = true;
-            break;
-          }
-          await new Promise(res => setTimeout(res, delayMs));
-        }
-        if (!found) {
-          // Fallback to form/PO data
-          pickupLocation = {
-            address: data.pickupLocation.address || poData.vendorInfo?.streetAddress || 'N/A',
-            city: data.pickupLocation.city || poData.vendorInfo?.city || 'N/A',
-            state: data.pickupLocation.state || poData.vendorInfo?.state || 'N/A',
-            zipCode: data.pickupLocation.zipCode || poData.vendorInfo?.zipCode || 'N/A',
-            date: data.pickupLocation.date || poData.date || 'N/A',
-            time: ''
-          };
-          deliveryLocation = {
-            address: data.deliveryLocation.address || poData.shipTo?.streetAddress || 'N/A',
-            city: data.deliveryLocation.city || poData.shipTo?.city || 'N/A',
-            state: data.deliveryLocation.state || poData.shipTo?.state || 'N/A',
-            zipCode: data.deliveryLocation.zipCode || poData.shipTo?.zipCode || 'N/A',
-            date: data.deliveryLocation.date || poData.date || 'N/A',
-            time: ''
-          };
-        }
         const dimensions = (data.cargoDetails.dimensions && (data.cargoDetails.dimensions.length || data.cargoDetails.dimensions.width || data.cargoDetails.dimensions.height))
           ? data.cargoDetails.dimensions
           : (poData.cargoDetails?.dimensions || { length: 0, width: 0, height: 0 });
@@ -308,7 +250,7 @@ const ShippingScheduleForm: React.FC = () => {
         console.log('Sending partner request with loadDetails:', loadDetails);
         await createPartnerRequest({
           poNumber: poNumber,
-          loadId: id, // id is the shipping schedule id or load id
+          loadId: id, // id is the shipping schedule id
           userId: user.uid,
           carrierId: locationState.selectedCarrier.id,
         });
@@ -337,15 +279,15 @@ const ShippingScheduleForm: React.FC = () => {
 
       // Navigate based on the selected option
       if (selectedOption === 'marketplace') {
-        // Create a load in the 'loads' collection for carriers
+        // Create a marketplace load in the 'loads' collection for carriers
         const poData = locationState?.poData || {};
         const pickupLocation = {
           ...data.pickupLocation,
-          position: poData.vendorInfo?.position || [0, 0], // Use real geocode if available
+          position: poData.vendorInfo?.position || [0, 0],
         };
         const deliveryLocation = {
           ...data.deliveryLocation,
-          position: poData.shipTo?.position || [0, 0], // Use real geocode if available
+          position: poData.shipTo?.position || [0, 0],
         };
         const loadDoc = {
           title: poData.title || poData.poNumber || 'Marketplace Load',
@@ -361,17 +303,13 @@ const ShippingScheduleForm: React.FC = () => {
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
           isMarketplace: true, // Explicitly mark as marketplace load
-        } as any; // allow dynamic carrierId
-        // Ensure carrierId is never set for marketplace loads
-        if ('carrierId' in loadDoc) {
-          delete loadDoc.carrierId;
-        }
-        // Debug: Log the loadDoc object before saving
-        console.log('[DEBUG] loadDoc to be saved:', loadDoc);
+          // NEVER set carrierId for marketplace loads
+        };
+        console.log('[DEBUG] Creating marketplace load:', loadDoc);
         await addDoc(collection(db, 'loads'), loadDoc);
         navigate('/shipper/loads');
       } else if (selectedOption === 'carrier') {
-        // Create a load for a partner request
+        // Create a partner request load in the 'loads' collection
         const poData = locationState?.poData || {};
         const pickupLocation = {
           ...data.pickupLocation,
@@ -386,7 +324,7 @@ const ShippingScheduleForm: React.FC = () => {
           pickupLocation,
           deliveryLocation,
           rate: poData.rate || 0,
-          status: 'open',
+          status: 'pending', // Partner requests get 'pending' status
           poNumber: poData.poNumber || '',
           weight: data.cargoDetails.weight ? data.cargoDetails.weight.toString() : '',
           dimensions: data.cargoDetails.dimensions && (data.cargoDetails.dimensions.length || data.cargoDetails.dimensions.width || data.cargoDetails.dimensions.height)
@@ -396,7 +334,8 @@ const ShippingScheduleForm: React.FC = () => {
           updatedAt: serverTimestamp(),
           isMarketplace: false, // Not a marketplace load
           carrierId: locationState.selectedCarrier.id, // Only set for partner/assigned loads
-        } as any;
+        };
+        console.log('[DEBUG] Creating partner request load:', loadDoc);
         await addDoc(collection(db, 'loads'), loadDoc);
         navigate('/shipper/loads');
       } else {

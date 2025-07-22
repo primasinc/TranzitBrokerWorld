@@ -783,3 +783,361 @@ input:checked + .toggleSlider:before {
   z-index: 20001;
   padding: 16px;
 } 
+
+/* Rejected Loads Styles */
+.actionRequiredSection {
+  margin-bottom: 30px;
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.rejectedLoadsList {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.rejectedLoadCard {
+  background: white;
+  border: 2px solid #dc3545;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.15);
+  transition: all 0.3s ease;
+}
+
+.rejectedLoadCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(220, 53, 69, 0.2);
+}
+
+.rejectedLoadHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.rejectedLoadHeader h3 {
+  margin: 0;
+  color: #dc3545;
+  font-size: 1.1em;
+  font-weight: 600;
+}
+
+.urgentBadge {
+  background: #dc3545;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8em;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.rejectedLoadDetails {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.rejectedLoadDetails div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.rejectedLoadDetails label {
+  font-weight: 600;
+  color: #666;
+  font-size: 0.9em;
+}
+
+.rejectedLoadDetails span {
+  color: #333;
+  font-weight: 500;
+}
+
+.rejectedLoadActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.selectNewCarrierButton {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  flex: 1;
+  min-width: 150px;
+}
+
+.selectNewCarrierButton:hover {
+  background: #0056b3;
+  transform: translateY(-1px);
+}
+
+.viewDetailsButton {
+  background: #6c757d;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  flex: 1;
+  min-width: 120px;
+}
+
+.viewDetailsButton:hover {
+  background: #545b62;
+  transform: translateY(-1px);
+}
+
+/* Mobile responsive styles for rejected loads */
+@media (max-width: 768px) {
+  .actionRequiredSection {
+    padding: 15px;
+    margin-bottom: 20px;
+  }
+  
+  .rejectedLoadCard {
+    padding: 15px;
+  }
+  
+  .rejectedLoadDetails {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  
+  .rejectedLoadActions {
+    flex-direction: column;
+  }
+  
+  .selectNewCarrierButton,
+  .viewDetailsButton {
+    width: 100%;
+    min-width: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .rejectedLoadHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .urgentBadge {
+    align-self: flex-end;
+  }
+}
+
+/* Enhanced Active Shipments Styles */
+.shipmentCard {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  border-left: 4px solid #007bff;
+}
+
+.shipmentCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.rejectedShipment {
+  border-left-color: #dc3545;
+  background: linear-gradient(135deg, #fff 0%, #fff5f5 100%);
+}
+
+.shipmentHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.shipmentTitle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.shipmentTitle h3 {
+  margin: 0;
+  font-size: 1.2em;
+  font-weight: 600;
+  color: #333;
+}
+
+.rejectionBadge {
+  background: #dc3545;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.75em;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.shipmentRoute {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.routeInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.routeLabel {
+  font-size: 0.8em;
+  color: #666;
+  font-weight: 500;
+}
+
+.routeValue {
+  font-size: 0.95em;
+  color: #333;
+  font-weight: 600;
+}
+
+.routeArrow {
+  font-size: 1.2em;
+  color: #007bff;
+  font-weight: bold;
+  margin: 0 8px;
+}
+
+.shipmentDetails {
+  margin-bottom: 16px;
+}
+
+.detailRow {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 8px;
+}
+
+.detailItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.detailItem label {
+  font-size: 0.8em;
+  color: #666;
+  font-weight: 500;
+}
+
+.detailItem span {
+  font-size: 0.9em;
+  color: #333;
+  font-weight: 500;
+}
+
+.poNumber {
+  font-weight: 600;
+  color: #007bff;
+}
+
+.cost {
+  font-weight: 600;
+  color: #28a745;
+}
+
+.shipmentActions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.viewButton {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.9em;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.viewButton:hover {
+  background: #0056b3;
+  transform: translateY(-1px);
+}
+
+.selectCarrierButton {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.9em;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.selectCarrierButton:hover {
+  background: #c82333;
+  transform: translateY(-1px);
+}
+
+/* Mobile responsive for enhanced shipments */
+@media (max-width: 768px) {
+  .shipmentCard {
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  
+  .shipmentRoute {
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+  }
+  
+  .routeArrow {
+    transform: rotate(90deg);
+    margin: 4px 0;
+  }
+  
+  .detailRow {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .shipmentActions {
+    flex-direction: column;
+  }
+  
+  .viewButton,
+  .selectCarrierButton {
+    width: 100%;
+    text-align: center;
+  }
+} 

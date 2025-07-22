@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { collection, getDocs, doc, deleteDoc, getDoc, query, where, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, deleteDoc, getDoc, query, where, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db, auth } from '../../config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import styles from './CarrierPartners.module.css';
@@ -25,6 +25,8 @@ interface Partner {
 interface LocationState {
   poData?: any;
   rate?: string;
+  fromRejection?: boolean;
+  rejectedLoadId?: string;
 }
 
 const CarrierPartners: React.FC = () => {
@@ -178,6 +180,10 @@ const CarrierPartners: React.FC = () => {
           alert('You do not have permission to update this purchase order.');
           return;
         }
+        
+        // Check if this is from a rejection (has rejectedLoadId)
+        const isFromRejection = locationState?.fromRejection && locationState?.rejectedLoadId;
+        
         try {
           await updateDoc(doc(db, 'purchaseOrders', orderDoc.id), {
             status: 'Active',
@@ -201,12 +207,41 @@ const CarrierPartners: React.FC = () => {
         if (!loadsSnapshot.empty) {
           const loadDoc = loadsSnapshot.docs[0];
           try {
+            // If this is from a rejection, update the existing load
+            if (isFromRejection) {
+              await updateDoc(doc(db, 'loads', loadDoc.id), {
+                carrierId: partner.carrierId,
+                status: 'pending',
+                updatedAt: serverTimestamp(),
+              });
+            } else {
+              // IMMEDIATELY remove load from marketplace when carrier is selected
+              await updateDoc(doc(db, 'loads', loadDoc.id), {
+                isMarketplace: false,
+                carrierId: partner.carrierId,
+                status: 'pending',
+                updatedAt: serverTimestamp(),
+              });
+            }
+            
             await createPartnerRequest({
               poNumber: locationState.poData.poNumber,
               loadId: loadDoc.id,
               userId: userId || '',
               carrierId: partner.carrierId,
             });
+            
+            // If this is from a rejection, mark the notification as read
+            if (isFromRejection && locationState.rejectedLoadId) {
+              try {
+                await updateDoc(doc(db, 'notifications', locationState.rejectedLoadId), {
+                  read: true,
+                  updatedAt: serverTimestamp(),
+                });
+              } catch (err) {
+                console.error('[ERROR] Failed to mark rejection notification as read:', err);
+              }
+            }
           } catch (err) {
             console.error('[ERROR] Failed to create partner request:', err);
           }

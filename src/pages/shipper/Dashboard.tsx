@@ -6,7 +6,7 @@ import { generateTestData } from '../../utils/seedTestData';
 import styles from './Dashboard.module.css';
 import MapboxMap from '../../components/common/MapboxMap';
 import { db } from '../../firebase';
-import { collection, getDocs, getDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, getDoc, doc, query, where, onSnapshot } from 'firebase/firestore';
 import { useShipments } from '../../context/ShipmentsContext';
 import mapboxgl from 'mapbox-gl';
 import { useMobileOptimization } from '../../hooks/useMobileOptimization';
@@ -34,6 +34,17 @@ interface AvailableCarrier {
   distance: number; // in miles
   position: [number, number]; // [longitude, latitude] for Mapbox
   availableDate: string;
+}
+
+interface RejectedLoad {
+  id: string;
+  poNumber: string;
+  pickupLocation: string;
+  deliveryLocation: string;
+  rate: number;
+  rejectionTime: Date;
+  rejectionReason?: string;
+  loadId: string;
 }
 
 const ACTIVE_STATUSES = ['Active', 'Carrier Pending', 'In Progress', 'Delayed'];
@@ -90,6 +101,7 @@ const ShipperDashboard: React.FC = () => {
   const [isMapFullscreen, setIsMapFullscreen] = useState(false);
   const [mapZoom, setMapZoom] = useState(10);
   const [hideMap, setHideMap] = useState(false);
+  const [rejectedLoads, setRejectedLoads] = useState<RejectedLoad[]>([]);
 
   const handleMapLoad = useCallback((map: mapboxgl.Map) => {
     setMapInstance(map);
@@ -116,12 +128,11 @@ const ShipperDashboard: React.FC = () => {
     const checkMobile = () => {
       const userAgent = navigator.userAgent.toLowerCase();
       const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
-      setIsMobile(isMobileDevice || window.innerWidth <= 768);
+      const isMobileScreen = window.innerWidth <= 768;
+      setIsMobile(isMobileDevice || isMobileScreen);
     };
-
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
@@ -247,17 +258,144 @@ const ShipperDashboard: React.FC = () => {
     
     const userId = (user as any)?.uid || (user as any)?.email || '';
     console.log('Starting test data generation for user:', userId);
-    const success = await generateTestData(userId);
     
-    if (success) {
-      console.log('Test data generation completed successfully');
-    } else {
-      console.error('Failed to generate test data');
-      setError('Failed to generate test data. Please try again.');
+    try {
+      const success = await generateTestData(userId);
+      
+      if (success) {
+        console.log('Test data generation completed successfully');
+        alert('Test data generated successfully!');
+      } else {
+        console.error('Failed to generate test data');
+        setError('Failed to generate test data. Please try again.');
+      }
+    } catch (err) {
+      setError('Failed to generate test data: ' + (err as Error).message);
+    } finally {
+      setIsGenerating(false);
     }
-
-    setIsGenerating(false);
   };
+
+  // Fetch rejected loads that need new carriers
+  const fetchRejectedLoads = useCallback(async () => {
+    if (!user) return;
+    
+    try {
+      // Get notifications for this shipper that are carrier rejections
+      const notificationsQuery = query(
+        collection(db, 'notifications'),
+        where('shipperId', '==', user.uid),
+        where('type', '==', 'carrier_decline'),
+        where('read', '==', false)
+      );
+      
+      const unsubscribe = onSnapshot(notificationsQuery, async (snapshot) => {
+        const rejectedLoadsData: RejectedLoad[] = [];
+        
+        for (const notificationDoc of snapshot.docs) {
+          const notificationData = notificationDoc.data();
+          
+          // Only process notifications that are actually rejections
+          if (notificationData.status !== 'declined') continue;
+          
+          // Validate that the PO number exists and belongs to this shipper
+          if (notificationData.poNumber) {
+            try {
+              const poQuery = query(
+                collection(db, 'purchaseOrders'),
+                where('poNumber', '==', notificationData.poNumber),
+                where('userId', '==', user.uid)
+              );
+              const poSnapshot = await getDocs(poQuery);
+              
+              // Only include if the purchase order exists and belongs to this shipper
+              if (!poSnapshot.empty) {
+                const poData = poSnapshot.docs[0].data();
+                
+                // Get load details from the purchase order instead of notification
+                rejectedLoadsData.push({
+                  id: notificationDoc.id,
+                  poNumber: notificationData.poNumber,
+                  pickupLocation: poData.vendorInfo?.cityStateZip || poData.pickupLocation?.address || 'Unknown',
+                  deliveryLocation: poData.shipTo?.cityStateZip || 'Unknown',
+                  rate: poData.rate || poData.total || 0,
+                  rejectionTime: notificationData.createdAt?.toDate() || new Date(),
+                  rejectionReason: notificationData.message || 'Carrier rejected the load',
+                  loadId: notificationData.loadId || ''
+                });
+              }
+            } catch (error) {
+              console.error('[Dashboard] Error validating PO for rejection:', error);
+            }
+          }
+        }
+        
+        setRejectedLoads(rejectedLoadsData);
+      });
+      
+      return unsubscribe;
+    } catch (error) {
+      console.error('Error fetching rejected loads:', error);
+    }
+  }, [user]);
+
+  const handleSelectNewCarrier = (rejectedLoad: RejectedLoad) => {
+    navigate('/shipper/partners', {
+      state: {
+        poData: {
+          poNumber: rejectedLoad.poNumber,
+          pickupLocation: rejectedLoad.pickupLocation,
+          deliveryLocation: rejectedLoad.deliveryLocation,
+          rate: rejectedLoad.rate
+        },
+        fromRejection: true,
+        rejectedLoadId: rejectedLoad.id
+      }
+    });
+  };
+
+  const handleViewShipmentDetails = (shipment: any) => {
+    navigate('/shipper/schedule', {
+      state: {
+        selectedShipment: {
+          poNumber: shipment.poNumber,
+          date: shipment.date,
+          pickup: shipment.pickup,
+          destination: shipment.destination,
+          carrier: shipment.carrier,
+          status: shipment.status,
+          type: shipment.type,
+          cost: shipment.cost
+        }
+      }
+    });
+  };
+
+  // Fetch rejected loads when component mounts
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+    
+    const initRejectedLoads = async () => {
+      try {
+        const unsub = await fetchRejectedLoads();
+        if (unsub) {
+          unsubscribe = unsub;
+        }
+      } catch (error) {
+        console.error('[Dashboard] Error initializing rejected loads:', error);
+      }
+    };
+    
+    // Delay the initialization to avoid interfering with map initialization
+    const timer = setTimeout(initRejectedLoads, 1000);
+    
+    return () => {
+      clearTimeout(timer);
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [fetchRejectedLoads]);
 
   // Convert shipments and carriers to Mapbox markers
   const getMapMarkers = () => {
@@ -419,17 +557,17 @@ const ShipperDashboard: React.FC = () => {
   useEffect(() => {
     if (!mapInstance) return;
 
-    // Defensive: check all methods exist before calling
-    const safeGetLayer = (id: string) => typeof mapInstance.getLayer === 'function' && mapInstance.getLayer(id);
-    const safeRemoveLayer = (id: string) => typeof mapInstance.removeLayer === 'function' && mapInstance.removeLayer(id);
-    const safeGetSource = (id: string) => typeof mapInstance.getSource === 'function' && mapInstance.getSource(id);
-    const safeRemoveSource = (id: string) => typeof mapInstance.removeSource === 'function' && mapInstance.removeSource(id);
+    // Defensive: check mapInstance exists and all methods exist before calling
+    const safeGetLayer = (id: string) => mapInstance && typeof mapInstance.getLayer === 'function' && mapInstance.getLayer(id);
+    const safeRemoveLayer = (id: string) => mapInstance && typeof mapInstance.removeLayer === 'function' && mapInstance.removeLayer(id);
+    const safeGetSource = (id: string) => mapInstance && typeof mapInstance.getSource === 'function' && mapInstance.getSource(id);
+    const safeRemoveSource = (id: string) => mapInstance && typeof mapInstance.removeSource === 'function' && mapInstance.removeSource(id);
     // MapboxGL typings: addSource(id: string, source: any)
-    const safeAddSource = (id: string, source: any) => typeof mapInstance.addSource === 'function' && mapInstance.addSource(id, source);
+    const safeAddSource = (id: string, source: any) => mapInstance && typeof mapInstance.addSource === 'function' && mapInstance.addSource(id, source);
     // addLayer(layer: any)
-    const safeAddLayer = (layer: any) => typeof mapInstance.addLayer === 'function' && mapInstance.addLayer(layer);
+    const safeAddLayer = (layer: any) => mapInstance && typeof mapInstance.addLayer === 'function' && mapInstance.addLayer(layer);
     // fitBounds(bounds: any, options?: any)
-    const safeFitBounds = (bounds: any, options?: any) => typeof mapInstance.fitBounds === 'function' && mapInstance.fitBounds(bounds, options);
+    const safeFitBounds = (bounds: any, options?: any) => mapInstance && typeof mapInstance.fitBounds === 'function' && mapInstance.fitBounds(bounds, options);
 
     if (!showActiveShipments) {
       // Add radius circle for available carriers view
@@ -523,7 +661,11 @@ const ShipperDashboard: React.FC = () => {
           tabIndex={0}
         >
           <h3>Active Shipments</h3>
-          <div className={styles.metricValue}>{shipments.length}</div>
+          <div className={styles.metricValue}>
+            {shipments.filter(shipment => 
+              shipment.status === 'Active' || shipment.status === 'Carrier Pending'
+            ).length}
+          </div>
         </div>
         <div className={styles.metricCard}>
           <h3>On-Time Delivery</h3>
@@ -568,16 +710,18 @@ const ShipperDashboard: React.FC = () => {
                     {isMapFullscreen ? '✕' : '⛶'}
                   </button>
                 )}
-                <MapboxMap
-                  center={userLocation}
-                  zoom={showActiveShipments ? (isMobile ? 6 : 4) : (isMobile ? 11 : 9)}
-                  markers={showAvailableCarriers ? availableCarriers.map(carrier => ({
-                    id: carrier.id,
-                    position: carrier.position,
-                    type: 'carrier',
-                  })) : getMapMarkers()}
-                  onMapLoad={handleMapLoad}
-                />
+                <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                  <MapboxMap
+                    center={userLocation}
+                    zoom={showActiveShipments ? (isMobile ? 6 : 4) : (isMobile ? 11 : 9)}
+                    markers={showAvailableCarriers ? availableCarriers.map(carrier => ({
+                      id: carrier.id,
+                      position: carrier.position,
+                      type: 'carrier',
+                    })) : getMapMarkers()}
+                    onMapLoad={handleMapLoad}
+                  />
+                </div>
               </>
             ) : !isLocationReady ? (
               <div className={styles.mapLoading}>
@@ -626,39 +770,104 @@ const ShipperDashboard: React.FC = () => {
 
           <div className={styles.shipmentList}>
             {showActiveShipments ? (
-              // Show only active shipments (not open, pending, or completed)
-              shipments.filter(shipment => shipment.status === 'Active').map(shipment => (
-                <div key={shipment.id} className={styles.shipmentCard}>
-                  <div className={styles.shipmentHeader}>
-                    <h3>{shipment.carrier}</h3>
-                    <span className={`${styles.status} ${styles[shipment.status.toLowerCase()]}`}>
-                      {shipment.status}
-                    </span>
-                  </div>
-                  <div className={styles.shipmentDetails}>
-                    <div>
-                      <label>Type:</label>
-                      <span>{shipment.type}</span>
+              // Show active shipments and carrier pending shipments, with rejected loads at top
+              shipments
+                .filter(shipment => 
+                  shipment.status === 'Active' || shipment.status === 'Carrier Pending'
+                )
+                .sort((a, b) => {
+                  // Sort by priority: rejected loads first, then by date
+                  const aIsRejected = rejectedLoads.some(rejected => rejected.poNumber === a.poNumber);
+                  const bIsRejected = rejectedLoads.some(rejected => rejected.poNumber === b.poNumber);
+                  
+                  if (aIsRejected && !bIsRejected) return -1;
+                  if (!aIsRejected && bIsRejected) return 1;
+                  
+                  // Then sort by date (newest first)
+                  return new Date(b.date).getTime() - new Date(a.date).getTime();
+                })
+                .map(shipment => {
+                  const isRejected = rejectedLoads.some(rejected => rejected.poNumber === shipment.poNumber);
+                  const rejectedLoad = rejectedLoads.find(r => r.poNumber === shipment.poNumber);
+                  
+                  return (
+                    <div key={shipment.id} className={`${styles.shipmentCard} ${isRejected ? styles.rejectedShipment : ''}`}>
+                      <div className={styles.shipmentHeader}>
+                        <div className={styles.shipmentTitle}>
+                          <h3>{shipment.carrier}</h3>
+                          {isRejected && <span className={styles.rejectionBadge}>🚨 REJECTED</span>}
+                        </div>
+                        <span className={`${styles.status} ${styles[shipment.status.toLowerCase()]}`}>
+                          {isRejected ? 'Rejected' : shipment.status}
+                        </span>
+                      </div>
+                      
+                      <div className={styles.shipmentRoute}>
+                        <div className={styles.routeInfo}>
+                          <span className={styles.routeLabel}>From:</span>
+                          <span className={styles.routeValue}>{shipment.pickup || 'N/A'}</span>
+                        </div>
+                        <div className={styles.routeArrow}>→</div>
+                        <div className={styles.routeInfo}>
+                          <span className={styles.routeLabel}>To:</span>
+                          <span className={styles.routeValue}>{shipment.destination}</span>
+                        </div>
+                      </div>
+                      
+                      <div className={styles.shipmentDetails}>
+                        <div className={styles.detailRow}>
+                          <div className={styles.detailItem}>
+                            <label>PO Number:</label>
+                            <span className={styles.poNumber}>{shipment.poNumber}</span>
+                          </div>
+                          <div className={styles.detailItem}>
+                            <label>Type:</label>
+                            <span>{shipment.type}</span>
+                          </div>
+                        </div>
+                        <div className={styles.detailRow}>
+                          <div className={styles.detailItem}>
+                            <label>Date:</label>
+                            <span>{shipment.date}</span>
+                          </div>
+                          <div className={styles.detailItem}>
+                            <label>Cost:</label>
+                            <span className={styles.cost}>${shipment.cost.toLocaleString()}</span>
+                          </div>
+                        </div>
+                        {isRejected && rejectedLoad && (
+                          <div className={styles.detailRow}>
+                            <div className={styles.detailItem}>
+                              <label>Rejected:</label>
+                              <span>{rejectedLoad.rejectionTime.toLocaleString()}</span>
+                            </div>
+                            <div className={styles.detailItem}>
+                              <label>Reason:</label>
+                              <span>{rejectedLoad.rejectionReason}</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className={styles.shipmentActions}>
+                        <button 
+                          className={styles.viewButton}
+                          onClick={() => handleViewShipmentDetails(shipment)}
+                        >
+                          View Details
+                        </button>
+                        {isRejected && (
+                          <button 
+                            className={styles.selectCarrierButton}
+                            onClick={() => handleSelectNewCarrier(rejectedLoads.find(r => r.poNumber === shipment.poNumber)!)}
+                          >
+                            Select New Carrier
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <label>Carrier:</label>
-                      <span>{shipment.carrier}</span>
-                    </div>
-                    <div>
-                      <label>Date:</label>
-                      <span>{shipment.date}</span>
-                    </div>
-                    <div>
-                      <label>Cost:</label>
-                      <span>${shipment.cost}</span>
-                    </div>
-                    <div>
-                      <label>PO Number:</label>
-                      <span>{shipment.poNumber}</span>
-                    </div>
-                  </div>
-                </div>
-              ))
+                  );
+                })
             ) : (
               // Show available carriers list with mobile optimization
               <MobileOptimizedList

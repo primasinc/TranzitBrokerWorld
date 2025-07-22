@@ -1,11 +1,13 @@
 import { db } from '../firebase';
 import { collection, addDoc, serverTimestamp, doc, updateDoc, getDoc, query, where, getDocs, setDoc } from 'firebase/firestore';
+import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
 
 export interface LoadRequestNotification {
   id?: string;
   carrierId: string;
   shipperId: string;
   shippingScheduleId: string;
+  loadId?: string;
   status: 'pending' | 'accepted' | 'rejected' | 'counter_offer';
   loadDetails: {
     pickupLocation: {
@@ -78,276 +80,78 @@ export const sendLoadRequestToCarrier = async (
 };
 
 export const updateLoadRequestStatus = async (
-  notificationId: string,
-  status: LoadRequestNotification['status'],
   poNumber: string,
+  status: LoadRequestNotification['status'],
   counterOffer?: number
 ) => {
-  console.log('[updateLoadRequestStatus] Called with:', { notificationId, status, poNumber, counterOffer });
-  const notificationRef = doc(db, 'notifications', notificationId);
-  const updateData: Partial<LoadRequestNotification> = {
-    status,
-    updatedAt: serverTimestamp()
-  };
-
-  if (counterOffer !== undefined) {
-    const notificationDoc = await getDoc(notificationRef);
-    const currentData = notificationDoc.data() as LoadRequestNotification;
-    updateData.loadDetails = {
-      ...currentData.loadDetails,
-      rate: counterOffer
-    };
-  }
-
-  console.log('[updateLoadRequestStatus] Updating notification:', notificationId, 'to status:', status);
-  await updateDoc(notificationRef, updateData);
-
-  const notificationDoc = await getDoc(notificationRef);
-  const notifData = notificationDoc.data() as LoadRequestNotification;
-  console.log('[updateLoadRequestStatus] Notification after update:', notifData);
-
-  if (status === 'accepted') {
-    // Determine if this is a partnered carrier or marketplace
-    let isPartnered = false;
-    if (notifData?.loadDetails?.carrierOption) {
-      isPartnered = notifData.loadDetails.carrierOption === 'carrier';
-    }
-    try {
-      console.log('[updateLoadRequestStatus] Calling acceptLoadForPO with:', poNumber, notifData.carrierId, isPartnered);
-      await acceptLoadForPO(poNumber, notifData.carrierId, isPartnered);
-    } catch (err) {
-      console.error('[updateLoadRequestStatus] Error in acceptLoadForPO:', err);
-    }
-    // --- Ensure a shipment exists for this PO and shipper ---
-    if (notifData?.shipperId && poNumber) {
-      const shipmentsQuery = query(
-        collection(db, 'shipments'),
-        where('shipperId', '==', notifData.shipperId),
-        where('poNumber', '==', poNumber)
-      );
-      const shipmentsSnap = await getDocs(shipmentsQuery);
-      if (shipmentsSnap.empty) {
-        // Create a new shipment document
-        const shipmentData = {
-          shipperId: notifData.shipperId,
-          poNumber,
-          origin: notifData.loadDetails?.pickupLocation?.address || '',
-          destination: notifData.loadDetails?.deliveryLocation?.address || '',
-          carrier: {
-            id: notifData.carrierId,
-            name: notifData.loadDetails?.shipperCompany || ''
-          },
-          scheduledPickup: notifData.loadDetails?.pickupLocation?.date ? new Date(notifData.loadDetails.pickupLocation.date) : new Date(),
-          scheduledDelivery: notifData.loadDetails?.deliveryLocation?.date ? new Date(notifData.loadDetails.deliveryLocation.date) : new Date(),
-          status: 'in_progress',
-          cost: notifData.loadDetails?.rate || 0,
-          isOnTime: true,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        };
-        console.log('[updateLoadRequestStatus] Creating shipment:', shipmentData);
-        if (shipmentData.poNumber && shipmentData.shipperId && shipmentData.carrier.id) {
-          await addDoc(collection(db, 'shipments'), shipmentData);
-          console.log('[updateLoadRequestStatus] Shipment successfully created.');
-        } else {
-          console.error('[updateLoadRequestStatus] Missing required fields for shipment:', shipmentData);
-        }
-      } else {
-        console.log('[updateLoadRequestStatus] Shipment already exists for shipperId and poNumber.');
+  console.log('[updateLoadRequestStatus] Called with:', { poNumber, status, counterOffer });
+  
+  return new Promise((resolve, reject) => {
+    const auth = getAuth();
+    
+    // Handle auth state changes properly for production
+    const unsubscribe = onAuthStateChanged(auth, async (user: User | null) => {
+      unsubscribe(); // Clean up listener immediately
+      
+      if (!user?.uid) {
+        reject(new Error('User not authenticated'));
+        return;
       }
-    } else {
-      console.error('[updateLoadRequestStatus] Missing shipperId or poNumber for shipment creation:', { shipperId: notifData?.shipperId, poNumber });
-    }
-    // --- Add load to 'loads' collection for carrier's My Loads ---
-    // First, update all loads with this poNumber to isMarketplace: false and status: 'active'
-    if (poNumber) {
-      const loadsQuery = query(collection(db, 'loads'), where('poNumber', '==', poNumber));
-      const loadsSnap = await getDocs(loadsQuery);
-      for (const loadDoc of loadsSnap.docs) {
-        await updateDoc(doc(db, 'loads', loadDoc.id), {
-          status: 'active',
-          shippingScheduleStatus: 'Active',
-          updatedAt: serverTimestamp(),
-        });
-      }
-      // Check for existing load for this carrier and poNumber
-      const carrierLoadQuery = query(collection(db, 'loads'), where('poNumber', '==', poNumber), where('carrierId', '==', notifData.carrierId));
-      const carrierLoadSnap = await getDocs(carrierLoadQuery);
-      if (carrierLoadSnap.empty) {
-        // Only create if not already present
-        const loadData = {
-          carrierId: notifData.carrierId,
-          shipperId: notifData.shipperId,
-          title: notifData.loadDetails?.shipperCompany || 'Load',
-          shipper: notifData.loadDetails?.shipperCompany || '',
-          pickup: {
-            location: notifData.loadDetails?.pickupLocation?.address || '',
-            time: notifData.loadDetails?.pickupLocation?.date || '',
-            status: 'pending'
-          },
-          delivery: {
-            location: notifData.loadDetails?.deliveryLocation?.address || '',
-            time: notifData.loadDetails?.deliveryLocation?.date || '',
-            status: 'pending'
-          },
-          status: 'active',
-          shippingScheduleStatus: 'Active',
-          payment: notifData.loadDetails?.rate || 0,
-          weight: notifData.loadDetails?.weight?.toString() || '',
-          dimensions: `${notifData.loadDetails?.dimensions?.length || ''}x${notifData.loadDetails?.dimensions?.width || ''}x${notifData.loadDetails?.dimensions?.height || ''}`,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          poNumber: poNumber || '',
-        };
-        // Validate that carrierId is not the same as shipperId
-        if (loadData.carrierId === loadData.shipperId) {
-          console.error('[updateLoadRequestStatus] carrierId cannot be the same as shipperId:', { 
-            carrierId: loadData.carrierId, 
-            shipperId: loadData.shipperId 
-          });
-          throw new Error('Invalid carrier assignment: carrierId matches shipperId');
-        }
-        await addDoc(collection(db, 'loads'), loadData);
-        console.log('[updateLoadRequestStatus] Load successfully created for carrier with carrierId:', loadData.carrierId);
-      } else {
-        console.log('[updateLoadRequestStatus] Carrier already has load for this PO, skipping duplicate.');
-      }
-    }
-    // Notify the shipper
-    if (notifData?.shipperId) {
-      const shipperNotificationRef = collection(db, 'notifications');
-      await addDoc(shipperNotificationRef, {
-        shipperId: notifData.shipperId,
-        recipientId: notifData.shipperId,
-        carrierId: notifData.carrierId,
-        poNumber: poNumber,
-        status: 'accepted',
-        type: 'carrier_accept',
-        message: 'Carrier has accepted your load request.',
-        loadDetails: {
-          ...notifData.loadDetails,
-          carrierOption: notifData.loadDetails?.carrierOption || (notifData.carrierId ? 'carrier' : undefined)
-        },
-        read: false,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-    }
-    // Notify the carrier if this is a response to a counter offer
-    if (notifData?.carrierId) {
-      let carrierAcceptMessage = 'Shipper assigned you this load.';
-      if (notifData.status === 'counter_offer') {
-        carrierAcceptMessage = 'Shipper accepted your counter offer.';
-      }
-      const carrierNotificationRef = collection(db, 'notifications');
-      await addDoc(carrierNotificationRef, {
-        carrierId: notifData.carrierId,
-        recipientId: notifData.carrierId,
-        shipperId: notifData.shipperId,
-        poNumber: poNumber,
-        status: 'accepted',
-        type: notifData.status === 'counter_offer' ? 'shipper_accept_counter' : 'shipper_assign',
-        message: carrierAcceptMessage,
-        loadDetails: notifData.loadDetails,
-        read: false,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-    }
-  } else if (status === 'rejected') {
-    // Update the shipping schedule status to 'Open' (not Cancelled)
-    // Note: This 'Open' status is for purchase orders, not partner requests
-    let openRef = null;
-    if (poNumber) {
-      const poSnapshot = await getDocs(query(collection(db, 'purchaseOrders'), where('poNumber', '==', poNumber)));
-      if (!poSnapshot.empty) {
-        openRef = doc(db, 'purchaseOrders', poSnapshot.docs[0].id);
-      }
-    }
-    if (openRef) {
+      
       try {
-        await updateDoc(openRef, { status: 'Active', shippingScheduleStatus: 'Open' });
-        console.log('[updateLoadRequestStatus] Set PO to Active and Shipping Schedule to Open for poNumber:', poNumber);
-      } catch (err) {
-        console.error('[updateLoadRequestStatus] Error setting PO to Active and Shipping Schedule to Open:', err);
-      }
-    }
-    // Notify the shipper of rejection
-    if (notifData?.shipperId) {
-      const shipperNotificationRef = collection(db, 'notifications');
-      await addDoc(shipperNotificationRef, {
-        shipperId: notifData.shipperId,
-        recipientId: notifData.shipperId,
-        carrierId: notifData.carrierId,
-        poNumber: poNumber,
-        status: 'rejected',
-        type: 'carrier_reject',
-        message: 'Carrier has rejected your load request.',
-        loadDetails: notifData.loadDetails,
-        read: false,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        requiresAction: true
-      });
-    }
-    // Notify the carrier if this is a response to a counter offer
-    if (notifData?.carrierId) {
-      let carrierAcceptMessage = 'Shipper assigned you this load.';
-      if (notifData.status === 'counter_offer') {
-        carrierAcceptMessage = 'Shipper accepted your counter offer.';
-      }
-      const carrierNotificationRef = collection(db, 'notifications');
-      await addDoc(carrierNotificationRef, {
-        carrierId: notifData.carrierId,
-        recipientId: notifData.carrierId,
-        shipperId: notifData.shipperId,
-        poNumber: poNumber,
-        status: 'accepted',
-        type: notifData.status === 'counter_offer' ? 'shipper_accept_counter' : 'shipper_assign',
-        message: carrierAcceptMessage,
-        loadDetails: notifData.loadDetails,
-        read: false,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-    }
-  } else if (status === 'counter_offer' && counterOffer !== undefined) {
-    // Notify the shipper of the counter offer
-    if (notifData?.shipperId) {
-      // Fetch carrier name
-      let carrierName = '';
-      if (notifData.carrierId) {
-        try {
-          const carrierDoc = await getDoc(doc(db, 'users', notifData.carrierId));
-          if (carrierDoc.exists()) {
-            const carrierProfile = carrierDoc.data();
-            carrierName = carrierProfile.companyName || carrierProfile.displayName || '';
-          }
-        } catch (err) {
-          console.error('[updateLoadRequestStatus] Error fetching carrier profile for counter offer:', err);
+        const notificationsQuery = query(
+          collection(db, 'notifications'),
+          where('poNumber', '==', poNumber),
+          where('carrierId', '==', user.uid),
+          where('type', '==', 'partner_request')
+        );
+        
+        const notificationsSnap = await getDocs(notificationsQuery);
+        if (notificationsSnap.empty) {
+          reject(new Error(`No notification found for PO ${poNumber} and carrier ${user.uid}`));
+          return;
         }
+        
+        const notificationDoc = notificationsSnap.docs[0];
+        const notificationRef = doc(db, 'notifications', notificationDoc.id);
+        const currentData = notificationDoc.data() as LoadRequestNotification;
+        
+        if (!currentData) {
+          reject(new Error('Notification data is null or undefined'));
+          return;
+        }
+        
+        const updateData: Partial<LoadRequestNotification> = {
+          status,
+          updatedAt: serverTimestamp()
+        };
+
+        if (counterOffer !== undefined) {
+          // SAFE ACCESS: Check if loadDetails exists before spreading
+          updateData.loadDetails = {
+            ...(currentData.loadDetails || {}),
+            rate: counterOffer
+          };
+        }
+
+        await updateDoc(notificationRef, updateData);
+        console.log('[updateLoadRequestStatus] Notification status updated successfully');
+
+        // Handle business logic based on status using poNumber
+        if (status === 'rejected') {
+          await handleLoadRejection(poNumber, notificationDoc.id);
+        } else if (status === 'accepted') {
+          await handleLoadAcceptance(poNumber, notificationDoc.id);
+        } else if (status === 'counter_offer' && counterOffer !== undefined) {
+          await handleCounterOffer(poNumber, notificationDoc.id, counterOffer);
+        }
+        
+        resolve(undefined);
+      } catch (error) {
+        reject(error);
       }
-      const shipperNotificationRef = collection(db, 'notifications');
-      await addDoc(shipperNotificationRef, {
-        shipperId: notifData.shipperId,
-        recipientId: notifData.shipperId,
-        carrierId: notifData.carrierId,
-        poNumber: poNumber,
-        status: 'counter_offer',
-        type: 'carrier_counter_offer',
-        message: `Carrier has made a counter offer of $${counterOffer.toFixed(2)}.`,
-        loadDetails: {
-          ...notifData.loadDetails,
-          rate: counterOffer,
-          carrierName
-        },
-        read: false,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        requiresAction: true
-      });
-    }
-  }
+    });
+  });
 };
 
 export const acceptLoadForPO = async (
@@ -490,5 +294,152 @@ export const acceptLoadForPO = async (
   } catch (err) {
     console.error('[acceptLoadForPO] Error updating load with carrierId:', err);
     throw new Error('Failed to update load with carrier assignment');
+  }
+};
+
+// New poNumber-driven functions
+const handleLoadRejection = async (poNumber: string, notificationId: string) => {
+  console.log('[handleLoadRejection] Processing rejection for poNumber:', poNumber, 'notificationId:', notificationId);
+  
+  try {
+    // 1. Update load status to 'pending' and remove carrierId so shipper can see it
+    const loadsQuery = query(collection(db, 'loads'), where('poNumber', '==', poNumber));
+    const loadsSnap = await getDocs(loadsQuery);
+    
+    console.log('[handleLoadRejection] Found', loadsSnap.docs.length, 'loads for poNumber:', poNumber);
+    
+    for (const loadDoc of loadsSnap.docs) {
+      await updateDoc(doc(db, 'loads', loadDoc.id), {
+        status: 'pending', // Changed to 'pending' so shipper can see it
+        carrierId: null, // Remove carrier assignment
+        updatedAt: serverTimestamp(),
+      });
+    }
+    console.log('[handleLoadRejection] Load status updated to pending, carrierId removed');
+
+    // 2. Update purchase order status back to Active and get correct shipperId
+    const poQuery = query(collection(db, 'purchaseOrders'), where('poNumber', '==', poNumber));
+    const poSnap = await getDocs(poQuery);
+    
+    console.log('[handleLoadRejection] Found', poSnap.docs.length, 'POs for poNumber:', poNumber);
+    
+    let shipperId: string | null = null;
+    
+    if (!poSnap.empty) {
+      const poData = poSnap.docs[0].data();
+      shipperId = poData.userId; // Get correct shipperId from purchase order using userId
+      
+      await updateDoc(doc(db, 'purchaseOrders', poSnap.docs[0].id), {
+        status: 'Active',
+        updatedAt: serverTimestamp(),
+      });
+      console.log('[handleLoadRejection] PO status updated to Active, shipperId from PO:', shipperId);
+    }
+
+    // 3. Create notification record for shipper using correct shipperId from PO
+    if (shipperId) {
+      const shipperNotificationRef = collection(db, 'notifications');
+      await addDoc(shipperNotificationRef, {
+        shipperId: shipperId,
+        recipientId: shipperId,
+        poNumber: poNumber,
+        status: 'declined',
+        type: 'carrier_decline',
+        message: `Carrier declined load for PO ${poNumber}. Please select a new carrier.`,
+        read: false,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        requiresAction: true
+      });
+      console.log('[handleLoadRejection] Shipper notification created with correct shipperId:', shipperId);
+    } else {
+      console.warn('[handleLoadRejection] No shipperId found in purchase order data for poNumber:', poNumber);
+    }
+    
+  } catch (err) {
+    console.error('[handleLoadRejection] Error:', err);
+    throw new Error(`Failed to handle load rejection: ${err instanceof Error ? err.message : 'Unknown error'}`);
+  }
+};
+
+const handleLoadAcceptance = async (poNumber: string, notificationId: string) => {
+  console.log('[handleLoadAcceptance] Processing acceptance for poNumber:', poNumber);
+  
+  try {
+    // Get notification data for carrier info
+    const notificationDoc = await getDoc(doc(db, 'notifications', notificationId));
+    const notifData = notificationDoc.data() as LoadRequestNotification;
+    
+    if (!notifData?.carrierId) {
+      throw new Error('No carrierId found in notification data');
+    }
+
+    // 1. Update load status and assign carrier
+    const loadsQuery = query(collection(db, 'loads'), where('poNumber', '==', poNumber));
+    const loadsSnap = await getDocs(loadsQuery);
+    
+    for (const loadDoc of loadsSnap.docs) {
+      await updateDoc(doc(db, 'loads', loadDoc.id), {
+        status: 'active',
+        carrierId: notifData.carrierId, // Assign the carrier
+        updatedAt: serverTimestamp(),
+      });
+    }
+    console.log('[handleLoadAcceptance] Load assigned to carrier');
+
+    // 2. Create notification record for shipper
+    if (notifData.shipperId) {
+      const shipperNotificationRef = collection(db, 'notifications');
+      await addDoc(shipperNotificationRef, {
+        shipperId: notifData.shipperId,
+        recipientId: notifData.shipperId,
+        poNumber: poNumber,
+        status: 'accepted',
+        type: 'carrier_accept',
+        message: `Carrier accepted load for PO ${poNumber}`,
+        read: false,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      console.log('[handleLoadAcceptance] Shipper notification created');
+    }
+    
+  } catch (err) {
+    console.error('[handleLoadAcceptance] Error:', err);
+    throw new Error(`Failed to handle load acceptance: ${err instanceof Error ? err.message : 'Unknown error'}`);
+  }
+};
+
+const handleCounterOffer = async (poNumber: string, notificationId: string, counterOffer: number) => {
+  console.log('[handleCounterOffer] Processing counter offer for poNumber:', poNumber, 'amount:', counterOffer);
+  
+  try {
+    // Get notification data for carrier info
+    const notificationDoc = await getDoc(doc(db, 'notifications', notificationId));
+    const notifData = notificationDoc.data() as LoadRequestNotification;
+    
+    if (!notifData?.shipperId) {
+      throw new Error('No shipperId found in notification data');
+    }
+
+    // Create notification record for shipper
+    const shipperNotificationRef = collection(db, 'notifications');
+    await addDoc(shipperNotificationRef, {
+      shipperId: notifData.shipperId,
+      recipientId: notifData.shipperId,
+      poNumber: poNumber,
+      status: 'counter_offer',
+      type: 'carrier_counter_offer',
+      message: `Carrier made counter offer of $${counterOffer.toFixed(2)} for PO ${poNumber}`,
+      read: false,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      requiresAction: true
+    });
+    console.log('[handleCounterOffer] Shipper notification created');
+    
+  } catch (err) {
+    console.error('[handleCounterOffer] Error:', err);
+    throw new Error(`Failed to handle counter offer: ${err instanceof Error ? err.message : 'Unknown error'}`);
   }
 }; 
