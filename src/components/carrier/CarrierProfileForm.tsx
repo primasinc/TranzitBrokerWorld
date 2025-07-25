@@ -5,18 +5,21 @@ import { BasicInfoSection } from './sections/BasicInfoSection';
 import { EquipmentSection } from './sections/EquipmentSection';
 import { ServiceAreasSection } from './sections/ServiceAreasSection';
 import { InsuranceSection } from './sections/InsuranceSection';
+import { DriverProfileSection } from './sections/DriverProfileSection';
 import styles from './CarrierProfileForm.module.css';
 
 interface CarrierProfileFormProps {
   initialData?: Partial<CarrierProfile>;
   onSubmit: (data: CarrierProfile) => Promise<void>;
   isLoading?: boolean;
+  disabled?: boolean;
 }
 
 export const CarrierProfileForm: React.FC<CarrierProfileFormProps> = ({
   initialData,
   onSubmit,
-  isLoading = false
+  isLoading = false,
+  disabled = false
 }) => {
   const [activeSection, setActiveSection] = useState('basic');
   const { control, handleSubmit, formState: { errors }, watch } = useForm<CarrierProfile>({
@@ -38,6 +41,7 @@ export const CarrierProfileForm: React.FC<CarrierProfileFormProps> = ({
           type="button"
           className={`${styles.navButton} ${activeSection === 'basic' ? styles.active : ''}`}
           onClick={() => setActiveSection('basic')}
+          disabled={disabled}
         >
           Basic Information
         </button>
@@ -45,6 +49,7 @@ export const CarrierProfileForm: React.FC<CarrierProfileFormProps> = ({
           type="button"
           className={`${styles.navButton} ${activeSection === 'equipment' ? styles.active : ''}`}
           onClick={() => setActiveSection('equipment')}
+          disabled={disabled}
         >
           Equipment
         </button>
@@ -52,6 +57,7 @@ export const CarrierProfileForm: React.FC<CarrierProfileFormProps> = ({
           type="button"
           className={`${styles.navButton} ${activeSection === 'areas' ? styles.active : ''}`}
           onClick={() => setActiveSection('areas')}
+          disabled={disabled}
         >
           Service Areas
         </button>
@@ -59,8 +65,17 @@ export const CarrierProfileForm: React.FC<CarrierProfileFormProps> = ({
           type="button"
           className={`${styles.navButton} ${activeSection === 'insurance' ? styles.active : ''}`}
           onClick={() => setActiveSection('insurance')}
+          disabled={disabled}
         >
           Insurance
+        </button>
+        <button
+          type="button"
+          className={`${styles.navButton} ${activeSection === 'driver' ? styles.active : ''}`}
+          onClick={() => setActiveSection('driver')}
+          disabled={disabled}
+        >
+          Driver Profile
         </button>
       </div>
 
@@ -77,15 +92,18 @@ export const CarrierProfileForm: React.FC<CarrierProfileFormProps> = ({
         {activeSection === 'insurance' && (
           <InsuranceSection control={control} errors={errors} />
         )}
+        {activeSection === 'driver' && (
+          <DriverProfileSection control={control} errors={errors} />
+        )}
       </div>
 
       <div className={styles.actions}>
         <button
           type="submit"
           className={styles.submitButton}
-          disabled={isLoading}
+          disabled={isLoading || disabled}
         >
-          {isLoading ? 'Saving...' : 'Save Profile'}
+          {isLoading ? 'Saving...' : disabled ? 'Read Only' : 'Save Profile'}
         </button>
       </div>
     </form>

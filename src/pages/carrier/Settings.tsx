@@ -3,9 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import styles from './Settings.module.css';
 import { useMobileOptimization } from '../../hooks/useMobileOptimization';
 import NotificationsTray, { useUnreadNotifications } from './NotificationsTray';
+import { inviteService } from '../../services/inviteService';
+import { useAuth } from '../../contexts/AuthContext';
+import { useUserPermissions } from '../../hooks/useUserPermissions';
 
 interface Profile {
   companyName: string;
+  companyRep?: string;
   mcNumber: string;
   dotNumber: string;
   email: string;
@@ -143,20 +147,49 @@ const Settings: React.FC = () => {
     navigate('/login');
   };
 
+  const { user } = useAuth();
+  const { isCompanyOwner, canInviteDrivers } = useUserPermissions();
+
   const handleSendInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     setInviteError('');
     setInviteSuccess('');
+    
     if (!inviteName || !invitePhone || !inviteEmail) {
       setInviteError('All fields are required.');
       return;
     }
-    // TODO: Implement backend invite logic here
-    setInviteSuccess('Invitation sent to ' + inviteEmail);
-    setShowInviteForm(false);
-    setInviteName('');
-    setInvitePhone('');
-    setInviteEmail('');
+
+    if (!user?.uid) {
+      setInviteError('User not authenticated.');
+      return;
+    }
+
+    try {
+      const result = await inviteService.sendDriverInvite(
+        {
+          name: inviteName,
+          phone: invitePhone,
+          email: inviteEmail
+        },
+        profile.companyName,
+        profile.companyRep || 'Company Representative',
+        user.uid
+      );
+
+      if (result.success) {
+        setInviteSuccess(`Invitation sent to ${inviteEmail}`);
+        setShowInviteForm(false);
+        setInviteName('');
+        setInvitePhone('');
+        setInviteEmail('');
+      } else {
+        setInviteError(result.error || 'Failed to send invitation');
+      }
+    } catch (error: any) {
+      console.error('Error sending invite:', error);
+      setInviteError('Failed to send invitation. Please try again.');
+    }
   };
 
   return (
@@ -378,7 +411,7 @@ const Settings: React.FC = () => {
                     <span className={styles.slider}></span>
                   </label>
                 </div>
-                {isCompanyAdmin && (
+                {canInviteDrivers && (
                   <div className={styles.additionalDriversSection}>
                     <h3>Additional Drivers</h3>
                     <button className={styles.addButton} onClick={() => setShowInviteForm(true)}>Add Driver</button>
@@ -404,9 +437,9 @@ const Settings: React.FC = () => {
                     {inviteSuccess && <div className={styles.success}>{inviteSuccess}</div>}
                   </div>
                 )}
-                {!isCompanyAdmin && (
+                {!canInviteDrivers && (
                   <div className={styles.dependentNotice}>
-                    <p>You are currently a driver for a carrier company. To add drivers, you must leave your current company and create your own account.</p>
+                    <p>You are currently a driver for a carrier company. Only company owners can invite additional drivers.</p>
                   </div>
                 )}
               </div>

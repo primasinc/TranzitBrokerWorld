@@ -38,6 +38,9 @@ interface PendingUser {
   phoneNumber: string;
   createdAt: any;
   status: string;
+  // New fields for company hierarchy (optional for backward compatibility)
+  role?: 'company_owner' | 'driver';
+  parentCompanyId?: string;
 }
 
 interface NewAdminForm {

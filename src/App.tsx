@@ -12,6 +12,7 @@ import Register from './pages/auth/Register';
 
 // Test Pages
 import TestKonexial from './pages/TestKonexial';
+import TestCurrentLoad from './pages/TestCurrentLoad';
 
 // Shipper Pages
 import ShipperDashboard from './pages/shipper/Dashboard';
@@ -157,6 +158,7 @@ function App() {
                 
                 {/* Test Routes */}
                 <Route path="/test-konexial" element={<TestKonexial />} />
+                <Route path="/test-current-load" element={<TestCurrentLoad />} />
 
                 {/* Carrier Routes */}
                 <Route path="/carrier" element={<CarrierLayout />}>

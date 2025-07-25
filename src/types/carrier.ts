@@ -85,6 +85,12 @@ export interface CarrierProfile {
   eldApiKey?: string;
   eldApiId?: string;
   
+  // Driver Profile Information
+  driverName?: string;
+  driverPhone?: string;
+  vehicleVin?: string;
+  driverDotNumber?: string;
+  
   // Timestamps
   createdAt: Timestamp;
   updatedAt: Timestamp;

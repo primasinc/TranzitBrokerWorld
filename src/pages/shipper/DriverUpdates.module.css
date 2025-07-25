@@ -254,6 +254,69 @@
   font-size: 14px;
 }
 
+.driverInfo {
+  margin: 20px 0;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #007bff;
+}
+
+.driverInfo h3 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  color: #333;
+  font-weight: 600;
+}
+
+.driverDetails {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+}
+
+.driverDetails p {
+  margin: 4px 0;
+  font-size: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.driverDetails strong {
+  color: #666;
+  font-weight: 500;
+  min-width: 100px;
+}
+
+.routeInfo {
+  margin: 16px 0;
+  padding: 12px;
+  background: #e8f5e9;
+  border-radius: 6px;
+  border-left: 4px solid #4caf50;
+}
+
+.routeInfo h3 {
+  margin: 0 0 8px 0;
+  font-size: 15px;
+  color: #2e7d32;
+  font-weight: 600;
+}
+
+.routeInfo p {
+  margin: 4px 0;
+  font-size: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.routeInfo strong {
+  color: #2e7d32;
+  font-weight: 500;
+}
+
 .progressContainer {
   margin-top: 16px;
   width: 100%;
@@ -339,6 +402,39 @@
 }
 
 /* Mobile Responsive Breakpoints */
+
+@media (max-width: 768px) {
+  .driverDetails {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  
+  .driverDetails p {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  
+  .driverDetails strong {
+    min-width: auto;
+  }
+  
+  .routeInfo p {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  
+  .driverInfo {
+    padding: 12px;
+    margin: 16px 0;
+  }
+  
+  .routeInfo {
+    padding: 10px;
+    margin: 12px 0;
+  }
+}
 @media (max-width: 1024px) {
   .contactCard {
     min-width: 800px;

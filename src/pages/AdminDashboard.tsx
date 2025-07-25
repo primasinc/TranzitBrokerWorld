@@ -16,6 +16,9 @@ interface User {
   status: string;
   approvalStatus: string;
   createdAt: any;
+  // New fields for company hierarchy (optional for backward compatibility)
+  role?: 'company_owner' | 'driver';
+  parentCompanyId?: string;
 }
 
 interface AdminUser {

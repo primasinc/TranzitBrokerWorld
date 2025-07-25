@@ -3,6 +3,13 @@ export interface User {
   email: string;
   username: string;
   createdAt: Date;
+  // New fields for company hierarchy (optional for backward compatibility)
+  role?: 'company_owner' | 'driver';
+  parentCompanyId?: string;
+  companyName?: string;
+  companyRep?: string;
+  phoneNumber?: string;
+  userType?: 'shipper' | 'carrier';
 }
 
 export interface AuthState {
@@ -20,4 +27,23 @@ export interface LoginCredentials {
 export interface RegisterCredentials extends LoginCredentials {
   username: string;
   confirmPassword: string;
+}
+
+// New interfaces for invitation system
+export interface InviteData {
+  name: string;
+  phone: string;
+  email: string;
+  companyName: string;
+  companyRep: string;
+  inviterId: string;
+  createdAt: Date;
+  used: boolean;
+  usedAt?: Date;
+}
+
+export interface DriverInviteForm {
+  name: string;
+  phone: string;
+  email: string;
 } 

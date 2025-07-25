@@ -26,6 +26,29 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isSuperAdmin == true;
     }
 
+    // Helper function to check if user is a company owner
+    function isCompanyOwner(userId) {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(userId)) &&
+        get(/databases/$(database)/documents/users/$(userId)).data.role == 'company_owner';
+    }
+
+    // Helper function to check if user is a driver
+    function isDriver(userId) {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(userId)) &&
+        get(/databases/$(database)/documents/users/$(userId)).data.role == 'driver';
+    }
+
+    // Helper function to check if user is part of the same company
+    function isSameCompany(userId1, userId2) {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(userId1)) &&
+        exists(/databases/$(database)/documents/users/$(userId2)) &&
+        get(/databases/$(database)/documents/users/$(userId1)).data.parentCompanyId == 
+        get(/databases/$(database)/documents/users/$(userId2)).data.parentCompanyId;
+    }
+
     // Locations collection
     match /locations/{userId} {
       allow read: if isAuthenticated();
@@ -50,7 +73,9 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
-      allow update: if isOwner(userId) || isAdmin();
+      allow update: if isOwner(userId) || isAdmin() || 
+        // Allow company owners to update their drivers' profiles
+        (isCompanyOwner(request.auth.uid) && isSameCompany(request.auth.uid, userId));
       allow delete: if isOwner(userId) || isSuperAdmin();
       
       // Partners subcollection (open to all authenticated users)
@@ -159,6 +184,20 @@ service cloud.firestore {
       allow update, delete: if isAuthenticated() && (
         resource.data.carrierId == request.auth.uid ||
         resource.data.userId == request.auth.uid
+      );
+    }
+
+    // Invites collection for driver invitations
+    match /invites/{inviteId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (
+        resource.data.inviterId == request.auth.uid ||
+        isAdmin()
+      );
+      allow delete: if isAuthenticated() && (
+        resource.data.inviterId == request.auth.uid ||
+        isAdmin()
       );
     }
 

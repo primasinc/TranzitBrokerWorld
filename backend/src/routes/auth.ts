@@ -2,107 +2,128 @@
 import { Router, Request, Response } from 'express';
 import { body } from 'express-validator';
 import jwt from 'jsonwebtoken';
-import { User } from '../models/User';
 import { auth } from '../middleware/auth';
 import { db } from '../index';
 import { v4 as uuidv4 } from 'uuid';
 import express from 'express';
-import nodemailer from 'nodemailer';
+import { google } from 'googleapis';
 
 const router = express.Router();
 
-// Register route
-router.post(
-  '/register',
-  [
-    body('email').isEmail().withMessage('Please enter a valid email'),
-    body('username').trim().isLength({ min: 3 }).withMessage('Username must be at least 3 characters long'),
-    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long'),
-  ],
-  async (req: Request, res: Response) => {
-    try {
-      const { email, username, password } = req.body;
+// Register route - Disabled (using Firebase Auth instead)
+// router.post(
+//   '/register',
+//   [
+//     body('email').isEmail().withMessage('Please enter a valid email'),
+//     body('username').trim().isLength({ min: 3 }).withMessage('Username must be at least 3 characters long'),
+//     body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long'),
+//   ],
+//   async (req: Request, res: Response) => {
+//     try {
+//       const { email, username, password } = req.body;
 
-      // Check if user already exists
-      const existingUser = await User.findOne({ $or: [{ email }, { username }] });
-      if (existingUser) {
-        return res.status(400).json({ message: 'User already exists' });
-      }
+//       // Check if user already exists
+//       const existingUser = await User.findOne({ $or: [{ email }, { username }] });
+//       if (existingUser) {
+//         return res.status(400).json({ message: 'User already exists' });
+//       }
 
-      // Create new user
-      const user = new User({ email, username, password });
-      await user.save();
+//       // Create new user
+//       const user = new User({ email, username, password });
+//       await user.save();
 
-      // Return user object and message (no JWT)
-      res.status(201).json({
-        user: {
-          id: user._id,
-          email: user.email,
-          username: user.username,
-          createdAt: user.createdAt,
-        },
-        message: 'User registered successfully'
-      });
-    } catch (error) {
-      res.status(500).json({ message: 'Server error' });
-    }
-  }
-);
+//       // Return user object and message (no JWT)
+//       res.status(201).json({
+//         user: {
+//           id: user._id,
+//           email: user.email,
+//           username: user.username,
+//           createdAt: user.createdAt,
+//         },
+//         message: 'User registered successfully'
+//       });
+//     } catch (error) {
+//       res.status(500).json({ message: 'Server error' });
+//     }
+//   }
+// );
 
-// Login route
-router.post(
-  '/login',
-  [
-    body('email').isEmail().withMessage('Please enter a valid email'),
-    body('password').exists().withMessage('Password is required'),
-  ],
-  async (req: Request, res: Response) => {
-    try {
-      const { email, password } = req.body;
+// Login route - Disabled (using Firebase Auth instead)
+// router.post(
+//   '/login',
+//   [
+//     body('email').isEmail().withMessage('Please enter a valid email'),
+//     body('password').exists().withMessage('Password is required'),
+//   ],
+//   async (req: Request, res: Response) => {
+//     try {
+//       const { email, password } = req.body;
 
-      // Find user
-      const user = await User.findOne({ email });
-      if (!user) {
-        return res.status(401).json({ message: 'Invalid credentials' });
-      }
+//       // Find user
+//       const user = await User.findOne({ email });
+//       if (!user) {
+//         return res.status(401).json({ message: 'Invalid credentials' });
+//       }
 
-      // Check password
-      if (user.password !== password) {
-        return res.status(401).json({ message: 'Invalid credentials' });
-      }
+//       // Check password
+//       if (user.password !== password) {
+//         return res.status(401).json({ message: 'Invalid credentials' });
+//       }
 
-      // Return user object and message (no JWT)
-      res.json({
-        user: {
-          id: user._id,
-          email: user.email,
-          username: user.username,
-          createdAt: user.createdAt,
-        },
-        message: 'Login successful'
-      });
-    } catch (error) {
-      res.status(500).json({ message: 'Server error' });
-    }
-  }
-);
+//       // Return user object and message (no JWT)
+//       res.json({
+//         user: {
+//           id: user._id,
+//           email: user.email,
+//           username: user.username,
+//           createdAt: user.createdAt,
+//         },
+//         message: 'Login successful'
+//       });
+//     } catch (error) {
+//       res.status(500).json({ message: 'Server error' });
+//     }
+//   }
+// );
 
-// Helper to send invite email
+// Helper to send invite email using Gmail API (same as Cloud Functions)
 async function sendInviteEmail(to: string, link: string) {
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: false,
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS
-    }
-  });
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM || process.env.SMTP_USER,
-    to,
-    subject: 'You are invited to join as a driver',
-    html: `<p>You have been invited to join. Click <a href="${link}">here</a> to register.</p>`
+  // Use the same OAuth2 credentials as Cloud Functions
+  const CLIENT_ID = "243323136379-7m2p94rulrdrpnqvp7ksgrf156avomka.apps.googleusercontent.com";
+  const CLIENT_SECRET = "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";
+  const REFRESH_TOKEN = "1//04mLVKPil_eTdCgYIARAAGAQSNwF-L9IrW3GE1yM0tUCYkGTeTyp7zG5MnyawRGogQIQgDERUqM3qvSc-JW3RQft09px6vMu1tDg";
+  
+  const oAuth2Client = new google.auth.OAuth2(
+    CLIENT_ID,
+    CLIENT_SECRET,
+    "https://developers.google.com/oauthplayground"
+  );
+  oAuth2Client.setCredentials({ refresh_token: REFRESH_TOKEN });
+
+  const gmail = google.gmail({ version: "v1", auth: oAuth2Client });
+
+  const subject = "You are invited to join as a driver";
+  const message = `<p>You have been invited to join. Click <a href="${link}">here</a> to register.</p>`;
+
+  const rawMessage = [
+    `To: ${to}`,
+    "Subject: " + subject,
+    "Content-Type: text/html; charset=utf-8",
+    "",
+    message,
+  ].join("\n");
+
+  const encodedMessage = Buffer.from(rawMessage)
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+
+  await gmail.users.messages.send({
+    userId: "me",
+    requestBody: {
+      raw: encodedMessage,
+    },
   });
 }
 
@@ -121,7 +142,14 @@ router.post('/invite-driver', async (req, res) => {
     });
     const inviteLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/register?invite=${token}`;
     // Send invite email
-    await sendInviteEmail(email, inviteLink);
+    try {
+      await sendInviteEmail(email, inviteLink);
+      console.log('Invite email sent successfully to:', email);
+    } catch (emailError) {
+      console.error('Failed to send invite email:', emailError);
+      // Continue with invite creation even if email fails
+    }
+    console.log('Invite created successfully:', { token, inviteLink });
     res.json({ success: true, inviteLink });
   } catch (err) {
     console.error('Error creating invite:', err);
@@ -171,21 +199,42 @@ router.post('/send-2fa-code', async (req, res) => {
     // Store in Firestore with 5-min TTL
     const expiresAt = Date.now() + 5 * 60 * 1000;
     await db.collection('twofa').doc(email).set({ code, expiresAt });
-    // Send code via email
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: false,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
-      }
-    });
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
-      to: email,
-      subject: 'Your Tranzit.io 2FA Code',
-      html: `<p>Your verification code is: <b>${code}</b><br>This code will expire in 5 minutes.</p>`
+    // Send code via email using Gmail API
+    const CLIENT_ID = "243323136379-7m2p94rulrdrpnqvp7ksgrf156avomka.apps.googleusercontent.com";
+    const CLIENT_SECRET = "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";
+    const REFRESH_TOKEN = "1//04mLVKPil_eTdCgYIARAAGAQSNwF-L9IrW3GE1yM0tUCYkGTeTyp7zG5MnyawRGogQIQgDERUqM3qvSc-JW3RQft09px6vMu1tDg";
+    
+    const oAuth2Client = new google.auth.OAuth2(
+      CLIENT_ID,
+      CLIENT_SECRET,
+      "https://developers.google.com/oauthplayground"
+    );
+    oAuth2Client.setCredentials({ refresh_token: REFRESH_TOKEN });
+
+    const gmail = google.gmail({ version: "v1", auth: oAuth2Client });
+
+    const subject = "Your Tranzit.io 2FA Code";
+    const message = `<p>Your verification code is: <b>${code}</b><br>This code will expire in 5 minutes.</p>`;
+
+    const rawMessage = [
+      `To: ${email}`,
+      "Subject: " + subject,
+      "Content-Type: text/html; charset=utf-8",
+      "",
+      message,
+    ].join("\n");
+
+    const encodedMessage = Buffer.from(rawMessage)
+      .toString("base64")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+
+    await gmail.users.messages.send({
+      userId: "me",
+      requestBody: {
+        raw: encodedMessage,
+      },
     });
     res.json({ success: true });
   } catch (err) {

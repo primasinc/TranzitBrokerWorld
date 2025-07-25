@@ -43,7 +43,14 @@ const DriverUpdates: React.FC = () => {
   // State for modals
   const [contactInfo, setContactInfo] = useState<{phone: string, email: string, driverName: string} | null>(null);
   const [showContactModal, setShowContactModal] = useState(false);
-  const [eldDetails, setEldDetails] = useState<{location: string, coordinates: [number, number], pickup: [number, number], delivery: [number, number]} | null>(null);
+  const [eldDetails, setEldDetails] = useState<{
+    location: string, 
+    coordinates: [number, number], 
+    pickup: [number, number], 
+    delivery: [number, number],
+    carrierProfile?: any,
+    eta?: string
+  } | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [detailsView, setDetailsView] = useState<'map' | 'location'>('map');
 
@@ -355,15 +362,74 @@ const DriverUpdates: React.FC = () => {
 
   // Handler for View Details button
   const handleViewDetailsClick = async (driverId: string, pickup?: [number, number], delivery?: [number, number]) => {
-    // Simulate fetching ELD/location data and use provided pickup/delivery coordinates
-    setEldDetails({
-      location: 'N/A',
-      coordinates: [-87.6298, 41.8781],
-      pickup: pickup || [-87.6298, 41.8781],
-      delivery: delivery || [-96.7970, 32.7767],
-    });
-    setDetailsView('map');
-    setShowDetailsModal(true);
+    try {
+      // Fetch carrier profile data for driver information
+      const carrierProfile = await getCarrier(driverId);
+      
+      // Get current location data (existing logic)
+      let currentLocation = 'N/A';
+      let currentCoordinates: [number, number] = [-87.6298, 41.8781];
+      
+      // Try to get current location from locations collection
+      const locationRef = doc(db, 'locations', driverId);
+      const locationSnap = await getDoc(locationRef);
+      if (locationSnap.exists()) {
+        const locationData = locationSnap.data();
+        if (locationData.lat && locationData.lng) {
+          currentCoordinates = [locationData.lng, locationData.lat];
+          if (locationData.city && locationData.state) {
+            currentLocation = `${locationData.city}, ${locationData.state}`;
+          } else {
+            currentLocation = `${locationData.lat.toFixed(4)}, ${locationData.lng.toFixed(4)}`;
+          }
+        }
+      }
+      
+      // Calculate ETA based on current progress
+      let eta = 'N/A';
+      if (pickup && delivery && currentCoordinates) {
+        const totalDistance = haversineDistance(pickup, delivery);
+        const remainingDistance = haversineDistance(currentCoordinates, delivery);
+        const progress = Math.max(0, Math.min(1, 1 - (remainingDistance / totalDistance)));
+        
+        // Estimate ETA based on average truck speed (60 mph) and remaining distance
+        if (remainingDistance > 0) {
+          const estimatedHours = remainingDistance / 60; // 60 mph average
+          const estimatedMinutes = Math.round(estimatedHours * 60);
+          if (estimatedMinutes < 60) {
+            eta = `${estimatedMinutes} minutes`;
+          } else {
+            const hours = Math.floor(estimatedMinutes / 60);
+            const minutes = estimatedMinutes % 60;
+            eta = `${hours}h ${minutes}m`;
+          }
+        }
+      }
+      
+      setEldDetails({
+        location: currentLocation,
+        coordinates: currentCoordinates,
+        pickup: pickup || [-87.6298, 41.8781],
+        delivery: delivery || [-96.7970, 32.7767],
+        carrierProfile: carrierProfile || null,
+        eta: eta
+      });
+      setDetailsView('map');
+      setShowDetailsModal(true);
+    } catch (error) {
+      console.error('Error fetching driver details:', error);
+      // Fallback to basic data
+      setEldDetails({
+        location: 'N/A',
+        coordinates: [-87.6298, 41.8781],
+        pickup: pickup || [-87.6298, 41.8781],
+        delivery: delivery || [-96.7970, 32.7767],
+        carrierProfile: null,
+        eta: 'N/A'
+      });
+      setDetailsView('map');
+      setShowDetailsModal(true);
+    }
   };
 
 
@@ -442,6 +508,29 @@ const DriverUpdates: React.FC = () => {
               <div className={styles.locationInfo}>
                 <p><strong>Current Location:</strong> {eldDetails.location}</p>
                 <p><strong>Coordinates:</strong> {eldDetails.coordinates[0]}, {eldDetails.coordinates[1]}</p>
+                
+                {/* Driver Information Section */}
+                {eldDetails.carrierProfile && (
+                  <div className={styles.driverInfo}>
+                    <h3>Driver Information</h3>
+                    <div className={styles.driverDetails}>
+                      <p><strong>Company:</strong> {eldDetails.carrierProfile.companyName || 'N/A'}</p>
+                      <p><strong>Driver:</strong> {eldDetails.carrierProfile.driverName || eldDetails.carrierProfile.displayName || eldDetails.carrierProfile.companyName || 'N/A'}</p>
+                      <p><strong>Phone:</strong> {eldDetails.carrierProfile.driverPhone || eldDetails.carrierProfile.phone || 'N/A'}</p>
+                      <p><strong>Vehicle VIN:</strong> {eldDetails.carrierProfile.vehicleVin || 'N/A'}</p>
+                      <p><strong>DOT:</strong> {eldDetails.carrierProfile.driverDotNumber || eldDetails.carrierProfile.dotNumber || 'N/A'}</p>
+                      <p><strong>ELD:</strong> {eldDetails.carrierProfile.eldCompany || 'N/A'}</p>
+                      <p><strong>ELD API ID:</strong> {eldDetails.carrierProfile.eldApiId || 'N/A'}</p>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Route Information */}
+                <div className={styles.routeInfo}>
+                  <h3>Route Information</h3>
+                  <p><strong>Estimated Arrival:</strong> {eldDetails.eta || 'N/A'}</p>
+                </div>
+                
                 {/* Modern Progress Bar */}
                 {eldDetails.pickup && eldDetails.delivery && eldDetails.coordinates && (
                   (() => {

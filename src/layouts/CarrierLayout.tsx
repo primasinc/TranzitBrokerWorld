@@ -4,12 +4,40 @@ import styles from './CarrierLayout.module.css';
 import NotificationsTray, { useUnreadNotifications } from '../pages/carrier/NotificationsTray';
 import { FiMenu, FiX } from 'react-icons/fi';
 import { useLocationContext } from '../contexts/LocationContext';
+import { useAuth } from '../contexts/AuthContext';
+import { useUserPermissions } from '../hooks/useUserPermissions';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../config/firebase';
 
 const CarrierLayout: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [companyName, setCompanyName] = useState<string>('Carrier Portal');
   const unreadCount = useUnreadNotifications();
   const { location, error: locationError, permissionState, retry } = useLocationContext();
+  const { user } = useAuth();
+  const { isDriver } = useUserPermissions();
+
+  // Fetch company name for display
+  useEffect(() => {
+    const fetchCompanyName = async () => {
+      if (!user?.uid) return;
+      
+      try {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          if (userData.companyName) {
+            setCompanyName(userData.companyName);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching company name:', error);
+      }
+    };
+
+    fetchCompanyName();
+  }, [user?.uid]);
 
   return (
     <div className={styles.layout}>
@@ -39,7 +67,12 @@ const CarrierLayout: React.FC = () => {
       <nav className={`${styles.sidebar} ${isMenuOpen ? styles.sidebarOpen : ''}`}>
         <div className={styles.logo}>
           {/* Add your logo here */}
-          <h2>Carrier Portal</h2>
+          <h2>{companyName}</h2>
+          {isDriver && (
+            <div style={{ fontSize: '12px', opacity: 0.7, marginTop: '4px' }}>
+              Driver Account
+            </div>
+          )}
         </div>
         <NavLink 
           to="/carrier/home" 

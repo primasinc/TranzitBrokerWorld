@@ -6,6 +6,7 @@ import { setUserRole } from '../../services/authService';
 import { db } from '../../config/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import styles from './Login.module.css';
+import { inviteService } from '../../services/inviteService';
 
 type UserType = 'shipper' | 'carrier';
 
@@ -30,24 +31,29 @@ const Register: React.FC = () => {
     const params = new URLSearchParams(location.search);
     const inviteToken = params.get('invite');
     if (inviteToken) {
-      // TODO: Fetch invite data from backend using the token
-      // Simulate fetched data for now
-      const inviteData = {
-        userType: 'carrier',
-        companyName: 'Inviting Company',
-        companyRep: 'Company Rep',
-        phoneNumber: '555-555-5555',
-        email: 'invited@carrier.com',
-        name: 'Invited Carrier'
+      // Fetch real invite data from backend
+      const fetchInviteData = async () => {
+        try {
+          const inviteData = await inviteService.getInviteData(inviteToken);
+          if (inviteData) {
+            setFormData(prev => ({
+              ...prev,
+              userType: 'carrier' as UserType,
+              companyName: inviteData.companyName,
+              companyRep: inviteData.companyRep,
+              phoneNumber: inviteData.phone,
+              email: inviteData.email
+            }));
+          } else {
+            setError('Invalid or expired invitation link.');
+          }
+        } catch (error) {
+          console.error('Error fetching invite data:', error);
+          setError('Failed to load invitation data. Please try again.');
+        }
       };
-      setFormData(prev => ({
-        ...prev,
-        userType: inviteData.userType as UserType,
-        companyName: inviteData.companyName,
-        companyRep: inviteData.companyRep,
-        phoneNumber: inviteData.phoneNumber,
-        email: inviteData.email
-      }));
+      
+      fetchInviteData();
     }
   }, [location.search]);
 
@@ -75,6 +81,10 @@ const Register: React.FC = () => {
     }
 
     try {
+      // Check if this is an invited user
+      const params = new URLSearchParams(location.search);
+      const inviteToken = params.get('invite');
+      
       // Create user in Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(
         auth,
@@ -82,15 +92,32 @@ const Register: React.FC = () => {
         formData.password
       );
 
-      // Save user profile info to Firestore
-      await setDoc(doc(db, 'users', userCredential.user.uid), {
+      // Prepare user data
+      const userData: any = {
         companyName: formData.companyName,
         companyRep: formData.companyRep,
         phoneNumber: formData.phoneNumber,
         email: formData.email,
         userType: formData.userType,
         createdAt: new Date()
-      }, { merge: true });
+      };
+
+      // If this is an invited driver, add company hierarchy fields
+      if (inviteToken) {
+        const inviteData = await inviteService.getInviteData(inviteToken);
+        if (inviteData) {
+          userData.role = 'driver';
+          userData.parentCompanyId = inviteData.inviterId;
+          // Mark invite as used
+          await inviteService.markInviteAsUsed(inviteToken);
+        }
+      } else {
+        // Regular user registration - set as company owner
+        userData.role = 'company_owner';
+      }
+
+      // Save user profile info to Firestore
+      await setDoc(doc(db, 'users', userCredential.user.uid), userData, { merge: true });
 
       console.log('Registered user:', userCredential.user);
 

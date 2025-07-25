@@ -13,6 +13,7 @@ import { useMobileOptimization } from '../../hooks/useMobileOptimization';
 import { usePartnerRequestLoads } from '../../hooks/usePartnerRequestLoads';
 import { useCarrierPartnerRequests } from '../../hooks/useCarrierPartnerRequests';
 import { getCarrierLocation } from '../../utils/getCarrierLocation';
+import { useCurrentLoad } from '../../hooks/useCurrentLoad';
 
 interface AvailableLoad {
   id: string;
@@ -145,26 +146,8 @@ const HomeFeed: React.FC = () => {
   // Use the new hook for partner requests
   const { merged: mergedPartnerRequests, loading: mergedPartnerLoading, error: mergedPartnerError } = usePartnerRequestLoads();
 
-  // State for current load (mock data for now)
-  const [currentLoad] = useState({
-    poNumber: 'PO-2024-001',
-    shipperName: 'ABC Manufacturing',
-    contact: 'John Smith (555) 123-4567',
-    pickup: {
-      location: '123 Factory St, Detroit, MI',
-      time: '2024-01-15 08:00 AM'
-    },
-    delivery: {
-      location: '456 Warehouse Ave, Chicago, IL',
-      time: '2024-01-16 02:00 PM'
-    },
-    product: {
-      description: 'Automotive parts - Engine components',
-      size: '48ft x 8.5ft x 8.5ft',
-      weight: '45,000 lbs'
-    },
-    notes: 'Handle with care. Temperature controlled shipment required.'
-  });
+  // Use the new hook for current load
+  const { currentLoad, loading: currentLoadLoading, error: currentLoadError } = useCurrentLoad();
 
   const handleLogout = () => {
     navigate('/login');
@@ -284,36 +267,50 @@ const HomeFeed: React.FC = () => {
           {/* Current Load Information */}
           <section className={styles.currentLoad}>
             <h2>Current Load Information</h2>
-            <div className={styles.loadDetails}>
-              <div className={styles.loadInfo}>
-                <p><strong>PO Number:</strong> {currentLoad.poNumber}</p>
-                <p><strong>Shipper Name:</strong> {currentLoad.shipperName}</p>
-                <p><strong>Contact Information:</strong> {currentLoad.contact}</p>
+            {currentLoadLoading ? (
+              <div style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
+                Loading current load information...
               </div>
-              
-              <div className={styles.locations}>
-                <div>
-                  <h3>Pickup Location</h3>
-                  <p>{currentLoad.pickup.location}</p>
-                  <p>{currentLoad.pickup.time}</p>
-                </div>
-                <div>
-                  <h3>Delivery Location</h3>
-                  <p>{currentLoad.delivery.location}</p>
-                  <p>{currentLoad.delivery.time}</p>
-                </div>
+            ) : currentLoadError ? (
+              <div style={{ textAlign: 'center', padding: '20px', color: '#dc3545' }}>
+                Error loading current load: {currentLoadError}
               </div>
+            ) : !currentLoad ? (
+              <div style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
+                No active load found. Check your available loads to get started.
+              </div>
+            ) : (
+              <div className={styles.loadDetails}>
+                <div className={styles.loadInfo}>
+                  <p><strong>PO Number:</strong> {currentLoad.poNumber}</p>
+                  <p><strong>Shipper Name:</strong> {currentLoad.shipperName}</p>
+                  <p><strong>Contact Information:</strong> {currentLoad.contact}</p>
+                </div>
+                
+                <div className={styles.locations}>
+                  <div>
+                    <h3>Pickup Location</h3>
+                    <p>{currentLoad.pickup.location}</p>
+                    <p>{currentLoad.pickup.time}</p>
+                  </div>
+                  <div>
+                    <h3>Delivery Location</h3>
+                    <p>{currentLoad.delivery.location}</p>
+                    <p>{currentLoad.delivery.time}</p>
+                  </div>
+                </div>
 
-              <div className={styles.productInfo}>
-                <h3>Product Description</h3>
-                <p>{currentLoad.product.description}</p>
-                <div className={styles.dimensions}>
-                  <p><strong>Size:</strong> {currentLoad.product.size}</p>
-                  <p><strong>Weight:</strong> {currentLoad.product.weight}</p>
+                <div className={styles.productInfo}>
+                  <h3>Product Description</h3>
+                  <p>{currentLoad.product.description}</p>
+                  <div className={styles.dimensions}>
+                    <p><strong>Size:</strong> {currentLoad.product.size}</p>
+                    <p><strong>Weight:</strong> {currentLoad.product.weight}</p>
+                  </div>
+                  <p><strong>Notes:</strong> {currentLoad.notes}</p>
                 </div>
-                <p><strong>Notes:</strong> {currentLoad.notes}</p>
               </div>
-            </div>
+            )}
           </section>
 
           {/* Available Loads */}

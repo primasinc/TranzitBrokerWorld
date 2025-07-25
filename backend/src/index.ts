@@ -8,7 +8,6 @@ admin.initializeApp({
 export const db = admin.firestore();
 
 import express from 'express';
-import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth';
@@ -56,18 +55,8 @@ app.get('/api/vehicles', (req, res) => {
   res.json({ message: 'Vehicles endpoint is working!' });
 });
 
-// Connect to MongoDB
-mongoose
-  .connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/tranzit')
-  .then(() => {
-    console.log('Connected to MongoDB');
-  })
-  .catch((error) => {
-    console.error('MongoDB connection error:', error);
-  });
-
 // Start server
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 }); 

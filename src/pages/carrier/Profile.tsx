@@ -11,6 +11,7 @@ import { locationService } from '../../services/locationService';
 import homeFeedStyles from './HomeFeed.module.css';
 import NotificationsTray, { useUnreadNotifications } from './NotificationsTray';
 import { useNavigate } from 'react-router-dom';
+import { useUserPermissions } from '../../hooks/useUserPermissions';
 
 const ProfilePage: React.FC = () => {
   const [profile, setProfile] = useState<Partial<CarrierProfile>>({});
@@ -34,6 +35,7 @@ const ProfilePage: React.FC = () => {
   const [showNotifications, setShowNotifications] = useState(false);
   const unreadCount = useUnreadNotifications();
   const navigate = useNavigate();
+  const { canModifyCompanySettings, isDriver } = useUserPermissions();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -91,6 +93,13 @@ const ProfilePage: React.FC = () => {
 
   const handleProfileUpdate = async (data: CarrierProfile) => {
     if (!userId) return;
+    
+    // Check if user can modify company settings
+    if (!canModifyCompanySettings) {
+      alert('You do not have permission to modify company settings. Only company owners can make these changes.');
+      return;
+    }
+    
     await setDoc(doc(db, 'users', userId), data, { merge: true });
     alert('Profile updated successfully!');
   };
@@ -169,10 +178,25 @@ const ProfilePage: React.FC = () => {
             </div>
           </div>
         </header>
+      
+      {isDriver && !canModifyCompanySettings && (
+        <div style={{
+          background: '#fff3cd',
+          border: '1px solid #ffeaa7',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          marginBottom: '16px',
+          color: '#856404'
+        }}>
+          <p><strong>Read Only Mode:</strong> As a driver, you can view your profile information but cannot modify company settings. Only company owners can make changes to the company profile.</p>
+        </div>
+      )}
+      
       <CarrierProfileForm
         initialData={profile}
         onSubmit={handleProfileUpdate}
         isLoading={loading}
+        disabled={!canModifyCompanySettings}
       />
       {/* Show the carrier's map using device geolocation */}
       <div style={{ marginTop: 32 }}>
