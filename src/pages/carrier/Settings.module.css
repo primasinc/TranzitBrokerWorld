@@ -176,6 +176,56 @@ input:checked + .slider:before {
   max-width: 500px;
 }
 
+.factoringSection {
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid #e9ecef;
+}
+
+.factoringForm {
+  margin-top: 20px;
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.radioGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 15px 0;
+}
+
+.radioLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.factoringInfo {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  border: 1px solid #e9ecef;
+}
+
+.factoringInfo h4 {
+  margin: 0 0 10px 0;
+  color: #495057;
+}
+
+.factoringInfo p {
+  margin: 5px 0;
+  font-size: 14px;
+}
+
 .securityOption {
   display: flex;
   justify-content: space-between;

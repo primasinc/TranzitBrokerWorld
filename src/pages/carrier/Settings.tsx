@@ -30,6 +30,13 @@ interface Profile {
     routingNumber: string;
     accountNumber: string;
   };
+  factoringCompany?: {
+    name: string;
+    address: string;
+    phone: string;
+    email: string;
+    contactName: string;
+  };
 }
 
 const Settings: React.FC = () => {
@@ -74,6 +81,10 @@ const Settings: React.FC = () => {
   }>({ loadTime: 0, renderTime: 0 });
   const isCompanyAdmin = true; // Set to false for dependent/driver users
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [showFactoringForm, setShowFactoringForm] = useState(false);
+  const [factoringMethod, setFactoringMethod] = useState<'manual' | 'dropdown'>('manual');
+  const [factoringSearchTerm, setFactoringSearchTerm] = useState('');
+  const [showFactoringDropdown, setShowFactoringDropdown] = useState(false);
 
   // Mobile optimization hooks
   const { networkInfo, batteryInfo, isLowBandwidth, isLowBattery } = useMobileOptimization();
@@ -149,6 +160,37 @@ const Settings: React.FC = () => {
 
   const { user } = useAuth();
   const { isCompanyOwner, canInviteDrivers } = useUserPermissions();
+
+  // Mock factoring companies data - will be replaced with API call
+  const FACTORING_COMPANIES = [
+    { id: '1', name: 'Triumph Business Capital', address: '123 Main St, New York, NY', phone: '(555) 123-4567', email: 'contact@triumph.com', contact: 'John Smith' },
+    { id: '2', name: 'RTS Financial', address: '456 Business Ave, Chicago, IL', phone: '(555) 234-5678', email: 'info@rtsfinancial.com', contact: 'Sarah Johnson' },
+    { id: '3', name: 'TBS Factoring', address: '789 Commerce Dr, Los Angeles, CA', phone: '(555) 345-6789', email: 'service@tbsfactoring.com', contact: 'Mike Davis' },
+    { id: '4', name: 'Freight Factoring Inc', address: '321 Trucking Blvd, Dallas, TX', phone: '(555) 456-7890', email: 'support@freightfactoring.com', contact: 'Lisa Wilson' },
+    { id: '5', name: 'Transportation Capital', address: '654 Logistics Way, Atlanta, GA', phone: '(555) 567-8901', email: 'hello@transportcap.com', contact: 'David Brown' }
+  ];
+
+  // Filter factoring companies based on search term
+  const filteredFactoringCompanies = FACTORING_COMPANIES.filter(company =>
+    company.name.toLowerCase().includes(factoringSearchTerm.toLowerCase()) ||
+    company.contact.toLowerCase().includes(factoringSearchTerm.toLowerCase())
+  );
+
+  // Handle selecting a factoring company from dropdown
+  const handleSelectFactoringCompany = (company: typeof FACTORING_COMPANIES[0]) => {
+    setProfile(prev => ({
+      ...prev,
+      factoringCompany: {
+        name: company.name,
+        address: company.address,
+        phone: company.phone,
+        email: company.email,
+        contactName: company.contact
+      }
+    }));
+    setShowFactoringDropdown(false);
+    setFactoringSearchTerm('');
+  };
 
   const handleSendInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -389,6 +431,207 @@ const Settings: React.FC = () => {
                   <label>Account Number</label>
                   <input type="text" value={profile.paymentInfo.accountNumber} readOnly />
                 </div>
+              </div>
+
+              {/* Factoring Company Section */}
+              <div className={styles.factoringSection}>
+                <div className={styles.formGroup}>
+                  <label className={styles.checkboxLabel}>
+                    <input
+                      type="checkbox"
+                      checked={showFactoringForm}
+                      onChange={(e) => setShowFactoringForm(e.target.checked)}
+                    />
+                    <span>Add a factoring company</span>
+                  </label>
+                </div>
+
+                {showFactoringForm && (
+                  <div className={styles.factoringForm}>
+                    <div className={styles.formGroup}>
+                      <label>How would you like to add your factoring company?</label>
+                      <div className={styles.radioGroup}>
+                        <label className={styles.radioLabel}>
+                          <input
+                            type="radio"
+                            name="factoringMethod"
+                            checked={factoringMethod === 'manual'}
+                            onChange={() => setFactoringMethod('manual')}
+                          />
+                          <span>Enter information manually</span>
+                        </label>
+                        <label className={styles.radioLabel}>
+                          <input
+                            type="radio"
+                            name="factoringMethod"
+                            checked={factoringMethod === 'dropdown'}
+                            onChange={() => setFactoringMethod('dropdown')}
+                          />
+                          <span>Select from list</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {factoringMethod === 'dropdown' && (
+                      <div className={styles.formGroup}>
+                        <label>Search Factoring Companies</label>
+                        <div style={{ position: 'relative' }}>
+                          <input
+                            type="text"
+                            value={factoringSearchTerm}
+                            onChange={(e) => setFactoringSearchTerm(e.target.value)}
+                            onFocus={() => setShowFactoringDropdown(true)}
+                            placeholder="Search factoring companies..."
+                            style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
+                          />
+                          {showFactoringDropdown && (
+                            <div style={{
+                              position: 'absolute',
+                              top: '100%',
+                              left: 0,
+                              right: 0,
+                              backgroundColor: 'white',
+                              border: '1px solid #ccc',
+                              borderRadius: '4px',
+                              maxHeight: '200px',
+                              overflowY: 'auto',
+                              zIndex: 1000,
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                            }}>
+                              {filteredFactoringCompanies.map(company => (
+                                <div
+                                  key={company.id}
+                                  onClick={() => handleSelectFactoringCompany(company)}
+                                  style={{
+                                    padding: '8px 12px',
+                                    cursor: 'pointer',
+                                    borderBottom: '1px solid #eee'
+                                  }}
+                                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                                >
+                                  <div style={{ fontWeight: 'bold' }}>{company.name}</div>
+                                  <div style={{ fontSize: '12px', color: '#666' }}>{company.contact} • {company.phone}</div>
+                                </div>
+                              ))}
+                              {filteredFactoringCompanies.length === 0 && (
+                                <div style={{ padding: '8px 12px', color: '#666', fontStyle: 'italic' }}>
+                                  No factoring companies found
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {factoringMethod === 'manual' && (
+                      <>
+                        <div className={styles.formGroup}>
+                          <label>Company Name</label>
+                          <input
+                            type="text"
+                            value={profile.factoringCompany?.name || ''}
+                            onChange={(e) => setProfile(prev => ({
+                              ...prev,
+                              factoringCompany: { 
+                                name: e.target.value,
+                                address: prev.factoringCompany?.address || '',
+                                phone: prev.factoringCompany?.phone || '',
+                                email: prev.factoringCompany?.email || '',
+                                contactName: prev.factoringCompany?.contactName || ''
+                              }
+                            }))}
+                            placeholder="Enter company name"
+                          />
+                        </div>
+                        <div className={styles.formGroup}>
+                          <label>Company Address</label>
+                          <input
+                            type="text"
+                            value={profile.factoringCompany?.address || ''}
+                            onChange={(e) => setProfile(prev => ({
+                              ...prev,
+                              factoringCompany: { 
+                                name: prev.factoringCompany?.name || '',
+                                address: e.target.value,
+                                phone: prev.factoringCompany?.phone || '',
+                                email: prev.factoringCompany?.email || '',
+                                contactName: prev.factoringCompany?.contactName || ''
+                              }
+                            }))}
+                            placeholder="Enter company address"
+                          />
+                        </div>
+                        <div className={styles.formGroup}>
+                          <label>Phone Number</label>
+                          <input
+                            type="tel"
+                            value={profile.factoringCompany?.phone || ''}
+                            onChange={(e) => setProfile(prev => ({
+                              ...prev,
+                              factoringCompany: { 
+                                name: prev.factoringCompany?.name || '',
+                                address: prev.factoringCompany?.address || '',
+                                phone: e.target.value,
+                                email: prev.factoringCompany?.email || '',
+                                contactName: prev.factoringCompany?.contactName || ''
+                              }
+                            }))}
+                            placeholder="Enter phone number"
+                          />
+                        </div>
+                        <div className={styles.formGroup}>
+                          <label>Email</label>
+                          <input
+                            type="email"
+                            value={profile.factoringCompany?.email || ''}
+                            onChange={(e) => setProfile(prev => ({
+                              ...prev,
+                              factoringCompany: { 
+                                name: prev.factoringCompany?.name || '',
+                                address: prev.factoringCompany?.address || '',
+                                phone: prev.factoringCompany?.phone || '',
+                                email: e.target.value,
+                                contactName: prev.factoringCompany?.contactName || ''
+                              }
+                            }))}
+                            placeholder="Enter email address"
+                          />
+                        </div>
+                        <div className={styles.formGroup}>
+                          <label>Contact Name</label>
+                          <input
+                            type="text"
+                            value={profile.factoringCompany?.contactName || ''}
+                            onChange={(e) => setProfile(prev => ({
+                              ...prev,
+                              factoringCompany: { 
+                                name: prev.factoringCompany?.name || '',
+                                address: prev.factoringCompany?.address || '',
+                                phone: prev.factoringCompany?.phone || '',
+                                email: prev.factoringCompany?.email || '',
+                                contactName: e.target.value
+                              }
+                            }))}
+                            placeholder="Enter contact person name"
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {profile.factoringCompany && (
+                      <div className={styles.factoringInfo}>
+                        <h4>Current Factoring Company</h4>
+                        <p><strong>Name:</strong> {profile.factoringCompany.name}</p>
+                        <p><strong>Address:</strong> {profile.factoringCompany.address}</p>
+                        <p><strong>Phone:</strong> {profile.factoringCompany.phone}</p>
+                        <p><strong>Email:</strong> {profile.factoringCompany.email}</p>
+                        <p><strong>Contact:</strong> {profile.factoringCompany.contactName}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}

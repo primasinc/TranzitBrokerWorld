@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import styles from './Payments.module.css';
 import DocumentModal from '../../components/DocumentModal';
 import PaymentRequestModal from '../../components/PaymentRequestModal';
-import FactorRequestModal from '../../components/FactorRequestModal';
+
 import CancelPaymentRequestModal from '../../components/CancelPaymentRequestModal';
 import PaymentDetailsModal from '../../components/PaymentDetailsModal';
 import PaymentReportsModal from '../../components/PaymentReportsModal';
 import PaymentAnalyticsModal from '../../components/PaymentAnalyticsModal';
-import PaymentSettingsModal, { PaymentSettings } from '../../components/PaymentSettingsModal';
+
 import AdvancedSearchModal, { SearchCriteria, SavedSearch } from '../../components/AdvancedSearchModal';
 import { collection, getDocs, doc, updateDoc, query, where, getDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
@@ -135,37 +135,7 @@ const Payments: React.FC = () => {
   const [selectedPaymentIds, setSelectedPaymentIds] = useState<string[]>([]);
   const [bulkActionMenuOpen, setBulkActionMenuOpen] = useState(false);
   const [isAnalyticsModalOpen, setIsAnalyticsModalOpen] = useState(false);
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const [paymentSettings, setPaymentSettings] = useState<PaymentSettings>({
-    preferredPaymentMethod: 'directDeposit',
-    bankInfo: {
-      accountName: '',
-      accountNumber: '',
-      routingNumber: '',
-      bankName: ''
-    },
-    factoring: {
-      defaultFactoringOption: 'none',
-      externalFactoringCompany: '',
-      externalFactoringEmail: '',
-      autoFactorLoadsOver: 0
-    },
-    notifications: {
-      emailNotifications: true,
-      smsNotifications: false,
-      paymentStatusChanges: true,
-      paymentReminders: true,
-      weeklyReports: false
-    },
-    reportTemplates: [
-      {
-        name: 'Monthly Payments',
-        type: 'all',
-        format: 'csv',
-        fields: ['loadId', 'date', 'customer', 'amount', 'status']
-      }
-    ]
-  });
+
   const [isAdvancedSearchModalOpen, setIsAdvancedSearchModalOpen] = useState(false);
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([
     {
@@ -550,11 +520,7 @@ const Payments: React.FC = () => {
     </tr>
   );
 
-  const handleSaveSettings = (settings: PaymentSettings) => {
-    setPaymentSettings(settings);
-    // In a real app, you would save these to your backend
-    console.log('Saving settings:', settings);
-  };
+
 
   const handleAdvancedSearch = (criteria: SearchCriteria) => {
     setAdvancedSearchCriteria(criteria);

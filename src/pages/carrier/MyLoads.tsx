@@ -8,6 +8,7 @@ import { konexialService } from '../../services/konexialService';
 import InvoiceModal from '../../components/carrier/InvoiceModal';
 import { useMobileOptimization } from '../../hooks/useMobileOptimization';
 import NotificationsTray, { useUnreadNotifications } from './NotificationsTray';
+import { useUserPermissions } from '../../hooks/useUserPermissions';
 
 interface Load {
   id: string;
@@ -48,6 +49,7 @@ const MyLoads: React.FC = () => {
   const [selectedLoad, setSelectedLoad] = useState<Load | null>(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const unreadCount = useUnreadNotifications();
+  const { isDriver, isCompanyOwner } = useUserPermissions();
 
   // Mobile optimization
   const { 
@@ -78,34 +80,60 @@ const MyLoads: React.FC = () => {
       return;
     }
     setLoading(true);
-    const loadsQuery = query(
-      collection(db, 'loads'),
-      where('carrierId', '==', user.uid),
-      orderBy('createdAt', 'desc')
-    );
-    const unsubscribe = onSnapshot(
-      loadsQuery,
-      (snapshot) => {
-        const loadsData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt && typeof doc.data().createdAt.toDate === 'function'
-            ? doc.data().createdAt.toDate()
-            : doc.data().createdAt,
-          updatedAt: doc.data().updatedAt && typeof doc.data().updatedAt.toDate === 'function'
-            ? doc.data().updatedAt.toDate()
-            : doc.data().updatedAt,
-        })) as Load[];
-        setLoads(loadsData);
-        setLoading(false);
-      },
-      (error) => {
-        console.error('Error fetching loads:', error);
-        setError('Failed to fetch loads. Please try again later.');
+    
+    // Get user's company information
+    const fetchUserAndLoads = async () => {
+      try {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (!userDoc.exists()) {
+          setError('User not found');
+          setLoading(false);
+          return;
+        }
+        
+        const userData = userDoc.data();
+        const isDriverUser = userData.role === 'driver';
+        const companyId = isDriverUser ? userData.parentCompanyId : user.uid;
+        
+        // Query loads for the company (either user's own loads or parent company loads)
+        const loadsQuery = query(
+          collection(db, 'loads'),
+          where('carrierId', '==', companyId),
+          orderBy('createdAt', 'desc')
+        );
+        
+        const unsubscribe = onSnapshot(
+          loadsQuery,
+          (snapshot) => {
+            const loadsData = snapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data(),
+              createdAt: doc.data().createdAt && typeof doc.data().createdAt.toDate === 'function'
+                ? doc.data().createdAt.toDate()
+                : doc.data().createdAt,
+              updatedAt: doc.data().updatedAt && typeof doc.data().updatedAt.toDate === 'function'
+                ? doc.data().updatedAt.toDate()
+                : doc.data().updatedAt,
+            })) as Load[];
+            setLoads(loadsData);
+            setLoading(false);
+          },
+          (error) => {
+            console.error('Error fetching loads:', error);
+            setError('Failed to load loads');
+            setLoading(false);
+          }
+        );
+        
+        return unsubscribe;
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+        setError('Failed to load user data');
         setLoading(false);
       }
-    );
-    return () => unsubscribe();
+    };
+    
+    fetchUserAndLoads();
   }, [authLoading, user]);
 
   const filteredLoads = loads.filter(load => load.status === activeTab).filter(load => {
