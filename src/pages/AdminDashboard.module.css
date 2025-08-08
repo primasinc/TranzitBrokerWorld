@@ -3,13 +3,10 @@
   margin: 0 auto;
   padding: 20px;
   font-family: Arial, sans-serif;
-  background: #f8f9fa;
   min-height: 100vh;
-  color: #333;
 }
 
 .adminDashboard h1 {
-  color: #333;
   margin-bottom: 20px;
   border-bottom: 2px solid #007bff;
   padding-bottom: 10px;
@@ -19,7 +16,6 @@
 }
 
 .adminDashboard h2 {
-  color: #666;
   margin-bottom: 20px;
   font-size: 1.5rem;
 }
@@ -34,7 +30,6 @@
   border: 1px solid #ddd;
   border-radius: 8px;
   padding: 20px;
-  background: white;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   display: flex;
   justify-content: space-between;
@@ -53,14 +48,12 @@
 
 .userInfo h3 {
   margin: 0 0 10px 0;
-  color: #333;
   font-size: 18px;
   font-weight: bold;
 }
 
 .userInfo p {
   margin: 5px 0;
-  color: #666;
   font-size: 14px;
 }
 

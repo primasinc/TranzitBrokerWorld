@@ -1,0 +1,389 @@
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.container h1 {
+  color: #1976d2;
+  margin-bottom: 30px;
+  text-align: center;
+  font-size: 2.5rem;
+}
+
+.section {
+  background: white;
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e0e0e0;
+}
+
+.section h2 {
+  color: #333;
+  margin-bottom: 20px;
+  font-size: 1.5rem;
+  border-bottom: 2px solid #1976d2;
+  padding-bottom: 8px;
+}
+
+/* Tier Grid */
+.tierGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.tierCard {
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 20px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.tierCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-color: #1976d2;
+}
+
+.tierCard h3 {
+  color: #1976d2;
+  margin-bottom: 8px;
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.tierCard:nth-child(1) {
+  border-color: #28a745;
+}
+
+.tierCard:nth-child(1) h3 {
+  color: #28a745;
+}
+
+.tierCard:nth-child(2) {
+  border-color: #ffc107;
+}
+
+.tierCard:nth-child(2) h3 {
+  color: #ffc107;
+}
+
+.tierCard:nth-child(3) {
+  border-color: #dc3545;
+}
+
+.tierCard:nth-child(3) h3 {
+  color: #dc3545;
+}
+
+.tierCard:nth-child(4) {
+  border-color: #6f42c1;
+}
+
+.tierCard:nth-child(4) h3 {
+  color: #6f42c1;
+}
+
+.description {
+  color: #666;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.limits {
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.limits div {
+  margin-bottom: 4px;
+  color: #555;
+}
+
+.limits strong {
+  color: #333;
+}
+
+/* Form Styles */
+.form {
+  display: grid;
+  gap: 16px;
+  max-width: 600px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.formGroup label {
+  font-weight: 600;
+  color: #333;
+  font-size: 0.9rem;
+}
+
+.input, .select {
+  padding: 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: border-color 0.3s ease;
+  background: white;
+}
+
+.input:focus, .select:focus {
+  outline: none;
+  border-color: #1976d2;
+  box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+}
+
+.buttonGroup {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.primaryButton, .secondaryButton, .tertiaryButton {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 14px;
+  min-width: 120px;
+}
+
+.primaryButton {
+  background: #1976d2;
+  color: white;
+}
+
+.primaryButton:hover:not(:disabled) {
+  background: #1565c0;
+  transform: translateY(-1px);
+}
+
+.secondaryButton {
+  background: #f8f9fa;
+  color: #333;
+  border: 2px solid #e0e0e0;
+}
+
+.secondaryButton:hover:not(:disabled) {
+  background: #e9ecef;
+  border-color: #1976d2;
+}
+
+.tertiaryButton {
+  background: #28a745;
+  color: white;
+}
+
+.tertiaryButton:hover:not(:disabled) {
+  background: #218838;
+  transform: translateY(-1px);
+}
+
+.primaryButton:disabled, .secondaryButton:disabled, .tertiaryButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Message Styles */
+.message {
+  padding: 16px;
+  border-radius: 6px;
+  margin: 16px 0;
+  font-weight: 500;
+  text-align: center;
+}
+
+.success {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.error {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+/* User Info Display */
+.userInfo {
+  background: #f8f9fa;
+  border-radius: 6px;
+  padding: 20px;
+  border-left: 4px solid #1976d2;
+}
+
+.userInfo div {
+  margin-bottom: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.userInfo strong {
+  color: #1976d2;
+  min-width: 120px;
+  display: inline-block;
+}
+
+/* Quick Actions */
+.quickActions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.quickButton {
+  padding: 10px 20px;
+  background: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  font-size: 14px;
+}
+
+.quickButton:hover {
+  background: #5a6268;
+  transform: translateY(-1px);
+}
+
+/* Admin Status */
+.adminStatus {
+  background: #f8f9fa;
+  border-radius: 6px;
+  padding: 16px;
+  margin-top: 16px;
+  border-left: 4px solid #28a745;
+}
+
+.adminStatus p {
+  margin: 8px 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.adminStatus strong {
+  color: #333;
+  min-width: 120px;
+  display: inline-block;
+}
+
+.adminWarning {
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 6px;
+  padding: 16px;
+  margin-top: 16px;
+}
+
+.adminWarning p {
+  margin: 8px 0;
+  color: #856404;
+  font-size: 14px;
+}
+
+.adminWarning strong {
+  color: #856404;
+}
+
+.adminButton {
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 12px 24px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 14px;
+  margin-top: 12px;
+}
+
+.adminButton:hover:not(:disabled) {
+  background: #c82333;
+  transform: translateY(-1px);
+}
+
+.adminButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Code Block */
+.codeBlock {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  padding: 16px;
+  margin-top: 12px;
+  overflow-x: auto;
+}
+
+.codeBlock code {
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #333;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .container {
+    padding: 16px;
+  }
+  
+  .container h1 {
+    font-size: 2rem;
+  }
+  
+  .tierGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .buttonGroup {
+    flex-direction: column;
+  }
+  
+  .quickActions {
+    flex-direction: column;
+  }
+  
+  .form {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .section {
+    padding: 16px;
+  }
+  
+  .tierCard {
+    padding: 16px;
+  }
+  
+  .userInfo {
+    padding: 16px;
+  }
+}

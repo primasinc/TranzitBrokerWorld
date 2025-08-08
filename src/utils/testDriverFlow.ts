@@ -22,17 +22,19 @@ export const testDriverRegistrationFlow = async (userId: string): Promise<Driver
     }
 
     const userData = userDoc.data();
+    console.log('Debug - User Data:', userData);
     
     // Test 2: Check role assignment
-    if (!userData.role) {
+    if (!userData.userType) {
+      console.log('Debug - UserType missing or undefined:', userData);
       return {
         success: false,
-        message: 'User role not assigned'
+        message: 'User type not assigned'
       };
     }
 
     // Test 3: Check company hierarchy for drivers
-    if (userData.role === 'driver') {
+    if (userData.userType === 'driver') {
       if (!userData.parentCompanyId) {
         return {
           success: false,
@@ -50,10 +52,10 @@ export const testDriverRegistrationFlow = async (userId: string): Promise<Driver
       }
 
       const parentData = parentCompanyDoc.data();
-      if (parentData.role !== 'company_owner') {
+      if (parentData.userType !== 'shipper' && parentData.userType !== 'carrier') {
         return {
           success: false,
-          message: 'Parent company is not a company owner'
+          message: 'Parent company must be a shipper or carrier'
         };
       }
 
@@ -68,12 +70,12 @@ export const testDriverRegistrationFlow = async (userId: string): Promise<Driver
           parentEmail: parentData.email
         }
       };
-    } else if (userData.role === 'company_owner') {
+    } else if (userData.userType === 'shipper' || userData.userType === 'carrier') {
       return {
         success: true,
-        message: 'Company owner registration working correctly',
+        message: 'Company registration working correctly',
         details: {
-          role: userData.role,
+          role: userData.userType,
           companyName: userData.companyName,
           email: userData.email
         }

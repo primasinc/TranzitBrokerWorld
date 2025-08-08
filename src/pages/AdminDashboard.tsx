@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import styles from './AdminDashboard.module.css';
 import { signOut } from 'firebase/auth';
 import { auth } from '../config/firebase';
+import { assignUserTier } from '../utils/subscriptionTierManager';
 
 interface User {
   id: string;
@@ -79,6 +80,7 @@ const AdminDashboard: React.FC = () => {
   const [selectedState, setSelectedState] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [filteredUsers, setFilteredUsers] = useState<any[]>([]);
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -86,6 +88,20 @@ const AdminDashboard: React.FC = () => {
       loadDashboardData();
     }
   }, [user]);
+
+  useEffect(() => {
+    // Set document body and html background to match the theme
+    document.body.style.backgroundColor = isDarkMode ? '#1a1a1a' : '#f8f9fa';
+    document.body.style.color = isDarkMode ? '#ffffff' : '#333333';
+    document.documentElement.style.backgroundColor = isDarkMode ? '#1a1a1a' : '#f8f9fa';
+    
+    // Cleanup function to reset body styles when component unmounts
+    return () => {
+      document.body.style.backgroundColor = '';
+      document.body.style.color = '';
+      document.documentElement.style.backgroundColor = '';
+    };
+  }, [isDarkMode]);
 
   const checkAdminStatus = async () => {
     if (!user) return;
@@ -272,8 +288,31 @@ const AdminDashboard: React.FC = () => {
     try {
       setApproving(userId);
       
-      // Update user status to approved
+      // Get user data to determine appropriate tier
       const userRef = doc(db, 'users', userId);
+      const userDoc = await getDoc(userRef);
+      const userData = userDoc.data();
+      
+      // Determine tier based on user type and company size
+      let tier: 'basic' | 'professional' | 'enterprise' = 'basic';
+      let tierReason = 'Standard approval';
+      
+      if (userData?.userType === 'carrier') {
+        // Carriers typically get professional tier for better rate limits
+        tier = 'professional';
+        tierReason = 'Carrier approval - Professional tier for enhanced operations';
+      } else if (userData?.userType === 'shipper') {
+        // Large shippers might get enterprise tier
+        if (userData?.companyName && userData.companyName.length > 20) {
+          tier = 'enterprise';
+          tierReason = 'Large shipper approval - Enterprise tier for high-volume operations';
+        } else {
+          tier = 'professional';
+          tierReason = 'Shipper approval - Professional tier for business operations';
+        }
+      }
+      
+      // Update user status to approved
       await updateDoc(userRef, {
         status: 'approved',
         approvalStatus: 'approved',
@@ -281,11 +320,18 @@ const AdminDashboard: React.FC = () => {
         approvedBy: user?.email
       });
       
+      // Automatically assign subscription tier
+      try {
+        await assignUserTier(userId, tier, tierReason);
+        alert(`User approved successfully and assigned ${tier} tier!`);
+      } catch (tierError) {
+        console.error('Failed to assign tier:', tierError);
+        alert('User approved successfully, but tier assignment failed.');
+      }
+      
       // Update local state
       setPendingUsers(prev => prev.filter(user => user.id !== userId));
       await loadSystemStats(); // Refresh stats
-      
-      alert('User approved successfully!');
     } catch (error) {
       console.error('Error approving user:', error);
       alert('Failed to approve user. Please try again.');
@@ -379,6 +425,10 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  const toggleDarkMode = () => {
+    setIsDarkMode(!isDarkMode);
+  };
+
   // Filter users based on search term and state
   useEffect(() => {
     let filtered = [...shippers];
@@ -410,36 +460,66 @@ const AdminDashboard: React.FC = () => {
   }
 
   return (
-    <div className={styles.adminDashboard}>
+    <div className={styles.adminDashboard} style={{
+      backgroundColor: isDarkMode ? '#1a1a1a' : '#f8f9fa',
+      color: isDarkMode ? '#ffffff' : '#333333',
+      minHeight: '100vh',
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      overflow: 'auto'
+    }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-        <h1>Admin Dashboard</h1>
-        <button
-          onClick={handleLogout}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: '#dc3545',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            fontWeight: 'bold'
-          }}
-        >
-          Logout
-        </button>
+        <h1 style={{ color: isDarkMode ? '#ffffff' : '#333333' }}>Admin Dashboard</h1>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <button
+            onClick={toggleDarkMode}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: isDarkMode ? '#6c757d' : '#17a2b8',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+          >
+            {isDarkMode ? '☀️' : '🌙'} {isDarkMode ? 'Light' : 'Dark'} Mode
+          </button>
+          <button
+            onClick={handleLogout}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#dc3545',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: 'bold'
+            }}
+          >
+            Logout
+          </button>
+        </div>
       </div>
       
       {/* Navigation Tabs */}
       <div style={{ marginBottom: '30px' }}>
-        <div style={{ display: 'flex', gap: '10px', borderBottom: '2px solid #eee' }}>
+        <div style={{ display: 'flex', gap: '10px', borderBottom: `2px solid ${isDarkMode ? '#444' : '#eee'}` }}>
           <button
             onClick={() => setActiveTab('overview')}
             style={{
               padding: '10px 20px',
               border: 'none',
-              backgroundColor: activeTab === 'overview' ? '#007bff' : '#f8f9fa',
-              color: activeTab === 'overview' ? 'white' : '#333',
+              backgroundColor: activeTab === 'overview' ? '#007bff' : (isDarkMode ? '#2d2d2d' : '#f8f9fa'),
+              color: activeTab === 'overview' ? 'white' : (isDarkMode ? '#ffffff' : '#333'),
               cursor: 'pointer',
               borderRadius: '4px 4px 0 0'
             }}
@@ -451,8 +531,8 @@ const AdminDashboard: React.FC = () => {
             style={{
               padding: '10px 20px',
               border: 'none',
-              backgroundColor: activeTab === 'approvals' ? '#007bff' : '#f8f9fa',
-              color: activeTab === 'approvals' ? 'white' : '#333',
+              backgroundColor: activeTab === 'approvals' ? '#007bff' : (isDarkMode ? '#2d2d2d' : '#f8f9fa'),
+              color: activeTab === 'approvals' ? 'white' : (isDarkMode ? '#ffffff' : '#333'),
               cursor: 'pointer',
               borderRadius: '4px 4px 0 0'
             }}
@@ -464,8 +544,8 @@ const AdminDashboard: React.FC = () => {
             style={{
               padding: '10px 20px',
               border: 'none',
-              backgroundColor: activeTab === 'admins' ? '#007bff' : '#f8f9fa',
-              color: activeTab === 'admins' ? 'white' : '#333',
+              backgroundColor: activeTab === 'admins' ? '#007bff' : (isDarkMode ? '#2d2d2d' : '#f8f9fa'),
+              color: activeTab === 'admins' ? 'white' : (isDarkMode ? '#ffffff' : '#333'),
               cursor: 'pointer',
               borderRadius: '4px 4px 0 0'
             }}
@@ -477,8 +557,8 @@ const AdminDashboard: React.FC = () => {
             style={{
               padding: '10px 20px',
               border: 'none',
-              backgroundColor: activeTab === 'shippers' ? '#007bff' : '#f8f9fa',
-              color: activeTab === 'shippers' ? 'white' : '#333',
+              backgroundColor: activeTab === 'shippers' ? '#007bff' : (isDarkMode ? '#2d2d2d' : '#f8f9fa'),
+              color: activeTab === 'shippers' ? 'white' : (isDarkMode ? '#ffffff' : '#333'),
               cursor: 'pointer',
               borderRadius: '4px 4px 0 0'
             }}
@@ -490,13 +570,41 @@ const AdminDashboard: React.FC = () => {
             style={{
               padding: '10px 20px',
               border: 'none',
-              backgroundColor: activeTab === 'carriers' ? '#007bff' : '#f8f9fa',
-              color: activeTab === 'carriers' ? 'white' : '#333',
+              backgroundColor: activeTab === 'carriers' ? '#007bff' : (isDarkMode ? '#2d2d2d' : '#f8f9fa'),
+              color: activeTab === 'carriers' ? 'white' : (isDarkMode ? '#ffffff' : '#333'),
               cursor: 'pointer',
               borderRadius: '4px 4px 0 0'
             }}
           >
             Carriers ({carriers.length})
+          </button>
+          <button
+            onClick={() => navigate('/admin-access')}
+            style={{
+              padding: '10px 20px',
+              border: 'none',
+              backgroundColor: '#28a745',
+              color: 'white',
+              cursor: 'pointer',
+              borderRadius: '4px 4px 0 0',
+              fontWeight: 'bold'
+            }}
+          >
+            🔧 Admin Access
+          </button>
+          <button
+            onClick={() => navigate('/test-driver-flow')}
+            style={{
+              padding: '10px 20px',
+              border: 'none',
+              backgroundColor: '#6f42c1',
+              color: 'white',
+              cursor: 'pointer',
+              borderRadius: '4px 4px 0 0',
+              fontWeight: 'bold'
+            }}
+          >
+            🧪 Driver Flow Test
           </button>
         </div>
       </div>
@@ -504,80 +612,132 @@ const AdminDashboard: React.FC = () => {
       {/* System Overview Tab */}
       {activeTab === 'overview' && (
         <div>
-          <h2>System Overview</h2>
+          <h2 style={{ color: isDarkMode ? '#ffffff' : '#333333' }}>System Overview</h2>
           
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '30px' }}>
-            <div style={{ padding: '20px', backgroundColor: '#f8f9fa', borderRadius: '8px', textAlign: 'center' }}>
+            <div style={{ 
+              padding: '20px', 
+              backgroundColor: isDarkMode ? '#2d2d2d' : '#f8f9fa', 
+              borderRadius: '8px', 
+              textAlign: 'center',
+              border: isDarkMode ? '1px solid #444' : 'none'
+            }}>
               <h3 style={{ margin: '0 0 10px 0', color: '#007bff' }}>{systemStats.totalUsers}</h3>
-              <p style={{ margin: '0', fontWeight: 'bold' }}>Total Users</p>
+              <p style={{ margin: '0', fontWeight: 'bold', color: isDarkMode ? '#ffffff' : '#333333' }}>Total Users</p>
             </div>
             
-            <div style={{ padding: '20px', backgroundColor: '#fff3cd', borderRadius: '8px', textAlign: 'center' }}>
+            <div style={{ 
+              padding: '20px', 
+              backgroundColor: isDarkMode ? '#3d2d1a' : '#fff3cd', 
+              borderRadius: '8px', 
+              textAlign: 'center',
+              border: isDarkMode ? '1px solid #444' : 'none'
+            }}>
               <h3 style={{ margin: '0 0 10px 0', color: '#856404' }}>{systemStats.pendingApprovals}</h3>
-              <p style={{ margin: '0', fontWeight: 'bold' }}>Pending Approvals</p>
+              <p style={{ margin: '0', fontWeight: 'bold', color: isDarkMode ? '#ffffff' : '#333333' }}>Pending Approvals</p>
             </div>
             
-            <div style={{ padding: '20px', backgroundColor: '#d4edda', borderRadius: '8px', textAlign: 'center' }}>
+            <div style={{ 
+              padding: '20px', 
+              backgroundColor: isDarkMode ? '#1a3d2a' : '#d4edda', 
+              borderRadius: '8px', 
+              textAlign: 'center',
+              border: isDarkMode ? '1px solid #444' : 'none'
+            }}>
               <h3 style={{ margin: '0 0 10px 0', color: '#155724' }}>{systemStats.activeAdmins}</h3>
-              <p style={{ margin: '0', fontWeight: 'bold' }}>Active Admins</p>
+              <p style={{ margin: '0', fontWeight: 'bold', color: isDarkMode ? '#ffffff' : '#333333' }}>Active Admins</p>
             </div>
             
-            <div style={{ padding: '20px', backgroundColor: '#e2e3e5', borderRadius: '8px', textAlign: 'center' }}>
-              <h3 style={{ margin: '0 0 10px 0', color: '#383d41' }}>{systemStats.totalCarriers}</h3>
-              <p style={{ margin: '0', fontWeight: 'bold' }}>Carriers</p>
+            <div style={{ 
+              padding: '20px', 
+              backgroundColor: isDarkMode ? '#2d2d2d' : '#e2e3e5', 
+              borderRadius: '8px', 
+              textAlign: 'center',
+              border: isDarkMode ? '1px solid #444' : 'none'
+            }}>
+              <h3 style={{ margin: '0 0 10px 0', color: isDarkMode ? '#cccccc' : '#383d41' }}>{systemStats.totalCarriers}</h3>
+              <p style={{ margin: '0', fontWeight: 'bold', color: isDarkMode ? '#ffffff' : '#333333' }}>Carriers</p>
             </div>
             
-            <div style={{ padding: '20px', backgroundColor: '#e2e3e5', borderRadius: '8px', textAlign: 'center' }}>
-              <h3 style={{ margin: '0 0 10px 0', color: '#383d41' }}>{systemStats.totalShippers}</h3>
-              <p style={{ margin: '0', fontWeight: 'bold' }}>Shippers</p>
+            <div style={{ 
+              padding: '20px', 
+              backgroundColor: isDarkMode ? '#2d2d2d' : '#e2e3e5', 
+              borderRadius: '8px', 
+              textAlign: 'center',
+              border: isDarkMode ? '1px solid #444' : 'none'
+            }}>
+              <h3 style={{ margin: '0 0 10px 0', color: isDarkMode ? '#cccccc' : '#383d41' }}>{systemStats.totalShippers}</h3>
+              <p style={{ margin: '0', fontWeight: 'bold', color: isDarkMode ? '#ffffff' : '#333333' }}>Shippers</p>
             </div>
           </div>
 
           <div style={{ marginBottom: '30px' }}>
-            <h3>Code Change Requests</h3>
+            <h3 style={{ color: isDarkMode ? '#ffffff' : '#333333' }}>Code Change Requests</h3>
             <form onSubmit={handleSubmitCodeRequest} style={{ maxWidth: '600px' }}>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                  Title
-                </label>
-                <input
-                  type="text"
-                  value={codeRequestForm.title}
-                  onChange={(e) => setCodeRequestForm({ ...codeRequestForm, title: e.target.value })}
-                  className={styles.input}
-                  style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-                  placeholder="Enter request title"
-                />
-              </div>
+                              <div style={{ marginBottom: '15px' }}>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: isDarkMode ? '#ffffff' : '#333333' }}>
+                    Title
+                  </label>
+                  <input
+                    type="text"
+                    value={codeRequestForm.title}
+                    onChange={(e) => setCodeRequestForm({ ...codeRequestForm, title: e.target.value })}
+                    className={styles.input}
+                    style={{ 
+                      width: '100%', 
+                      padding: '8px', 
+                      border: `1px solid ${isDarkMode ? '#444' : '#ddd'}`, 
+                      borderRadius: '4px',
+                      backgroundColor: isDarkMode ? '#2d2d2d' : '#ffffff',
+                      color: isDarkMode ? '#ffffff' : '#333333'
+                    }}
+                    placeholder="Enter request title"
+                  />
+                </div>
               
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                  Description
-                </label>
-                <textarea
-                  value={codeRequestForm.description}
-                  onChange={(e) => setCodeRequestForm({ ...codeRequestForm, description: e.target.value })}
-                  className={styles.input}
-                  style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', minHeight: '100px' }}
-                  placeholder="Describe the code change needed"
-                />
-              </div>
+                              <div style={{ marginBottom: '15px' }}>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: isDarkMode ? '#ffffff' : '#333333' }}>
+                    Description
+                  </label>
+                  <textarea
+                    value={codeRequestForm.description}
+                    onChange={(e) => setCodeRequestForm({ ...codeRequestForm, description: e.target.value })}
+                    className={styles.input}
+                    style={{ 
+                      width: '100%', 
+                      padding: '8px', 
+                      border: `1px solid ${isDarkMode ? '#444' : '#ddd'}`, 
+                      borderRadius: '4px', 
+                      minHeight: '100px',
+                      backgroundColor: isDarkMode ? '#2d2d2d' : '#ffffff',
+                      color: isDarkMode ? '#ffffff' : '#333333'
+                    }}
+                    placeholder="Describe the code change needed"
+                  />
+                </div>
               
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                  Priority
-                </label>
-                <select
-                  value={codeRequestForm.priority}
-                  onChange={(e) => setCodeRequestForm({ ...codeRequestForm, priority: e.target.value as 'low' | 'medium' | 'high' })}
-                  className={styles.input}
-                  style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-              </div>
+                              <div style={{ marginBottom: '15px' }}>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: isDarkMode ? '#ffffff' : '#333333' }}>
+                    Priority
+                  </label>
+                  <select
+                    value={codeRequestForm.priority}
+                    onChange={(e) => setCodeRequestForm({ ...codeRequestForm, priority: e.target.value as 'low' | 'medium' | 'high' })}
+                    className={styles.input}
+                    style={{ 
+                      width: '100%', 
+                      padding: '8px', 
+                      border: `1px solid ${isDarkMode ? '#444' : '#ddd'}`, 
+                      borderRadius: '4px',
+                      backgroundColor: isDarkMode ? '#2d2d2d' : '#ffffff',
+                      color: isDarkMode ? '#ffffff' : '#333333'
+                    }}
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                  </select>
+                </div>
               
               <button
                 type="submit"
@@ -590,7 +750,7 @@ const AdminDashboard: React.FC = () => {
           </div>
 
           <div style={{ marginBottom: '30px' }}>
-            <h3>Quick Actions</h3>
+            <h3 style={{ color: isDarkMode ? '#ffffff' : '#333333' }}>Quick Actions</h3>
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
               <button 
                 onClick={() => navigate('/admin-setup')}
@@ -607,10 +767,65 @@ const AdminDashboard: React.FC = () => {
                 Admin Management
               </button>
               <button 
+                onClick={() => navigate('/admin-access')}
+                className={styles.approveBtn}
+                style={{ textDecoration: 'none', display: 'inline-block', backgroundColor: '#28a745' }}
+              >
+                🔧 Admin Access
+              </button>
+              <button 
                 onClick={loadDashboardData}
                 className={styles.refreshBtn}
               >
                 Refresh Dashboard
+              </button>
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '30px' }}>
+            <h3 style={{ color: isDarkMode ? '#ffffff' : '#333333' }}>System Tools</h3>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <button 
+                onClick={() => navigate('/admin/monitoring')}
+                className={styles.approveBtn}
+                style={{ textDecoration: 'none', display: 'inline-block', backgroundColor: '#17a2b8' }}
+              >
+                📊 System Monitoring
+              </button>
+              <button 
+                onClick={() => navigate('/admin/feature-flags')}
+                className={styles.approveBtn}
+                style={{ textDecoration: 'none', display: 'inline-block', backgroundColor: '#6f42c1' }}
+              >
+                🚩 Feature Flags
+              </button>
+              <button 
+                onClick={() => navigate('/admin/cache')}
+                className={styles.approveBtn}
+                style={{ textDecoration: 'none', display: 'inline-block', backgroundColor: '#fd7e14' }}
+              >
+                💾 Cache Management
+              </button>
+              <button 
+                onClick={() => navigate('/admin/rate-limits')}
+                className={styles.approveBtn}
+                style={{ textDecoration: 'none', display: 'inline-block', backgroundColor: '#e83e8c' }}
+              >
+                ⚡ Rate Limits
+              </button>
+              <button 
+                onClick={() => navigate('/subscription-tiers')}
+                className={styles.approveBtn}
+                style={{ textDecoration: 'none', display: 'inline-block', backgroundColor: '#20c997' }}
+              >
+                💎 Subscription Tiers
+              </button>
+              <button 
+                onClick={() => navigate('/admin/advanced-performance')}
+                className={styles.approveBtn}
+                style={{ textDecoration: 'none', display: 'inline-block', backgroundColor: '#dc3545' }}
+              >
+                🚀 Advanced Performance
               </button>
             </div>
           </div>
@@ -620,14 +835,18 @@ const AdminDashboard: React.FC = () => {
       {/* Pending Approvals Tab */}
       {activeTab === 'approvals' && (
         <div>
-          <h2>Pending User Approvals ({pendingUsers.length})</h2>
+          <h2 style={{ color: isDarkMode ? '#ffffff' : '#333333' }}>Pending User Approvals ({pendingUsers.length})</h2>
           
           {pendingUsers.length === 0 ? (
             <p>No pending users to approve.</p>
           ) : (
             <div className={styles.usersList}>
               {pendingUsers.map((user) => (
-                <div key={user.id} className={styles.userCard}>
+                <div key={user.id} className={styles.userCard} style={{
+                  backgroundColor: isDarkMode ? '#2d2d2d' : '#ffffff',
+                  borderColor: isDarkMode ? '#444' : '#ddd',
+                  color: isDarkMode ? '#ffffff' : '#333333'
+                }}>
                   <div className={styles.userInfo}>
                     <h3>{user.companyName}</h3>
                     <p><strong>Email:</strong> {user.email}</p>
@@ -664,14 +883,18 @@ const AdminDashboard: React.FC = () => {
       {/* Admin Team Tab */}
       {activeTab === 'admins' && (
         <div>
-          <h2>Admin Team ({adminUsers.length})</h2>
+          <h2 style={{ color: isDarkMode ? '#ffffff' : '#333333' }}>Admin Team ({adminUsers.length})</h2>
           
           {adminUsers.length === 0 ? (
             <p>No admin users found.</p>
           ) : (
             <div className={styles.usersList}>
               {adminUsers.map((adminUser) => (
-                <div key={adminUser.uid} className={styles.userCard}>
+                <div key={adminUser.uid} className={styles.userCard} style={{
+                  backgroundColor: isDarkMode ? '#2d2d2d' : '#ffffff',
+                  borderColor: isDarkMode ? '#444' : '#ddd',
+                  color: isDarkMode ? '#ffffff' : '#333333'
+                }}>
                   <div className={styles.userInfo}>
                     <h3>{adminUser.displayName}</h3>
                     <p><strong>Email:</strong> {adminUser.email}</p>
@@ -706,7 +929,7 @@ const AdminDashboard: React.FC = () => {
       {/* Shippers Tab */}
       {activeTab === 'shippers' && (
         <div>
-          <h2>Shippers ({shippers.length})</h2>
+          <h2 style={{ color: isDarkMode ? '#ffffff' : '#333333' }}>Shippers ({shippers.length})</h2>
           
           <div style={{ marginBottom: '20px' }}>
             <input
@@ -714,12 +937,25 @@ const AdminDashboard: React.FC = () => {
               placeholder="Search shippers..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              style={{ padding: '8px', marginRight: '10px', border: '1px solid #ddd', borderRadius: '4px' }}
+              style={{ 
+                padding: '8px', 
+                marginRight: '10px', 
+                border: `1px solid ${isDarkMode ? '#444' : '#ddd'}`, 
+                borderRadius: '4px',
+                backgroundColor: isDarkMode ? '#2d2d2d' : '#ffffff',
+                color: isDarkMode ? '#ffffff' : '#333333'
+              }}
             />
             <select
               value={selectedState}
               onChange={(e) => setSelectedState(e.target.value)}
-              style={{ padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+              style={{ 
+                padding: '8px', 
+                border: `1px solid ${isDarkMode ? '#444' : '#ddd'}`, 
+                borderRadius: '4px',
+                backgroundColor: isDarkMode ? '#2d2d2d' : '#ffffff',
+                color: isDarkMode ? '#ffffff' : '#333333'
+              }}
             >
               <option value="">All States</option>
               <option value="CA">California</option>
@@ -734,7 +970,11 @@ const AdminDashboard: React.FC = () => {
           ) : (
             <div className={styles.usersList}>
               {filteredUsers.map((shipper) => (
-                <div key={shipper.id} className={styles.userCard}>
+                <div key={shipper.id} className={styles.userCard} style={{
+                  backgroundColor: isDarkMode ? '#2d2d2d' : '#ffffff',
+                  borderColor: isDarkMode ? '#444' : '#ddd',
+                  color: isDarkMode ? '#ffffff' : '#333333'
+                }}>
                   <div className={styles.userInfo}>
                     <h3>{shipper.companyName}</h3>
                     <p><strong>Email:</strong> {shipper.email}</p>
@@ -761,14 +1001,18 @@ const AdminDashboard: React.FC = () => {
       {/* Carriers Tab */}
       {activeTab === 'carriers' && (
         <div>
-          <h2>Carriers ({carriers.length})</h2>
+          <h2 style={{ color: isDarkMode ? '#ffffff' : '#333333' }}>Carriers ({carriers.length})</h2>
           
           {carriers.length === 0 ? (
             <p>No carriers found.</p>
           ) : (
             <div className={styles.usersList}>
               {carriers.map((carrier) => (
-                <div key={carrier.id} className={styles.userCard}>
+                <div key={carrier.id} className={styles.userCard} style={{
+                  backgroundColor: isDarkMode ? '#2d2d2d' : '#ffffff',
+                  borderColor: isDarkMode ? '#444' : '#ddd',
+                  color: isDarkMode ? '#ffffff' : '#333333'
+                }}>
                   <div className={styles.userInfo}>
                     <h3>{carrier.companyName}</h3>
                     <p><strong>Email:</strong> {carrier.email}</p>

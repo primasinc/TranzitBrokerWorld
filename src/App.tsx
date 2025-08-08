@@ -13,6 +13,7 @@ import Register from './pages/auth/Register';
 // Test Pages
 import TestKonexial from './pages/TestKonexial';
 import TestCurrentLoad from './pages/TestCurrentLoad';
+import TestDriverFlow from './pages/TestDriverFlow';
 
 // Shipper Pages
 import ShipperDashboard from './pages/shipper/Dashboard';
@@ -59,6 +60,14 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminRoute from './components/common/AdminRoute';
 import AdminSetup from './pages/AdminSetup';
 import AdminManagement from './pages/AdminManagement';
+import AdminAccess from './pages/AdminAccess';
+import MonitoringDashboard from './components/admin/MonitoringDashboard';
+import FeatureFlagManager from './components/admin/FeatureFlagManager';
+import CacheManager from './components/admin/CacheManager';
+import RateLimitManager from './components/admin/RateLimitManager';
+import SubscriptionTierManager from './components/admin/SubscriptionTierManager';
+import AdvancedPerformanceDashboard from './components/admin/AdvancedPerformanceDashboard';
+import './utils/quickAdminSetup';
 
 const ViewProfileWrapper = () => {
   const { id } = useParams();
@@ -159,6 +168,7 @@ function App() {
                 {/* Test Routes */}
                 <Route path="/test-konexial" element={<TestKonexial />} />
                 <Route path="/test-current-load" element={<TestCurrentLoad />} />
+                <Route path="/test-driver-flow" element={<TestDriverFlow />} />
 
                 {/* Carrier Routes */}
                 <Route path="/carrier" element={<CarrierLayout />}>
@@ -209,9 +219,41 @@ function App() {
                   </AdminRoute>
                 } />
                 <Route path="/admin-setup" element={<AdminSetup />} />
+                <Route path="/admin-access" element={<AdminAccess />} />
                 <Route path="/admin-management" element={
                   <AdminRoute>
                     <AdminManagement />
+                  </AdminRoute>
+                } />
+                <Route path="/admin/monitoring" element={
+                  <AdminRoute>
+                    <MonitoringDashboard />
+                  </AdminRoute>
+                } />
+                <Route path="/admin/feature-flags" element={
+                  <AdminRoute>
+                    <FeatureFlagManager />
+                  </AdminRoute>
+                } />
+                <Route path="/admin/cache" element={
+                  <AdminRoute>
+                    <CacheManager />
+                  </AdminRoute>
+                } />
+                <Route path="/admin/rate-limits" element={
+                  <AdminRoute>
+                    <RateLimitManager />
+                  </AdminRoute>
+                } />
+                <Route path="/admin/subscription-tiers" element={
+                  <AdminRoute>
+                    <SubscriptionTierManager />
+                  </AdminRoute>
+                } />
+                <Route path="/subscription-tiers" element={<SubscriptionTierManager />} />
+                <Route path="/admin/advanced-performance" element={
+                  <AdminRoute>
+                    <AdvancedPerformanceDashboard />
                   </AdminRoute>
                 } />
 
