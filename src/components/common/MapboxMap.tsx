@@ -124,11 +124,27 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
     return () => {
       clearTimeout(initTimeout);
       // Clean up markers
-      Object.values(markersRef.current).forEach(marker => marker.remove());
+      Object.values(markersRef.current).forEach(marker => {
+        try {
+          if (marker && typeof marker.remove === 'function') {
+            marker.remove();
+          }
+        } catch (error) {
+          console.warn('Failed to remove marker:', error);
+        }
+      });
       markersRef.current = {};
 
-      if (map.current && map.current.getCanvas() && map.current.getCanvas().parentNode) {
-        map.current.remove();
+      // Safely remove map
+      if (map.current) {
+        try {
+          if (map.current.getCanvas && map.current.getCanvas() && map.current.getCanvas().parentNode) {
+            map.current.remove();
+          }
+        } catch (error) {
+          console.warn('Failed to remove map:', error);
+        }
+        map.current = null;
       }
     };
   }, [onMapLoad, eldApiKey]);
@@ -150,7 +166,13 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
     if (!map.current || !mapContainer.current) return;
 
     const resizeObserver = new ResizeObserver(() => {
-      map.current?.resize();
+      if (map.current && typeof map.current.resize === 'function') {
+        try {
+          map.current.resize();
+        } catch (error) {
+          console.warn('Failed to resize map:', error);
+        }
+      }
     });
 
     resizeObserver.observe(mapContainer.current);
@@ -205,7 +227,13 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
     // Remove markers that are no longer in either array
     Object.keys(markersRef.current).forEach(id => {
       if (!allMarkers.find(m => m.id === id)) {
-        markersRef.current[id].remove();
+        try {
+          if (markersRef.current[id] && typeof markersRef.current[id].remove === 'function') {
+            markersRef.current[id].remove();
+          }
+        } catch (error) {
+          console.warn(`Failed to remove marker ${id}:`, error);
+        }
         delete markersRef.current[id];
       }
     });
@@ -225,7 +253,13 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
 
       if (markersRef.current[marker.id]) {
         // Update existing marker
-        markersRef.current[marker.id].remove();
+        try {
+          if (markersRef.current[marker.id] && typeof markersRef.current[marker.id].remove === 'function') {
+            markersRef.current[marker.id].remove();
+          }
+        } catch (error) {
+          console.warn(`Failed to remove existing marker ${marker.id}:`, error);
+        }
         const newMarker = new mapboxgl.Marker(el)
           .setLngLat(marker.position)
           .addTo(map.current!);
@@ -348,70 +382,97 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
   // Add route line to map when available
   useEffect(() => {
     if (!map.current || !routeGeoJson) return;
-    if (map.current.getSource('route')) {
-      map.current.removeLayer('route');
-      map.current.removeSource('route');
+    
+    // Helper function to safely remove route layer and source
+    const safeRemoveRoute = () => {
+      if (!map.current) return;
+      
+      try {
+        if (map.current.getLayer && map.current.getLayer('route')) {
+          map.current.removeLayer('route');
+        }
+        if (map.current.getSource && map.current.getSource('route')) {
+          map.current.removeSource('route');
+        }
+      } catch (error) {
+        console.warn('Failed to remove route layer/source:', error);
+      }
+    };
+
+    // Remove existing route
+    safeRemoveRoute();
+
+    try {
+      map.current.addSource('route', {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          properties: {},
+          geometry: routeGeoJson
+        }
+      });
+      map.current.addLayer({
+        id: 'route',
+        type: 'line',
+        source: 'route',
+        layout: {
+          'line-join': 'round',
+          'line-cap': 'round'
+        },
+        paint: {
+          'line-color': '#007bff',
+          'line-width': 4
+        }
+      });
+      // Fit bounds to route
+      const coords = routeGeoJson.coordinates;
+      const bounds = coords.reduce((b: any, coord: any) => b.extend(coord), new mapboxgl.LngLatBounds(coords[0], coords[0]));
+      map.current.fitBounds(bounds, { padding: 50, maxZoom: 10 });
+    } catch (error) {
+      console.warn('Failed to add route:', error);
     }
-    map.current.addSource('route', {
-      type: 'geojson',
-      data: {
-        type: 'Feature',
-        properties: {},
-        geometry: routeGeoJson
-      }
-    });
-    map.current.addLayer({
-      id: 'route',
-      type: 'line',
-      source: 'route',
-      layout: {
-        'line-join': 'round',
-        'line-cap': 'round'
-      },
-      paint: {
-        'line-color': '#007bff',
-        'line-width': 4
-      }
-    });
-    // Fit bounds to route
-    const coords = routeGeoJson.coordinates;
-    const bounds = coords.reduce((b: any, coord: any) => b.extend(coord), new mapboxgl.LngLatBounds(coords[0], coords[0]));
-    map.current.fitBounds(bounds, { padding: 50, maxZoom: 10 });
+
     return () => {
-      if (
-        map.current &&
-        typeof map.current.getSource === 'function' &&
-        typeof map.current.getLayer === 'function' &&
-        map.current.getSource('route')
-      ) {
-        if (map.current.getLayer('route')) map.current.removeLayer('route');
-        map.current.removeSource('route');
-      }
+      safeRemoveRoute();
     };
   }, [routeGeoJson]);
 
   // Add circle rendering effect
   useEffect(() => {
     if (!map.current || !isMapLoaded || !Array.isArray(circles)) return;
-    // Remove any previous circle layers/sources
-    circles.forEach((_, i) => {
-      if (map.current!.getLayer(`radius-${i}`)) map.current!.removeLayer(`radius-${i}`);
-      if (map.current!.getSource(`radius-${i}`)) map.current!.removeSource(`radius-${i}`);
-    });
-    // Add new circles
-    circles.forEach((circle, i) => {
-      // Generate GeoJSON for the circle
+    
+    // Helper function to safely remove layer and source
+    const safeRemoveLayerAndSource = (id: string) => {
+      if (!map.current) return;
+      
+      try {
+        // Check if layer exists before removing
+        if (map.current.getLayer && map.current.getLayer(id)) {
+          map.current.removeLayer(id);
+        }
+        // Check if source exists before removing
+        if (map.current.getSource && map.current.getSource(id)) {
+          map.current.removeSource(id);
+        }
+      } catch (error) {
+        console.warn(`Failed to remove layer/source ${id}:`, error);
+      }
+    };
+
+    // Helper function to generate circle GeoJSON
+    const generateCircleGeoJSON = (center: [number, number], radius: number) => {
       const points = 64;
       const coords = [];
-      const [lng, lat] = circle.center;
+      const [lng, lat] = center;
       for (let j = 0; j <= points; j++) {
         const angle = (j / points) * 2 * Math.PI;
-        // Approximate radius in degrees
-        const dx = (circle.radius / 1000) / 111.32 * Math.cos(angle);
-        const dy = (circle.radius / 1000) / 111.32 * Math.sin(angle);
+        // Radius is in meters, convert to degrees
+        const radiusInKm = radius / 1000;
+        const dx = radiusInKm / 111.32 * Math.cos(angle);
+        const dy = radiusInKm / 111.32 * Math.sin(angle);
         coords.push([lng + dx, lat + dy]);
       }
-      const geojson = {
+      return {
         type: 'Feature' as const,
         properties: {},
         geometry: {
@@ -419,27 +480,60 @@ const MapboxMap: React.FC<MapboxMapProps> = ({
           coordinates: [coords],
         },
       };
-      map.current!.addSource(`radius-${i}`, {
-        type: 'geojson',
-        data: geojson,
-      });
-      map.current!.addLayer({
-        id: `radius-${i}`,
-        type: 'fill',
-        source: `radius-${i}`,
-        paint: {
-          'fill-color': '#4285F4',
-          'fill-opacity': 0.12,
-        },
-      });
+    };
+
+    // Process each circle
+    circles.forEach((circle, i) => {
+      if (!map.current) return;
+      
+      const circleId = `radius-${i}`;
+      const geojson = generateCircleGeoJSON(circle.center, circle.radius);
+      
+      try {
+        // Check if source already exists
+        if (map.current.getSource && map.current.getSource(circleId)) {
+          // Update existing source data
+          const source = map.current.getSource(circleId) as mapboxgl.GeoJSONSource;
+          if (source && source.setData) {
+            source.setData(geojson);
+          }
+        } else {
+          // Add new source
+          map.current.addSource(circleId, {
+            type: 'geojson',
+            data: geojson,
+          });
+          
+          // Add new layer
+          if (!map.current.getLayer(circleId)) {
+            map.current.addLayer({
+              id: circleId,
+              type: 'fill',
+              source: circleId,
+              paint: {
+                'fill-color': '#4285F4',
+                'fill-opacity': 0.12,
+              },
+            });
+          }
+        }
+      } catch (error) {
+        console.warn(`Failed to add/update circle ${i}:`, error);
+      }
     });
-    // Cleanup
+
+    // Cleanup - only remove circles that are no longer in the array
     return () => {
       if (!map.current) return;
-      circles.forEach((_, i) => {
-        if (map.current!.getLayer(`radius-${i}`)) map.current!.removeLayer(`radius-${i}`);
-        if (map.current!.getSource(`radius-${i}`)) map.current!.removeSource(`radius-${i}`);
-      });
+      
+      // Remove all existing circles that are no longer needed
+      let i = 0;
+      while (map.current.getSource && map.current.getSource(`radius-${i}`)) {
+        if (i >= circles.length) {
+          safeRemoveLayerAndSource(`radius-${i}`);
+        }
+        i++;
+      }
     };
   }, [circles, isMapLoaded]);
 

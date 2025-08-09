@@ -8,6 +8,7 @@ import mapboxgl from 'mapbox-gl';
 import styles from './LoadDetails.module.css';
 import { collection, getDocs, doc, getDoc, query, where, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { carrierNotesService, CarrierNote } from '../../services/carrierNotesService';
 
 interface LoadStatus {
   timestamp: string;
@@ -66,6 +67,7 @@ const LoadDetails: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [statusHistory, setStatusHistory] = useState<LoadStatus[]>([]);
   const [items, setItems] = useState<any[]>([]);
+  const [carrierNotes, setCarrierNotes] = useState<CarrierNote[]>([]);
   const [loadData, setLoadData] = useState<Load>({
     id: '',
     title: '',
@@ -142,41 +144,36 @@ const LoadDetails: React.FC = () => {
       if (!id) return;
       setLoading(true);
       try {
-        // Fetch load
-        const loadDoc = await getDoc(doc(db, 'loads', id));
-        if (!loadDoc.exists()) throw new Error('Load not found');
-        const load = loadDoc.data();
-        setLoad(load as any);
-        // Fetch PO by poNumber
-        if (load.poNumber) {
-          const poQuery = query(collection(db, 'purchaseOrders'), where('poNumber', '==', load.poNumber));
-          const poSnap = await getDocs(poQuery);
-          if (!poSnap.empty) {
-            setPoData(poSnap.docs[0].data());
+        // Fetch load details
+        const loadRef = doc(db, 'loads', id);
+        const loadSnap = await getDoc(loadRef);
+        
+        if (loadSnap.exists()) {
+          const loadData = loadSnap.data();
+          setLoad(loadData);
+          
+          // Fetch carrier notes for this load
+          try {
+            const notes = await carrierNotesService.getCarrierNotesByLoadId(id);
+            setCarrierNotes(notes);
+          } catch (error) {
+            console.error('Error fetching carrier notes:', error);
           }
-        }
-        // Geocode pickup and delivery addresses
-        const geocode = async (address: string) => {
-          const accessToken = process.env.REACT_APP_MAPBOX_TOKEN;
-          const response = await fetch(
-            `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(address)}.json?access_token=${accessToken}`
-          );
-          const geoData = await response.json();
-          if (geoData.features && geoData.features.length > 0) {
-            return geoData.features[0].center;
+          
+          // Fetch PO data if available
+          if (loadData.poNumber) {
+            const poQuery = query(collection(db, 'purchaseOrders'), where('poNumber', '==', loadData.poNumber));
+            const poSnap = await getDocs(poQuery);
+            if (!poSnap.empty) {
+              setPoData(poSnap.docs[0].data());
+            }
           }
-          return null;
-        };
-        if (poData?.vendorInfo?.streetAddress && poData?.vendorInfo?.cityStateZip) {
-          const pickupAddress = `${poData.vendorInfo.streetAddress}, ${poData.vendorInfo.cityStateZip}`;
-          setPickupCoords(await geocode(pickupAddress));
+        } else {
+          setError('Load not found');
         }
-        if (poData?.shipTo?.streetAddress && poData?.shipTo?.cityStateZip) {
-          const deliveryAddress = `${poData.shipTo.streetAddress}, ${poData.shipTo.cityStateZip}`;
-          setDeliveryCoords(await geocode(deliveryAddress));
-        }
-      } catch (err) {
-        setError('Failed to load load details');
+      } catch (error) {
+        console.error('Error fetching load details:', error);
+        setError('Failed to load details');
       } finally {
         setLoading(false);
       }
@@ -184,36 +181,101 @@ const LoadDetails: React.FC = () => {
     fetchLoadAndPO();
   }, [id]);
 
+  // Handle hash navigation to status updates section
+  useEffect(() => {
+    if (window.location.hash === '#status-updates') {
+      // Wait for the component to render, then scroll to the status updates section
+      const timer = setTimeout(() => {
+        const statusUpdatesSection = document.querySelector('[data-section="status-updates"]');
+        if (statusUpdatesSection) {
+          statusUpdatesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          // Open the status update form
+          setIsUpdating(true);
+        }
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error}</div>;
   if (!load) return <div>Load not found</div>;
 
-  const handleStatusUpdate = async () => {
-    if (!id || !newStatus) return;
+  const handleCarrierNoteUpdate = async () => {
+    console.log('handleCarrierNoteUpdate called with:', { id, newStatus, user });
+    
+    if (!id || !newStatus || !user) {
+      console.log('Missing required data:', { id, newStatus, user });
+      alert('Please select a status and ensure you are logged in.');
+      return;
+    }
+
+    if (!user.uid) {
+      console.log('User UID is missing:', user);
+      alert('User authentication error. Please log in again.');
+      return;
+    }
+
+    console.log('User is authenticated:', { uid: user.uid, email: user.email, displayName: user.displayName });
 
     setIsLoading(true);
     try {
-      const result = await loadService.updateLoadStatus({
-        loadId: id,
-        status: newStatus,
-        notes: newNotes
-      });
+      // Get the poNumber from the load data
+      const loadRef = doc(db, 'loads', id);
+      const loadSnap = await getDoc(loadRef);
+      if (!loadSnap.exists()) {
+        alert('Load not found.');
+        return;
+      }
+      
+      const loadData = loadSnap.data();
+      const poNumber = loadData.poNumber;
+      
+      if (!poNumber) {
+        alert('Purchase order number not found for this load.');
+        return;
+      }
 
-      // Add new status to history
-      setStatusHistory(prev => [{
-        timestamp: result.data.timestamp,
-        status: result.data.status,
-        location: result.data.location || '',
-        notes: result.data.notes
-      }, ...prev]);
+      const carrierNoteData = {
+        poNumber: poNumber,
+        loadId: id,
+        userId: user.uid,
+        carrierName: user.displayName || user.email || 'Unknown Carrier',
+        status: newStatus,
+        notes: newNotes.substring(0, 250)
+      };
+
+      console.log('Creating carrier note with data:', carrierNoteData);
+
+      // Add carrier note using the new service
+      const carrierNote = await carrierNotesService.addCarrierNote(carrierNoteData);
+
+      console.log('Carrier note created successfully:', carrierNote);
+
+      // Add new note to the list
+      setCarrierNotes(prev => [carrierNote, ...prev]);
 
       // Reset form
       setIsUpdating(false);
       setNewStatus('');
       setNewNotes('');
+      
+      // Show success message
+      alert('Status update added successfully!');
     } catch (error) {
-      console.error('Error updating status:', error);
-      // You might want to show an error message to the user here
+      console.error('Error adding carrier note:', error);
+      // More detailed error message
+      let errorMessage = 'Unknown error occurred';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        if (error.message.includes('permission')) {
+          errorMessage = 'Permission denied. Please check if you are properly logged in and have the necessary permissions.';
+        } else if (error.message.includes('index')) {
+          errorMessage = 'Database index not ready. Please try again in a few moments.';
+        }
+      }
+      alert(`Failed to add status update: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }
@@ -334,15 +396,23 @@ const LoadDetails: React.FC = () => {
           </div>
         </section>
 
-        <section className={styles.statusUpdates}>
+        <section className={styles.statusUpdates} data-section="status-updates">
+          <h2>Status Updates</h2>
           <div className={styles.statusHeader}>
-            <h2>Status Updates</h2>
             <button 
               className={styles.updateButton}
               onClick={() => setIsUpdating(true)}
               disabled={isLoading}
             >
               {isLoading ? 'Updating...' : 'Add Update'}
+            </button>
+            <button 
+              className={styles.statusButton}
+              onClick={() => setIsUpdating(true)}
+              disabled={isLoading}
+              style={{ marginLeft: 8 }}
+            >
+              Status
             </button>
             <button 
               className={styles.updateButton}
@@ -372,7 +442,8 @@ const LoadDetails: React.FC = () => {
               <textarea
                 value={newNotes}
                 onChange={(e) => setNewNotes(e.target.value)}
-                placeholder="Add notes..."
+                placeholder="Add notes (max 250 characters)..."
+                maxLength={250}
                 disabled={isLoading}
               />
               <div className={styles.updateActions}>
@@ -385,7 +456,7 @@ const LoadDetails: React.FC = () => {
                 </button>
                 <button 
                   className={styles.submitButton}
-                  onClick={handleStatusUpdate}
+                  onClick={handleCarrierNoteUpdate}
                   disabled={isLoading || !newStatus}
                 >
                   {isLoading ? 'Submitting...' : 'Submit Update'}
@@ -393,6 +464,33 @@ const LoadDetails: React.FC = () => {
               </div>
             </div>
           )}
+
+          {/* Carrier Notes Section */}
+          <div className={styles.carrierNotes}>
+            <h3>Carrier Notes</h3>
+            {carrierNotes.length === 0 ? (
+              <p className={styles.noNotes}>No carrier notes yet.</p>
+            ) : (
+              <div className={styles.notesList}>
+                {carrierNotes.map((note, index) => (
+                  <div key={note.id || index} className={styles.noteItem}>
+                    <div className={styles.noteHeader}>
+                      <span className={styles.noteTimestamp}>
+                        {note.timestamp instanceof Date 
+                          ? note.timestamp.toLocaleString()
+                          : note.timestamp?.toDate?.()?.toLocaleString() || 'N/A'
+                        }
+                      </span>
+                      <span className={styles.noteStatus}>{note.status}</span>
+                    </div>
+                    {note.notes && (
+                      <p className={styles.noteText}>{note.notes}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           <div className={styles.timeline}>
             {statusHistory.map((status, index) => (

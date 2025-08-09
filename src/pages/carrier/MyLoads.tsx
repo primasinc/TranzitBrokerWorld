@@ -310,6 +310,12 @@ const MyLoads: React.FC = () => {
         >
           View Details
         </button>
+        <button 
+          className={styles.statusUpdateButton}
+          onClick={() => navigate(`/carrier/loads/${load.id}#status-updates`)}
+        >
+          Status Update
+        </button>
         <button
           className={styles.invoiceButton}
           onClick={() => { setSelectedLoad(load); setShowInvoiceModal(true); }}
@@ -462,6 +468,12 @@ const MyLoads: React.FC = () => {
                           >
                             View Details
                           </button>
+                          <button 
+                            className={styles.statusUpdateButton}
+                            onClick={() => navigate(`/carrier/loads/${load.id}#status-updates`)}
+                          >
+                            Status Update
+                          </button>
                           <button
                             className={styles.invoiceButton}
                             onClick={() => { setSelectedLoad(load); setShowInvoiceModal(true); }}
@@ -530,6 +542,12 @@ const MyLoads: React.FC = () => {
                       onClick={() => navigate(`/carrier/loads/${load.id}`)}
                     >
                       View Details
+                    </button>
+                    <button 
+                      className={styles.statusUpdateButton}
+                      onClick={() => navigate(`/carrier/loads/${load.id}#status-updates`)}
+                    >
+                      Status Update
                     </button>
                     {load.status === 'active' && (
                       <button className={styles.startButton} onClick={() => handleStartLoad(load.id)}>Start Load</button>

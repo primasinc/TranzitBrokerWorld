@@ -113,21 +113,36 @@
   margin-top: 20px;
 }
 
-.viewButton, .startButton, .completeButton {
+.viewButton, .startButton, .completeButton, .statusUpdateButton {
   padding: 8px 16px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
   font-weight: 500;
+  background-color: #007bff;
+  color: white;
+}
+
+.viewButton:hover, .startButton:hover, .completeButton:hover, .statusUpdateButton:hover {
+  background-color: #0056b3;
 }
 
 .viewButton {
-  background-color: #f8f9fa;
-  color: #333;
+  background-color: #007bff;
+  color: white;
+}
+
+.statusUpdateButton {
+  background-color: #007bff;
+  color: white;
+}
+
+.statusUpdateButton:hover {
+  background-color: #0056b3;
 }
 
 .startButton {
-  background-color: #28a745;
+  background-color: #007bff;
   color: white;
 }
 
@@ -510,6 +525,16 @@
   padding: 10px 12px;
   font-size: 13px;
   min-height: 40px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.mobileRowActions button:hover {
+  background-color: #0056b3;
 }
 
 /* Mobile responsive breakpoints */
@@ -636,7 +661,7 @@
     gap: 8px;
   }
   
-  .viewButton, .startButton, .completeButton {
+  .viewButton, .startButton, .completeButton, .statusUpdateButton {
     width: 100%;
     padding: 12px;
     font-size: 14px;

@@ -266,6 +266,108 @@
   color: #28a745;
 }
 
+/* Carrier Notes Section */
+.carrierNotes {
+  margin-top: 20px;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.carrierNotes h3 {
+  margin: 0 0 15px 0;
+  color: #333;
+  font-size: 1.1em;
+}
+
+.noNotes {
+  color: #666;
+  font-style: italic;
+  text-align: center;
+  padding: 20px;
+}
+
+.notesList {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.noteItem {
+  background: white;
+  border-radius: 6px;
+  padding: 15px;
+  border: 1px solid #e9ecef;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.noteHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f1f3f4;
+}
+
+.noteTimestamp {
+  color: #666;
+  font-size: 0.85em;
+  font-weight: 500;
+}
+
+.noteStatus {
+  background: #007bff;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8em;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.noteText {
+  margin: 0;
+  color: #333;
+  line-height: 1.4;
+  font-size: 0.9em;
+}
+
+/* Status Button */
+.statusButton {
+  padding: 8px 16px;
+  background: #17a2b8;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.statusButton:hover {
+  background: #138496;
+}
+
+.statusButton:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+
+/* Update Form Enhancements */
+.updateForm textarea {
+  min-height: 100px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.updateForm textarea:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.25);
+}
+
 @media (max-width: 768px) {
   .mainInfo {
     grid-template-columns: 1fr;

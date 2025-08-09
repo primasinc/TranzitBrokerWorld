@@ -6,6 +6,7 @@ import { db, auth } from '../../config/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Timestamp } from 'firebase/firestore';
 import MapboxMap from '../../components/common/MapboxMap';
+import { carrierNotesService, CarrierNote } from '../../services/carrierNotesService';
 
 
 interface DriverUpdate {
@@ -19,6 +20,8 @@ interface DriverUpdate {
   carrierId?: string;
   pickupCoords?: [number, number];
   deliveryCoords?: [number, number];
+  progress: number; // Add progress field
+  coordinates?: [number, number]; // Add coordinates field
 }
 
 // Haversine formula to calculate distance between two lat/lng points in miles
@@ -49,11 +52,13 @@ const DriverUpdates: React.FC = () => {
     pickup: [number, number], 
     delivery: [number, number],
     carrierProfile?: any,
-    eta?: string
+    eta?: string,
+    existingProgress?: number
   } | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [detailsView, setDetailsView] = useState<'map' | 'location'>('map');
-
+  const [detailsView, setDetailsView] = useState<'map' | 'contact'>('map');
+  const [carrierNotes, setCarrierNotes] = useState<CarrierNote[]>([]);
+  const [loadingNotes, setLoadingNotes] = useState(false);
 
 
   // Mobile detection
@@ -316,17 +321,41 @@ const DriverUpdates: React.FC = () => {
               carrierId = poApprovedCarrier.id;
             }
 
+            // Calculate progress for the main table
+            let progress = 0;
+            let eta = 'N/A';
+            if (pickupCoords && deliveryCoords && coordinates) {
+              const totalMiles = haversineDistance(pickupCoords, deliveryCoords);
+              const remainingMiles = haversineDistance(coordinates, deliveryCoords);
+              progress = Math.max(0, Math.min(1, 1 - (remainingMiles / totalMiles)));
+              
+              // Calculate ETA based on remaining distance (assuming 60 mph average speed)
+              if (remainingMiles > 0) {
+                const estimatedHours = remainingMiles / 60;
+                const estimatedMinutes = Math.round(estimatedHours * 60);
+                if (estimatedMinutes < 60) {
+                  eta = `${estimatedMinutes}m`;
+                } else {
+                  const hours = Math.floor(estimatedMinutes / 60);
+                  const minutes = estimatedMinutes % 60;
+                  eta = `${hours}h ${minutes}m`;
+                }
+              }
+            }
+
             const finalUpdate = {
               driverId: carrierId || shipmentDoc.id,
               driverName: carrierName,
               location,
               status,
               lastUpdate: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate().toLocaleString() : 'N/A',
-              eta: 'N/A', // Placeholder for ETA logic
+              eta: eta,
               load: data.poNumber || 'N/A',
               carrierId: carrierId,
               pickupCoords: pickupCoords,
               deliveryCoords: deliveryCoords,
+              progress: progress, // Add progress to the update object
+              coordinates: coordinates, // Add coordinates to the update object
             };
             
             console.log('[DriverUpdates] Final update object for PO', data.poNumber, ':', finalUpdate);
@@ -363,31 +392,170 @@ const DriverUpdates: React.FC = () => {
   // Handler for View Details button
   const handleViewDetailsClick = async (driverId: string, pickup?: [number, number], delivery?: [number, number]) => {
     try {
+      // Find the existing update data from the main table instead of re-fetching
+      const existingUpdate = updates.find(update => update.driverId === driverId);
+      
       // Fetch carrier profile data for driver information
       const carrierProfile = await getCarrier(driverId);
       
-      // Get current location data (existing logic)
-      let currentLocation = 'N/A';
-      let currentCoordinates: [number, number] = [-87.6298, 41.8781];
+      // Fetch carrier notes for this driver/load
+      setLoadingNotes(true);
+      try {
+        const notes = await carrierNotesService.getCarrierNotesByUserId(driverId);
+        setCarrierNotes(notes);
+      } catch (error) {
+        console.error('Error fetching carrier notes:', error);
+        setCarrierNotes([]);
+      } finally {
+        setLoadingNotes(false);
+      }
       
-      // Try to get current location from locations collection
-      const locationRef = doc(db, 'locations', driverId);
-      const locationSnap = await getDoc(locationRef);
-      if (locationSnap.exists()) {
-        const locationData = locationSnap.data();
-        if (locationData.lat && locationData.lng) {
-          currentCoordinates = [locationData.lng, locationData.lat];
-          if (locationData.city && locationData.state) {
-            currentLocation = `${locationData.city}, ${locationData.state}`;
+      // Use existing location data from the main table to ensure consistency
+      let currentLocation = 'N/A';
+      let currentCoordinates: [number, number] | null = null;
+      
+      if (existingUpdate) {
+        // Use the location data that was already fetched for the main table
+        currentLocation = existingUpdate.location;
+        // Use coordinates directly from the existing update
+        currentCoordinates = existingUpdate.coordinates || null;
+        
+        // If coordinates are not available in the existing update, fetch them from database
+        if (!currentCoordinates) {
+          const mobLocRef = doc(db, 'locations', driverId);
+          const mobLocSnap = await getDoc(mobLocRef);
+          if (mobLocSnap.exists()) {
+            const mobLoc = mobLocSnap.data();
+            let lat = mobLoc.lat;
+            let lng = mobLoc.lng;
+            if ((lat === undefined || lng === undefined) && Array.isArray(mobLoc.position) && mobLoc.position.length === 2) {
+              lng = mobLoc.position[0];
+              lat = mobLoc.position[1];
+            }
+            if (lat !== undefined && lng !== undefined) {
+              currentCoordinates = [lng, lat];
+            }
           } else {
-            currentLocation = `${locationData.lat.toFixed(4)}, ${locationData.lng.toFixed(4)}`;
+            const eldLocRef = doc(db, 'eldLocations', driverId);
+            const eldLocSnap = await getDoc(eldLocRef);
+            if (eldLocSnap.exists()) {
+              const eldLoc = eldLocSnap.data();
+              if (eldLoc.lat && eldLoc.lng) {
+                currentCoordinates = [eldLoc.lng, eldLoc.lat];
+              }
+            }
+          }
+        }
+      } else {
+        // Fallback: If no existing update found, fetch fresh data
+        const locationRef = doc(db, 'locations', driverId);
+        const locationSnap = await getDoc(locationRef);
+        if (locationSnap.exists()) {
+          const locationData = locationSnap.data();
+          if (locationData.lat && locationData.lng) {
+            currentCoordinates = [locationData.lng, locationData.lat];
+            if (locationData.city && locationData.state) {
+              currentLocation = `${locationData.city}, ${locationData.state}`;
+            } else {
+              // Perform reverse geocoding to get city and state from coordinates
+              try {
+                console.log('[DriverUpdates] Attempting reverse geocoding for coordinates:', locationData.lat, locationData.lng);
+                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${locationData.lat}&lon=${locationData.lng}&zoom=10`);
+                if (response.ok) {
+                  const geoData = await response.json();
+                  console.log('[DriverUpdates] Geocoding response:', geoData);
+                  const address = geoData.address || {};
+                  const city = address.city || address.town || address.village || address.hamlet || address.county || '';
+                  const state = address.state || address.county || '';
+                  console.log('[DriverUpdates] Extracted city:', city, 'state:', state);
+                  if (city && state) {
+                    currentLocation = `${city}, ${state}`;
+                    console.log('[DriverUpdates] Set currentLocation to:', currentLocation);
+                  } else if (city) {
+                    currentLocation = city;
+                    console.log('[DriverUpdates] Set currentLocation to city only:', currentLocation);
+                  } else {
+                    // If no city/state found, try a more detailed lookup
+                    console.log('[DriverUpdates] No city/state found, trying detailed lookup...');
+                    const detailedResponse = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${locationData.lat}&lon=${locationData.lng}&zoom=8`);
+                    if (detailedResponse.ok) {
+                      const detailedGeoData = await detailedResponse.json();
+                      console.log('[DriverUpdates] Detailed geocoding response:', detailedGeoData);
+                      const detailedAddress = detailedGeoData.address || {};
+                      const detailedCity = detailedAddress.city || detailedAddress.town || detailedAddress.village || detailedAddress.county || '';
+                      const detailedState = detailedAddress.state || '';
+                      console.log('[DriverUpdates] Detailed extracted city:', detailedCity, 'state:', detailedState);
+                      if (detailedCity && detailedState) {
+                        currentLocation = `${detailedCity}, ${detailedState}`;
+                        console.log('[DriverUpdates] Set currentLocation to detailed:', currentLocation);
+                      } else if (detailedCity) {
+                        currentLocation = detailedCity;
+                        console.log('[DriverUpdates] Set currentLocation to detailed city only:', currentLocation);
+                      } else {
+                        currentLocation = `${locationData.lat.toFixed(4)}, ${locationData.lng.toFixed(4)}`;
+                        console.log('[DriverUpdates] Fallback to coordinates:', currentLocation);
+                      }
+                    } else {
+                      currentLocation = `${locationData.lat.toFixed(4)}, ${locationData.lng.toFixed(4)}`;
+                      console.log('[DriverUpdates] Detailed lookup failed, fallback to coordinates:', currentLocation);
+                    }
+                  }
+                } else {
+                  currentLocation = `${locationData.lat.toFixed(4)}, ${locationData.lng.toFixed(4)}`;
+                  console.log('[DriverUpdates] Geocoding request failed, fallback to coordinates:', currentLocation);
+                }
+              } catch (err) {
+                console.warn('[DriverUpdates] Reverse geocoding failed:', err);
+                currentLocation = `${locationData.lat.toFixed(4)}, ${locationData.lng.toFixed(4)}`;
+                console.log('[DriverUpdates] Exception fallback to coordinates:', currentLocation);
+              }
+            }
+          }
+        } else {
+          // Fallback: Try to get location from eldLocations collection
+          const eldLocRef = doc(db, 'eldLocations', driverId);
+          const eldLocSnap = await getDoc(eldLocRef);
+          if (eldLocSnap.exists()) {
+            const eldLoc = eldLocSnap.data();
+            if (eldLoc.lat && eldLoc.lng) {
+              currentCoordinates = [eldLoc.lng, eldLoc.lat];
+              if (eldLoc.city && eldLoc.state) {
+                currentLocation = `${eldLoc.city}, ${eldLoc.state}`;
+              } else {
+                // Perform reverse geocoding for ELD location
+                try {
+                  const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${eldLoc.lat}&lon=${eldLoc.lng}&zoom=10`);
+                  if (response.ok) {
+                    const geoData = await response.json();
+                    const address = geoData.address || {};
+                    const city = address.city || address.town || address.village || address.hamlet || address.county || '';
+                    const state = address.state || address.county || '';
+                    if (city && state) {
+                      currentLocation = `${city}, ${state}`;
+                    } else if (city) {
+                      currentLocation = city;
+                    } else {
+                      currentLocation = `${eldLoc.lat.toFixed(4)}, ${eldLoc.lng.toFixed(4)}`;
+                    }
+                  } else {
+                    currentLocation = `${eldLoc.lat.toFixed(4)}, ${eldLoc.lng.toFixed(4)}`;
+                  }
+                } catch (err) {
+                  console.warn('[DriverUpdates] ELD reverse geocoding failed:', err);
+                  currentLocation = `${eldLoc.lat.toFixed(4)}, ${eldLoc.lng.toFixed(4)}`;
+                }
+              }
+            }
           }
         }
       }
       
-      // Calculate ETA based on current progress
+      // Calculate ETA based on current progress - use existing progress if available
       let eta = 'N/A';
-      if (pickup && delivery && currentCoordinates) {
+      if (existingUpdate && existingUpdate.eta !== 'N/A') {
+        // Use the ETA that was already calculated for the main table
+        eta = existingUpdate.eta;
+      } else if (pickup && delivery && currentCoordinates) {
         const totalDistance = haversineDistance(pickup, delivery);
         const remainingDistance = haversineDistance(currentCoordinates, delivery);
         const progress = Math.max(0, Math.min(1, 1 - (remainingDistance / totalDistance)));
@@ -408,24 +576,26 @@ const DriverUpdates: React.FC = () => {
       
       setEldDetails({
         location: currentLocation,
-        coordinates: currentCoordinates,
-        pickup: pickup || [-87.6298, 41.8781],
-        delivery: delivery || [-96.7970, 32.7767],
+        coordinates: currentCoordinates || [0, 0], // Use [0, 0] as fallback when no coordinates available
+        pickup: pickup || [0, 0], // Use [0, 0] as fallback when no pickup coordinates available
+        delivery: delivery || [0, 0], // Use [0, 0] as fallback when no delivery coordinates available
         carrierProfile: carrierProfile || null,
-        eta: eta
+        eta: eta,
+        existingProgress: existingUpdate?.progress // Pass the existing progress to the modal
       });
       setDetailsView('map');
       setShowDetailsModal(true);
     } catch (error) {
       console.error('Error fetching driver details:', error);
-      // Fallback to basic data
+      // Fallback to basic data without hardcoded coordinates
       setEldDetails({
         location: 'N/A',
-        coordinates: [-87.6298, 41.8781],
-        pickup: pickup || [-87.6298, 41.8781],
-        delivery: delivery || [-96.7970, 32.7767],
+        coordinates: [0, 0], // No hardcoded coordinates
+        pickup: pickup || [0, 0], // Use provided pickup or [0, 0]
+        delivery: delivery || [0, 0], // Use provided delivery or [0, 0]
         carrierProfile: null,
-        eta: 'N/A'
+        eta: 'N/A',
+        existingProgress: undefined
       });
       setDetailsView('map');
       setShowDetailsModal(true);
@@ -450,6 +620,7 @@ const DriverUpdates: React.FC = () => {
                 <th>Driver</th>
                 <th>Location</th>
                 <th>Status</th>
+                <th>Progress</th>
                 <th>Last Update</th>
                 <th>ETA</th>
                 <th>PO Number</th>
@@ -468,6 +639,29 @@ const DriverUpdates: React.FC = () => {
                       <span className={`${styles.status} ${styles[update.status.toLowerCase()]}`}>
                         {update.status}
                       </span>
+                    </td>
+                    <td>
+                      {update.pickupCoords && update.deliveryCoords && update.progress > 0 ? (
+                        (() => {
+                          const percent = Math.round(update.progress * 100);
+                          return (
+                            <div className={styles.progressContainer}>
+                              <div className={styles.progressHeader}>
+                                <span>Progress</span>
+                                <span>{percent}%</span>
+                              </div>
+                              <div className={styles.progressBar}>
+                                <div 
+                                  className={styles.progressFill} 
+                                  style={{ width: `${percent}%` }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })()
+                      ) : (
+                        'N/A'
+                      )}
                     </td>
                     <td>{update.lastUpdate}</td>
                     <td>{update.eta}</td>
@@ -491,8 +685,54 @@ const DriverUpdates: React.FC = () => {
             <button className={styles.closeButton} onClick={() => setShowContactModal(false)} aria-label="Close">×</button>
             <h2>Carrier Contact Information</h2>
             <p><strong>Name:</strong> {contactInfo.driverName || 'N/A'}</p>
-            <p><strong>Phone:</strong> {contactInfo.phone}</p>
-            <p><strong>Email:</strong> {contactInfo.email}</p>
+            
+            {/* Enhanced Phone Section with Native System Popups */}
+            <div className={styles.contactSection}>
+              <p><strong>Phone:</strong> {contactInfo.phone}</p>
+              {contactInfo.phone && contactInfo.phone !== 'N/A' && (
+                <div className={styles.contactOptions}>
+                  <button 
+                    className={styles.contactButton}
+                    onClick={() => {
+                      const url = `tel:${contactInfo.phone.replace(/\D/g, '')}`;
+                      window.location.href = url;
+                    }}
+                    style={{ background: 'linear-gradient(135deg, #28a745 0%, #1e7e34 100%)' }}
+                  >
+                    📞 Call
+                  </button>
+                  <button 
+                    className={styles.contactButton}
+                    onClick={() => {
+                      const url = `sms:${contactInfo.phone.replace(/\D/g, '')}`;
+                      window.location.href = url;
+                    }}
+                    style={{ background: 'linear-gradient(135deg, #6c757d 0%, #545b62 100%)' }}
+                  >
+                    💬 SMS
+                  </button>
+                </div>
+              )}
+            </div>
+            
+            {/* Email Section - Native System Popup */}
+            <div className={styles.contactSection}>
+              <p><strong>Email:</strong> {contactInfo.email}</p>
+              {contactInfo.email && contactInfo.email !== 'N/A' && (
+                <div className={styles.contactOptions}>
+                  <button 
+                    className={styles.contactButton}
+                    onClick={() => {
+                      const url = `mailto:${contactInfo.email}`;
+                      window.location.href = url;
+                    }}
+                    style={{ background: 'linear-gradient(135deg, #dc3545 0%, #c82333 100%)' }}
+                  >
+                    📧 Email
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -507,7 +747,11 @@ const DriverUpdates: React.FC = () => {
             <div className={styles.modalContent}>
               <div className={styles.locationInfo}>
                 <p><strong>Current Location:</strong> {eldDetails.location}</p>
-                <p><strong>Coordinates:</strong> {eldDetails.coordinates[0]}, {eldDetails.coordinates[1]}</p>
+                <p><strong>Coordinates:</strong> {
+                  eldDetails.coordinates[0] === 0 && eldDetails.coordinates[1] === 0 
+                    ? 'No location data available' 
+                    : `${eldDetails.coordinates[0]}, ${eldDetails.coordinates[1]}`
+                }</p>
                 
                 {/* Driver Information Section */}
                 {eldDetails.carrierProfile && (
@@ -531,13 +775,28 @@ const DriverUpdates: React.FC = () => {
                   <p><strong>Estimated Arrival:</strong> {eldDetails.eta || 'N/A'}</p>
                 </div>
                 
-                {/* Modern Progress Bar */}
-                {eldDetails.pickup && eldDetails.delivery && eldDetails.coordinates && (
+                {/* Modern Progress Bar - only show if we have valid coordinates */}
+                {eldDetails.pickup && eldDetails.delivery && eldDetails.coordinates && 
+                 eldDetails.pickup[0] !== 0 && eldDetails.pickup[1] !== 0 &&
+                 eldDetails.delivery[0] !== 0 && eldDetails.delivery[1] !== 0 &&
+                 eldDetails.coordinates[0] !== 0 && eldDetails.coordinates[1] !== 0 ? (
                   (() => {
-                    const totalMiles = haversineDistance(eldDetails.pickup, eldDetails.delivery);
-                    const remainingMiles = haversineDistance(eldDetails.coordinates, eldDetails.delivery);
-                    const progress = Math.max(0, Math.min(1, 1 - (remainingMiles / totalMiles)));
-                    const percent = Math.round(progress * 100);
+                    // Use existing progress from main table if available, otherwise calculate
+                    let progress = 0;
+                    let percent = 0;
+                    
+                    if (eldDetails.existingProgress !== undefined) {
+                      // Use the progress that was already calculated for the main table
+                      progress = eldDetails.existingProgress;
+                      percent = Math.round(progress * 100);
+                    } else {
+                      // Calculate progress using the same method as the main table
+                      const totalMiles = haversineDistance(eldDetails.pickup, eldDetails.delivery);
+                      const remainingMiles = haversineDistance(eldDetails.coordinates, eldDetails.delivery);
+                      progress = Math.max(0, Math.min(1, 1 - (remainingMiles / totalMiles)));
+                      percent = Math.round(progress * 100);
+                    }
+                    
                     return (
                       <div className={styles.progressContainer}>
                         <div className={styles.progressHeader}>
@@ -553,7 +812,49 @@ const DriverUpdates: React.FC = () => {
                       </div>
                     );
                   })()
+                ) : (
+                  <div className={styles.progressContainer}>
+                    <div className={styles.progressHeader}>
+                      <span>Progress</span>
+                      <span>N/A</span>
+                    </div>
+                    <div className={styles.progressBar}>
+                      <div className={styles.progressFill} style={{ width: '0%' }} />
+                    </div>
+                    <p style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                      Progress unavailable - location data required
+                    </p>
+                  </div>
                 )}
+                
+                {/* Carrier Notes Section */}
+                <div className={styles.carrierNotes}>
+                  <h3>Carrier Notes</h3>
+                  {loadingNotes ? (
+                    <p className={styles.loadingNotes}>Loading carrier notes...</p>
+                  ) : carrierNotes.length === 0 ? (
+                    <p className={styles.noNotes}>No carrier notes available.</p>
+                  ) : (
+                    <div className={styles.notesList}>
+                      {carrierNotes.map((note, index) => (
+                        <div key={note.id || index} className={styles.noteItem}>
+                          <div className={styles.noteHeader}>
+                            <span className={styles.noteTimestamp}>
+                              {note.timestamp instanceof Date 
+                                ? note.timestamp.toLocaleString()
+                                : note.timestamp?.toDate?.()?.toLocaleString() || 'N/A'
+                              }
+                            </span>
+                            <span className={styles.noteStatus}>{note.status}</span>
+                          </div>
+                          {note.notes && (
+                            <p className={styles.noteText}>{note.notes}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
               {/* Large Map below */}
               <div className={styles.largeMap}>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import MapboxMap from '../../components/common/MapboxMap';
 import styles from './AvailableLoads.module.css';
 import { useNavigate } from 'react-router-dom';
@@ -150,7 +150,7 @@ const AvailableLoads: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const navigate = useNavigate();
   const [userLocation, setUserLocation] = useState<[number, number]>([-87.6298, 41.8781]);
-  const [radiusMiles] = useState<number>(100);
+  const [radiusMiles, setRadiusMiles] = useState<number>(100);
   const [userId, setUserId] = useState<string | null>(null);
   const [eldApiKey, setEldApiKey] = useState<string | null>(null);
   const [eldApiId, setEldApiId] = useState<string | null>(null);
@@ -171,6 +171,13 @@ const AvailableLoads: React.FC = () => {
   // Action feedback state for partner request updates
   const [actionFeedback, setActionFeedback] = useState<string | null>(null);
 
+  // New state variables for radius and location search
+  const [searchLocation, setSearchLocation] = useState<string>('');
+  const [isSearchingLocation, setIsSearchingLocation] = useState(false);
+  const [searchLocationError, setSearchLocationError] = useState<string | null>(null);
+  const [customLocation, setCustomLocation] = useState<[number, number] | null>(null);
+  const [mapInstance, setMapInstance] = useState<mapboxgl.Map | null>(null);
+
   // Mobile detection
   useEffect(() => {
     const checkMobile = () => {
@@ -182,6 +189,93 @@ const AvailableLoads: React.FC = () => {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Handle map load
+  const handleMapLoad = useCallback((map: mapboxgl.Map) => {
+    setMapInstance(map);
+  }, []);
+
+  // Helper functions for safe map operations
+  const safeGetLayer = useCallback((id: string) => mapInstance && typeof mapInstance.getLayer === 'function' && mapInstance.getLayer(id), [mapInstance]);
+  const safeRemoveLayer = useCallback((id: string) => mapInstance && typeof mapInstance.removeLayer === 'function' && mapInstance.removeLayer(id), [mapInstance]);
+  const safeGetSource = useCallback((id: string) => mapInstance && typeof mapInstance.getSource === 'function' && mapInstance.getSource(id), [mapInstance]);
+  const safeRemoveSource = useCallback((id: string) => mapInstance && typeof mapInstance.removeSource === 'function' && mapInstance.removeSource(id), [mapInstance]);
+  const safeAddSource = useCallback((id: string, source: any) => mapInstance && typeof mapInstance.addSource === 'function' && mapInstance.addSource(id, source), [mapInstance]);
+  const safeAddLayer = useCallback((layer: any) => mapInstance && typeof mapInstance.addLayer === 'function' && mapInstance.addLayer(layer), [mapInstance]);
+  const safeFitBounds = useCallback((bounds: any, options?: any) => mapInstance && typeof mapInstance.fitBounds === 'function' && mapInstance.fitBounds(bounds, options), [mapInstance]);
+
+  // Handle radius circle updates
+  useEffect(() => {
+    if (!mapInstance) {
+      console.log('Map instance not available yet');
+      return;
+    }
+
+    // Only add radius circle when in map view and marketplace tab
+    if (viewType !== 'map' || activeTab !== 'MARKETPLACE') {
+      console.log('Not in map view or marketplace tab, skipping radius circle');
+      return;
+    }
+
+    // Check if map is ready
+    if (typeof mapInstance.isStyleLoaded === 'function' && !mapInstance.isStyleLoaded()) {
+      console.log('Map style not loaded yet, waiting...');
+      return;
+    }
+
+    try {
+      console.log('Adding radius circle:', { currentLocation: customLocation || userLocation, radiusMiles });
+      
+      // Remove existing radius circles
+      if (safeGetLayer('radius')) safeRemoveLayer('radius');
+      if (safeGetLayer('radius-outline')) safeRemoveLayer('radius-outline');
+      if (safeGetSource('radius')) safeRemoveSource('radius');
+      
+      // Add new radius circle
+      const currentLocation = customLocation || userLocation;
+      const circleGeoJSON = createGeoJSONCircle(currentLocation, radiusMiles);
+      
+      safeAddSource('radius', {
+        type: 'geojson',
+        data: circleGeoJSON
+      });
+      
+      safeAddLayer({
+        id: 'radius',
+        type: 'fill',
+        source: 'radius',
+        paint: {
+          'fill-color': '#4285F4',
+          'fill-opacity': 0.12
+        }
+      });
+      
+      safeAddLayer({
+        id: 'radius-outline',
+        type: 'line',
+        source: 'radius',
+        paint: {
+          'line-color': '#4285F4',
+          'line-width': 2
+        }
+      });
+      
+      // Fit map to the bounds of the circle
+      const coordinates = circleGeoJSON.geometry.coordinates[0];
+      const bounds = new mapboxgl.LngLatBounds(
+        new mapboxgl.LngLat(coordinates[0][0], coordinates[0][1]),
+        new mapboxgl.LngLat(coordinates[Math.floor(coordinates.length / 2)][0], coordinates[Math.floor(coordinates.length / 2)][1])
+      );
+      coordinates.forEach(coord => bounds.extend(new mapboxgl.LngLat(coord[0], coord[1])));
+      safeFitBounds(bounds, { padding: isMobile ? 20 : 40, maxZoom: isMobile ? 14 : 12 });
+
+      console.log('Radius circle added successfully');
+
+    } catch (error) {
+      console.warn('Failed to add radius circle:', error);
+    }
+
+  }, [mapInstance, customLocation, userLocation, radiusMiles, isMobile, viewType, activeTab, safeGetLayer, safeRemoveLayer, safeGetSource, safeRemoveSource, safeAddSource, safeAddLayer, safeFitBounds]);
 
   // Mobile optimization
   const { 
@@ -210,7 +304,7 @@ const AvailableLoads: React.FC = () => {
     error: loadsError, 
     hasMore, 
     loadMore 
-  } = useAvailableLoads(userLocation, radiusMiles, optimalPageSize);
+  } = useAvailableLoads(customLocation || userLocation, radiusMiles, optimalPageSize);
 
   useEffect(() => {
     console.log('AvailableLoads: availableLoads', availableLoads);
@@ -302,6 +396,68 @@ const AvailableLoads: React.FC = () => {
       // console.log('Geolocation not supported, using default location');
     }
   }, [user]); // Only run when user changes
+
+  // Geocoding function for location search
+  const handleLocationSearch = async (searchTerm: string) => {
+    if (!searchTerm.trim()) {
+      setCustomLocation(null);
+      setSearchLocationError(null);
+      return;
+    }
+
+    setIsSearchingLocation(true);
+    setSearchLocationError(null);
+
+    try {
+      const accessToken = process.env.REACT_APP_MAPBOX_TOKEN;
+      if (!accessToken) {
+        throw new Error('Mapbox token not configured');
+      }
+
+      const response = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(searchTerm)}.json?access_token=${accessToken}&limit=1`
+      );
+
+      if (!response.ok) {
+        throw new Error('Geocoding request failed');
+      }
+
+      const data = await response.json();
+      
+      if (data.features && data.features.length > 0) {
+        const [lng, lat] = data.features[0].center;
+        setCustomLocation([lng, lat]);
+        setSearchLocationError(null);
+      } else {
+        setSearchLocationError('Location not found. Please try a different search term.');
+        setCustomLocation(null);
+      }
+    } catch (error) {
+      console.error('Geocoding error:', error);
+      setSearchLocationError('Failed to search location. Please try again.');
+      setCustomLocation(null);
+    } finally {
+      setIsSearchingLocation(false);
+    }
+  };
+
+  // Handle radius change
+  const handleRadiusChange = (newRadius: number) => {
+    setRadiusMiles(newRadius);
+  };
+
+  // Handle location search submit
+  const handleLocationSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleLocationSearch(searchLocation);
+  };
+
+  // Reset to current location
+  const handleResetLocation = () => {
+    setCustomLocation(null);
+    setSearchLocation('');
+    setSearchLocationError(null);
+  };
 
   // On mount, check for #partner hash and set tab accordingly
   useEffect(() => {
@@ -1069,6 +1225,71 @@ const AvailableLoads: React.FC = () => {
         {/* Content for each tab */}
         {activeTab === 'MARKETPLACE' ? (
           <>
+            {/* Radius Control and Location Search */}
+            <div className={styles.searchControlsContainer}>
+              <div className={styles.radiusControl}>
+                <label htmlFor="radius-slider" className={styles.radiusLabel}>
+                  Search Radius: {radiusMiles} miles
+                </label>
+                <input
+                  id="radius-slider"
+                  type="range"
+                  min="25"
+                  max="500"
+                  step="25"
+                  value={radiusMiles}
+                  onChange={(e) => handleRadiusChange(parseInt(e.target.value))}
+                  className={styles.radiusSlider}
+                />
+                <div className={styles.radiusValues}>
+                  <span>25</span>
+                  <span>250</span>
+                  <span>500</span>
+                </div>
+              </div>
+              
+              <div className={styles.locationSearch}>
+                <form onSubmit={handleLocationSearchSubmit} className={styles.locationSearchForm}>
+                  <div className={styles.locationSearchInputGroup}>
+                    <input
+                      type="text"
+                      value={searchLocation}
+                      onChange={(e) => setSearchLocation(e.target.value)}
+                      placeholder="Search for a city, state, or address..."
+                      className={styles.locationSearchInput}
+                      disabled={isSearchingLocation}
+                    />
+                    <button
+                      type="submit"
+                      className={styles.locationSearchButton}
+                      disabled={isSearchingLocation || !searchLocation.trim()}
+                    >
+                      {isSearchingLocation ? 'Searching...' : 'Search'}
+                    </button>
+                  </div>
+                  {customLocation && (
+                    <button
+                      type="button"
+                      onClick={handleResetLocation}
+                      className={styles.resetLocationButton}
+                    >
+                      Reset to Current Location
+                    </button>
+                  )}
+                </form>
+                {searchLocationError && (
+                  <div className={styles.locationSearchError}>
+                    {searchLocationError}
+                  </div>
+                )}
+                {customLocation && (
+                  <div className={styles.currentSearchLocation}>
+                    Searching near: <strong>{searchLocation}</strong>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* View Toggle Controls */}
             <div className={styles.viewToggleContainer}>
               <div className={styles.viewToggle}>
@@ -1093,7 +1314,7 @@ const AvailableLoads: React.FC = () => {
                 
                 <div className={styles.mapContainer}>
                   <MapboxMap 
-                    center={userLocation}
+                    center={customLocation || userLocation}
                     zoom={mapZoom}
                     markers={filteredMarketplaceLoads.map(load => ({
                       id: load.id,
@@ -1102,7 +1323,7 @@ const AvailableLoads: React.FC = () => {
                       icon: 'circle',
                       onClick: () => handleLoadSelect(load)
                     }))}
-                    onMapLoad={() => {}}
+                    onMapLoad={handleMapLoad}
                   />
                   {/* Mobile map controls */}
                   <div className={styles.mapControls}>

@@ -24,6 +24,7 @@ interface Shipment {
   date: string;
   type: string;
   poNumber: string;
+  pickup?: string; // Added pickup field
 }
 
 interface AvailableCarrier {
@@ -102,6 +103,10 @@ const ShipperDashboard: React.FC = () => {
   const [mapZoom, setMapZoom] = useState(10);
   const [hideMap, setHideMap] = useState(false);
   const [rejectedLoads, setRejectedLoads] = useState<RejectedLoad[]>([]);
+  
+  // Shipment details modal state
+  const [selectedShipment, setSelectedShipment] = useState<any>(null);
+  const [showShipmentModal, setShowShipmentModal] = useState(false);
 
   const handleMapLoad = useCallback((map: mapboxgl.Map) => {
     setMapInstance(map);
@@ -355,20 +360,8 @@ const ShipperDashboard: React.FC = () => {
   };
 
   const handleViewShipmentDetails = (shipment: any) => {
-    navigate('/shipper/schedule', {
-      state: {
-        selectedShipment: {
-          poNumber: shipment.poNumber,
-          date: shipment.date,
-          pickup: shipment.pickup,
-          destination: shipment.destination,
-          carrier: shipment.carrier,
-          status: shipment.status,
-          type: shipment.type,
-          cost: shipment.cost
-        }
-      }
-    });
+    setSelectedShipment(shipment);
+    setShowShipmentModal(true);
   };
 
   // Fetch rejected loads when component mounts
@@ -400,15 +393,48 @@ const ShipperDashboard: React.FC = () => {
   // Convert shipments and carriers to Mapbox markers
   const getMapMarkers = () => {
     if (showActiveShipments) {
-      return mockShipments.map(shipment => ({
-        id: shipment.id,
-        position: shipment.position,
-        type: 'carrier' as const,
-        onClick: () => {
-          // Handle shipment marker click
-          console.log('Shipment clicked:', shipment);
+      // Use actual shipments data from context instead of mockShipments
+      const activeShipments = shipments.filter(s => s.status === 'Active' || s.status === 'Carrier Pending');
+      
+      return activeShipments.map(shipment => {
+        // Generate position coordinates based on pickup location or use default
+        let position: [number, number] = [-87.6298, 41.8781]; // Default to Chicago
+        
+        // Try to geocode the pickup location if available
+        if (shipment.pickup) {
+          // For now, use a simple mapping of common cities to coordinates
+          const cityCoords: { [key: string]: [number, number] } = {
+            'Chicago, IL': [-87.6298, 41.8781],
+            'New York, NY': [-74.0060, 40.7128],
+            'Los Angeles, CA': [-118.2437, 34.0522],
+            'Dallas, TX': [-96.7970, 32.7767],
+            'Atlanta, GA': [-84.3880, 33.7490],
+            'Seattle, WA': [-122.3321, 47.6062],
+            'Miami, FL': [-80.1918, 25.7617],
+            'Denver, CO': [-104.9903, 39.7392],
+            'Phoenix, AZ': [-112.0740, 33.4484],
+            'Philadelphia, PA': [-75.1652, 39.9526]
+          };
+          
+          // Check if we have coordinates for this city
+          for (const [city, coords] of Object.entries(cityCoords)) {
+            if (shipment.pickup.toLowerCase().includes(city.toLowerCase().split(',')[0])) {
+              position = coords;
+              break;
+            }
+          }
         }
-      }));
+        
+        return {
+          id: shipment.id,
+          position,
+          type: 'carrier' as const,
+          onClick: () => {
+            // Handle shipment marker click - show shipment details
+            handleViewShipmentDetails(shipment);
+          }
+        };
+      });
     } else {
       return [
         // User location marker
@@ -916,6 +942,114 @@ const ShipperDashboard: React.FC = () => {
         <div className={styles.performanceIndicator}>
           {isLowBandwidth && <span>📶 Slow connection - Optimized loading</span>}
           {isLowBattery && <span>🔋 Low battery - Reduced animations</span>}
+        </div>
+      )}
+
+      {/* Shipment Details Modal */}
+      {showShipmentModal && selectedShipment && (
+        <div 
+          className={styles.modalOverlay}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowShipmentModal(false);
+            }
+          }}
+        >
+          <div className={styles.modal}>
+            <div className={styles.modalHeader}>
+              <h2>Shipment Details</h2>
+              <button 
+                onClick={() => setShowShipmentModal(false)}
+                className={styles.closeButton}
+              >
+                ×
+              </button>
+            </div>
+            <div className={styles.modalContent}>
+              <div className={styles.shipmentInfo}>
+                <div className={styles.shipmentHeader}>
+                  <h3>{selectedShipment.carrier}</h3>
+                  <span className={`${styles.status} ${styles[selectedShipment.status.toLowerCase().replace(/\s+/g, '')] || styles.scheduled}`}>
+                    {selectedShipment.status}
+                  </span>
+                </div>
+                
+                <div className={styles.shipmentRoute}>
+                  <div className={styles.routeInfo}>
+                    <span className={styles.routeLabel}>From:</span>
+                    <span className={styles.routeValue}>{selectedShipment.pickup || selectedShipment.origin || 'N/A'}</span>
+                  </div>
+                  <div className={styles.routeArrow}>→</div>
+                  <div className={styles.routeInfo}>
+                    <span className={styles.routeLabel}>To:</span>
+                    <span className={styles.routeValue}>{selectedShipment.destination}</span>
+                  </div>
+                </div>
+                
+                <div className={styles.shipmentDetails}>
+                  <div className={styles.detailRow}>
+                    <div className={styles.detailItem}>
+                      <label>PO Number:</label>
+                      <span className={styles.poNumber}>{selectedShipment.poNumber}</span>
+                    </div>
+                    <div className={styles.detailItem}>
+                      <label>Type:</label>
+                      <span>{selectedShipment.type}</span>
+                    </div>
+                  </div>
+                  <div className={styles.detailRow}>
+                    <div className={styles.detailItem}>
+                      <label>Date:</label>
+                      <span>{selectedShipment.date}</span>
+                    </div>
+                    <div className={styles.detailItem}>
+                      <label>Cost:</label>
+                      <span className={styles.cost}>${selectedShipment.cost.toLocaleString()}</span>
+                    </div>
+                  </div>
+                  {selectedShipment.eta && (
+                    <div className={styles.detailRow}>
+                      <div className={styles.detailItem}>
+                        <label>ETA:</label>
+                        <span>{selectedShipment.eta}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <div className={styles.modalActions}>
+                  <button 
+                    className={styles.viewButton}
+                    onClick={() => {
+                      setShowShipmentModal(false);
+                      navigate('/shipper/schedule', {
+                        state: {
+                          selectedShipment: {
+                            poNumber: selectedShipment.poNumber,
+                            date: selectedShipment.date,
+                            pickup: selectedShipment.pickup || selectedShipment.origin || '',
+                            destination: selectedShipment.destination,
+                            carrier: selectedShipment.carrier,
+                            status: selectedShipment.status,
+                            type: selectedShipment.type,
+                            cost: selectedShipment.cost
+                          }
+                        }
+                      });
+                    }}
+                  >
+                    View Full Details
+                  </button>
+                  <button 
+                    className={styles.closeModalButton}
+                    onClick={() => setShowShipmentModal(false)}
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
