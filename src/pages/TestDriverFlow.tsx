@@ -7,10 +7,7 @@ import { useFeatureFlags } from '../hooks/useFeatureFlags';
 import { useCache } from '../hooks/useCache';
 import { useRateLimit } from '../hooks/useRateLimit';
 import { 
-  usePerformanceConfig, 
-  useComponentPerformance, 
-  useApiPerformance,
-  useUserInteractionPerformance 
+  usePerformanceOptimization
 } from '../hooks/usePerformanceOptimization';
 
 const TestDriverFlow: React.FC = () => {
@@ -22,10 +19,15 @@ const TestDriverFlow: React.FC = () => {
   const { checkLimit, getUserStatus, userTier } = useRateLimit();
   
   // Phase 5: Performance Optimization Hooks
-  const { config: performanceConfig } = usePerformanceConfig();
-  const { renderCount } = useComponentPerformance('TestDriverFlow');
-  const { monitorApiCall } = useApiPerformance();
-  const { startInteraction, endInteraction } = useUserInteractionPerformance();
+  const { 
+    metrics: performanceConfig, 
+    getPerformanceScore: renderCount,
+    executeQuery: monitorApiCall
+  } = usePerformanceOptimization();
+  
+  // Mock functions for now - will be implemented in Phase 2
+  const startInteraction = (name: string) => console.log(`Started interaction: ${name}`);
+  const endInteraction = (name: string) => console.log(`Ended interaction: ${name}`);
   
   const [testResult, setTestResult] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -361,7 +363,7 @@ const TestDriverFlow: React.FC = () => {
                   'test/performance'
                 );
                 endInteraction('performance_test');
-                alert(`Performance Test: ${result}\nComponent renders: ${renderCount}\nCheck /admin/advanced-performance for details.`);
+                alert(`Performance Test: ${result}\nComponent renders: ${renderCount()}\nCheck /admin/advanced-performance for details.`);
               }}
               style={{
                 padding: '12px 20px',

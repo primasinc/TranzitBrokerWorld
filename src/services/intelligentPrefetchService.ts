@@ -419,8 +419,9 @@ class IntelligentPrefetchService {
     
     // For now, return a calculated effectiveness score based on active strategies and user engagement
     // In a real implementation, this would track actual prefetch success rates
+    const activeStrategiesCount = this.strategies.filter(s => s.enabled).length;
     const effectiveness = this.isActive && totalActions > 0 
-      ? Math.min(0.95, Math.max(0.1, (this.activeStrategies / Math.max(1, this.strategies.length)) * 0.8 + 0.2))
+      ? Math.min(0.95, Math.max(0.1, (activeStrategiesCount / Math.max(1, this.strategies.length)) * 0.8 + 0.2))
       : 0.5;
     
     return {

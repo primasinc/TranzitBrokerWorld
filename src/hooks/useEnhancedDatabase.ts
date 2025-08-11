@@ -2,8 +2,8 @@
 // Provides enhanced database operations with connection management and performance monitoring
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { enhancedDb, EnhancedOperationResult } from '../services/enhancedDbService';
-import { isDatabaseHealthy, getConnectionStatus } from '../services/databaseConnectionManager';
+import { enhancedDb } from '../services/enhancedDbService';
+import { isDatabaseHealthy, getConnectionStatus, getPerformanceMetrics } from '../services/databaseConnectionManager';
 import { DocumentData } from 'firebase/firestore';
 
 interface UseEnhancedDatabaseOptions {
@@ -77,7 +77,7 @@ export const useEnhancedDatabase = (options: UseEnhancedDatabaseOptions = {}) =>
 
   // Enhanced operation wrapper with retry logic
   const executeOperation = useCallback(async <T>(
-    operation: () => Promise<EnhancedOperationResult<T>>,
+    operation: () => Promise<T>,
     operationName: string
   ): Promise<T> => {
     let lastError: Error | null = null;
@@ -100,14 +100,16 @@ export const useEnhancedDatabase = (options: UseEnhancedDatabaseOptions = {}) =>
         // Execute operation
         const result = await operation();
         
-        // Update performance metrics
-        if (enablePerformanceMonitoring && result.performance) {
+        // Update performance metrics if monitoring is enabled
+        if (enablePerformanceMonitoring) {
+          // Get performance metrics from the database connection manager
+          const metrics = getPerformanceMetrics();
           setState(prev => ({
             ...prev,
-            performanceMetrics: result.performance
+            performanceMetrics: metrics
           }));
           
-          onPerformanceUpdate?.(result.performance);
+          onPerformanceUpdate?.(metrics);
         }
 
         setState(prev => ({
@@ -116,7 +118,7 @@ export const useEnhancedDatabase = (options: UseEnhancedDatabaseOptions = {}) =>
           error: null
         }));
 
-        return result.data;
+        return result;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
         
@@ -124,10 +126,10 @@ export const useEnhancedDatabase = (options: UseEnhancedDatabaseOptions = {}) =>
         if (enableRetryLogic && attempt < maxRetries) {
           attempt++;
           
-                         setState(prev => ({
-                 ...prev,
-                 error: new Error(`Attempt ${attempt} failed, retrying... (${lastError?.message || 'Unknown error'})`)
-               }));
+          setState(prev => ({
+            ...prev,
+            error: new Error(`Attempt ${attempt} failed, retrying... (${lastError?.message || 'Unknown error'})`)
+          }));
 
           // Wait before retry
           await new Promise(resolve => {
@@ -251,7 +253,7 @@ export const useEnhancedDatabase = (options: UseEnhancedDatabaseOptions = {}) =>
   const executeBatch = useCallback(async (
     batch: any,
     operationName: string = 'executeBatch'
-  ): Promise<void> => {
+  ): Promise<any[]> => {
     return executeOperation(
       () => enhancedDb.executeBatch(batch, operationName),
       operationName
@@ -260,7 +262,7 @@ export const useEnhancedDatabase = (options: UseEnhancedDatabaseOptions = {}) =>
 
   const batchWriteDocuments = useCallback(async <T extends DocumentData>(
     collectionName: string,
-    documents: Array<{ id?: string; data: T; operation: 'set' | 'update' | 'delete' }>,
+    documents: T[],
     merge: boolean = false
   ): Promise<void> => {
     return executeOperation(

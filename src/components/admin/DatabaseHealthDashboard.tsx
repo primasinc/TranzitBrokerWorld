@@ -25,7 +25,7 @@ const DatabaseHealthDashboard: React.FC = () => {
     const updateMetrics = () => {
       setConnectionPool(getConnectionPool());
       setHealthMetrics(getHealthMetrics());
-      setPerformanceMetrics(getPerformanceMetrics());
+      setPerformanceMetrics([getPerformanceMetrics()]);
     };
 
     // Update metrics every 5 seconds
@@ -141,7 +141,7 @@ const DatabaseHealthDashboard: React.FC = () => {
             <div className={styles.statusItem}>
               <span className={styles.label}>Last Health Check:</span>
               <span className={styles.value}>
-                {formatTimestamp(healthMetrics.lastHealthCheck)}
+                {formatTimestamp(new Date(healthMetrics.lastHealthCheck))}
               </span>
             </div>
           </div>
@@ -166,27 +166,15 @@ const DatabaseHealthDashboard: React.FC = () => {
               </span>
             </div>
             <div className={styles.metricRow}>
-              <span className={styles.label}>Connection Timeout:</span>
+              <span className={styles.label}>Available Connections:</span>
               <span className={styles.value}>
-                {formatDuration(connectionPool.connectionTimeout)}
+                {connectionPool.availableConnections}
               </span>
             </div>
             <div className={styles.metricRow}>
-              <span className={styles.label}>Health Check Interval:</span>
+              <span className={styles.label}>Connection Pool Status:</span>
               <span className={styles.value}>
-                {formatDuration(connectionPool.healthCheckInterval)}
-              </span>
-            </div>
-            <div className={styles.metricRow}>
-              <span className={styles.label}>Failover Enabled:</span>
-              <span className={styles.value}>
-                {connectionPool.failoverEnabled ? '✅ Yes' : '❌ No'}
-              </span>
-            </div>
-            <div className={styles.metricRow}>
-              <span className={styles.label}>Last Cleanup:</span>
-              <span className={styles.value}>
-                {formatTimestamp(connectionPool.lastCleanup)}
+                {connectionPool.activeConnections > 0 ? '🟢 Active' : '⚪ Idle'}
               </span>
             </div>
           </div>
@@ -221,18 +209,15 @@ const DatabaseHealthDashboard: React.FC = () => {
               </span>
             </div>
             <div className={styles.metricRow}>
-              <span className={styles.label}>Recovery Attempts:</span>
+              <span className={styles.label}>Error Rate:</span>
               <span className={styles.value}>
-                {healthMetrics.recoveryAttempts}
+                {formatPercentage(healthMetrics.errorRate)}
               </span>
             </div>
             <div className={styles.metricRow}>
-              <span className={styles.label}>Last Failover:</span>
+              <span className={styles.label}>Uptime:</span>
               <span className={styles.value}>
-                {healthMetrics.lastFailover ? 
-                  formatTimestamp(healthMetrics.lastFailover) : 
-                  'Never'
-                }
+                {formatDuration(healthMetrics.uptime)}
               </span>
             </div>
           </div>

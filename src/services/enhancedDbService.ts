@@ -21,6 +21,13 @@ export class EnhancedDocService<T = any> {
     this.dataStore = dataStores.get(collectionName)!;
   }
 
+  // Static method for getting documents (compatibility with EnhancedQueryService)
+  static async getDocument(collectionName: string, documentId: string): Promise<{ data: any }> {
+    const service = new EnhancedDocService(collectionName);
+    const doc = await service.findOne({ id: documentId } as any);
+    return { data: doc };
+  }
+
   // Basic CRUD operations
   async find(filter: Partial<T> = {}): Promise<T[]> {
     const startTime = Date.now();
@@ -194,14 +201,20 @@ export const enhancedDb = {
     return service.findOne(filter);
   },
 
-  update: async <T>(collection: string, filter: Partial<T>, update: Partial<T>) => {
+  update: async <T>(collection: string, documentId: string, update: Partial<T>): Promise<void> => {
     const service = new EnhancedDocService<T>(collection);
-    return service.updateOne(filter, update);
+    await service.updateOne({ id: documentId } as any, update);
   },
 
-  delete: async <T>(collection: string, filter: Partial<T>) => {
+  delete: async <T>(collection: string, filter: Partial<T>): Promise<void> => {
     const service = new EnhancedDocService<T>(collection);
-    return service.deleteOne(filter);
+    await service.deleteOne(filter);
+  },
+
+  // Health check
+  isHealthy: async () => {
+    const healthMetrics = databaseConnectionManager.getHealthMetrics();
+    return healthMetrics.connectionStatus === 'healthy';
   },
 
   // Utility methods
@@ -219,6 +232,113 @@ export const enhancedDb = {
       count: dataStore.size,
       size: JSON.stringify(Array.from(dataStore.values())).length
     };
+  },
+
+  // Firebase-compatible methods
+  get: async <T>(collectionName: string, documentId: string): Promise<T | null> => {
+    const service = new EnhancedDocService<T>(collectionName);
+          return service.findOne({ id: documentId } as any);
+  },
+
+  set: async <T>(collectionName: string, documentId: string, data: T, merge: boolean = false): Promise<void> => {
+    const service = new EnhancedDocService<T>(collectionName);
+    if (merge) {
+      await service.updateOne({ id: documentId } as any, data);
+    } else {
+      (data as any).id = documentId;
+      await service.insertOne(data);
+    }
+  },
+
+  add: async <T>(collectionName: string, data: T): Promise<string> => {
+    const service = new EnhancedDocService<T>(collectionName);
+    const result = await service.insertOne(data);
+    return result.insertedId;
+  },
+
+  query: async <T>(collectionName: string, queryConstraints: Array<any> = []): Promise<T[]> => {
+    const service = new EnhancedDocService<T>(collectionName);
+    // For now, return all documents - query constraints will be implemented in Phase 2
+    return service.find();
+  },
+
+  queryPaginated: async <T>(
+    collectionName: string, 
+    pageSize: number, 
+    lastDocument: any = null, 
+    queryConstraints: Array<any> = []
+  ): Promise<{ documents: T[], hasMore: boolean, lastDoc: any }> => {
+    const service = new EnhancedDocService<T>(collectionName);
+    const allData = await service.find();
+    const startIndex = lastDocument ? allData.findIndex(doc => (doc as any).id === lastDocument) + 1 : 0;
+    const pageData = allData.slice(startIndex, startIndex + pageSize);
+    
+    return {
+      documents: pageData,
+      hasMore: startIndex + pageSize < allData.length,
+      lastDoc: pageData[pageData.length - 1] || null
+    };
+  },
+
+  subscribe: <T>(
+    collectionName: string, 
+    callback: (data: T[]) => void, 
+    errorCallback?: (error: Error) => void,
+    queryConstraints: Array<any> = []
+  ) => {
+    // For now, return a simple subscription - real-time updates will be implemented in Phase 2
+    const service = new EnhancedDocService<T>(collectionName);
+    const interval = setInterval(async () => {
+      try {
+        const data = await service.find();
+        callback(data);
+      } catch (error) {
+        if (errorCallback) errorCallback(error as Error);
+      }
+    }, 5000); // Poll every 5 seconds
+
+    return () => clearInterval(interval);
+  },
+
+  batch: () => {
+    // Simple batch implementation - will be enhanced in Phase 2
+    const operations: Array<() => Promise<any>> = [];
+    
+    return {
+      set: (ref: any, data: any, options?: any) => {
+        operations.push(async () => {
+          const [collectionName, documentId] = ref.split('/');
+          return enhancedDb.set(collectionName, documentId, data, options?.merge);
+        });
+        return { ref, data, options };
+      },
+      commit: async () => {
+        const results = [];
+        for (const operation of operations) {
+          results.push(await operation());
+        }
+        operations.length = 0; // Clear operations
+        return results;
+      }
+    };
+  },
+
+  executeBatch: async (batch: any, operationName: string): Promise<any[]> => {
+    return batch.commit();
+  },
+
+  batchWrite: async <T>(collectionName: string, documents: T[], merge: boolean = false): Promise<void> => {
+    const batch = enhancedDb.batch();
+    for (const doc of documents) {
+      const id = (doc as any).id || Math.random().toString(36).substr(2, 9);
+      batch.set(`${collectionName}/${id}`, doc, { merge });
+    }
+    await batch.commit();
+  },
+
+  transaction: async <T>(updateFunction: (transaction: any) => Promise<T>, operationName: string): Promise<T> => {
+    // Simple transaction implementation - will be enhanced in Phase 2
+    return updateFunction({});
   },
 
   // Initialize with some sample data for testing
@@ -246,6 +366,19 @@ export const enhancedDb = {
     });
   }
 };
+
+// Enhanced Query Service for compatibility with existing imports
+export class EnhancedQueryService {
+  // Get documents with query constraints (simplified for Phase 1B)
+  static async getDocuments(collectionName: string, constraints: Array<any> = []): Promise<{ data: any[] }> {
+    const service = new EnhancedDocService(collectionName);
+    
+    // For now, return all documents - query constraints will be implemented in Phase 2
+    const documents = await service.find();
+    
+    return { data: documents };
+  }
+}
 
 // Initialize sample data when the service is loaded
 enhancedDb.initializeSampleData();

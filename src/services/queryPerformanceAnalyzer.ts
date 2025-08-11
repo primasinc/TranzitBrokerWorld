@@ -13,7 +13,7 @@ interface QueryMetrics {
   sessionId?: string;
   performance: 'excellent' | 'good' | 'fair' | 'poor' | 'critical';
   bottlenecks: string[];
-  recommendations: string[];
+  recommendations: Array<{ type: 'index' | 'query' | 'structure' | 'caching' | 'pagination'; description: string }>;
 }
 
 interface PerformanceThresholds {
@@ -265,12 +265,12 @@ class QueryPerformanceAnalyzer {
       
       queryRecommendations.forEach(rec => {
         recommendations.push({
-          type: rec.type as any,
+          type: rec.type,
           priority: query.performance === 'critical' ? 'high' : 'medium',
-          description: rec,
+          description: rec.description,
           expectedImprovement: this.calculateExpectedImprovement(query.executionTime),
-          implementationEffort: this.estimateImplementationEffort(rec),
-          code: this.generateOptimizationCode(rec, query)
+          implementationEffort: this.estimateImplementationEffort(rec.description),
+          code: this.generateOptimizationCode(rec.description, query)
         });
       });
     });
@@ -336,26 +336,26 @@ class QueryPerformanceAnalyzer {
     return bottlenecks;
   }
 
-  private generateRecommendations(query: string, collection: string, executionTime: number, resultCount: number, resultSize: number): string[] {
-    const recommendations: string[] = [];
+  private generateRecommendations(query: string, collection: string, executionTime: number, resultCount: number, resultSize: number): Array<{ type: 'index' | 'query' | 'structure' | 'caching' | 'pagination'; description: string }> {
+    const recommendations: Array<{ type: 'index' | 'query' | 'structure' | 'caching' | 'pagination'; description: string }> = [];
 
     if (executionTime > this.performanceThresholds.poor) {
-      recommendations.push(`Add composite index on ${collection} collection for frequently queried fields`);
-      recommendations.push(`Consider implementing query result caching for ${collection}`);
+      recommendations.push({ type: 'index', description: `Add composite index on ${collection} collection for frequently queried fields` });
+      recommendations.push({ type: 'caching', description: `Consider implementing query result caching for ${collection}` });
     }
 
     if (resultCount > 1000) {
-      recommendations.push(`Implement pagination for ${collection} queries to limit result size`);
-      recommendations.push(`Add limit() to ${collection} queries to prevent large result sets`);
+      recommendations.push({ type: 'pagination', description: `Implement pagination for ${collection} queries to limit result size` });
+      recommendations.push({ type: 'query', description: `Add limit() to ${collection} queries to prevent large result sets` });
     }
 
     if (resultSize > 1024 * 1024) {
-      recommendations.push(`Select only necessary fields in ${collection} queries to reduce data transfer`);
-      recommendations.push(`Implement data compression for ${collection} results`);
+      recommendations.push({ type: 'structure', description: `Select only necessary fields in ${collection} queries to reduce data transfer` });
+      recommendations.push({ type: 'structure', description: `Implement data compression for ${collection} results` });
     }
 
     if (query.includes('orderBy') && !query.includes('limit')) {
-      recommendations.push(`Add limit() to ordered queries in ${collection} to improve performance`);
+      recommendations.push({ type: 'query', description: `Add limit() to ordered queries in ${collection} to improve performance` });
     }
 
     return recommendations;
