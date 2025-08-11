@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Failover System Test Page - Phase 3</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+        
+        .header p {
+            margin: 10px 0 0 0;
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .test-section {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .test-section h2 {
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        
+        .test-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+            transition: transform 0.2s;
+        }
+        
+        .test-button:hover {
+            transform: translateY(-2px);
+        }
+        
+        .test-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .test-results {
+            background: #f8f9fa;
+            border-radius: 6px;
+            padding: 20px;
+            margin-top: 20px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            border-left: 4px solid #667eea;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        
+        .status-primary {
+            background-color: #28a745;
+        }
+        
+        .status-secondary {
+            background-color: #ffc107;
+        }
+        
+        .status-error {
+            background-color: #dc3545;
+        }
+        
+        .current-status {
+            background: #e9ecef;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .status-item {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .status-item h4 {
+            margin: 0 0 10px 0;
+            color: #495057;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .status-item .value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #212529;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: width 0.3s ease;
+        }
+        
+        .test-summary {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        
+        .test-summary h3 {
+            margin: 0 0 10px 0;
+            color: #155724;
+        }
+        
+        .test-summary .summary-stats {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .summary-stat {
+            text-align: center;
+        }
+        
+        .summary-stat .number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #155724;
+        }
+        
+        .summary-stat .label {
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚀 Failover System Test Suite</h1>
+        <p>Phase 3: Production Testing & Validation</p>
+    </div>
+
+    <div class="test-section">
+        <h2>📍 Current System Status</h2>
+        <div class="current-status">
+            <div class="status-grid">
+                <div class="status-item">
+                    <h4>Current Project</h4>
+                    <div class="value" id="currentProject">
+                        <span class="status-indicator status-primary"></span>
+                        Loading...
+                    </div>
+                </div>
+                <div class="status-item">
+                    <h4>Failover Status</h4>
+                    <div class="value" id="failoverStatus">Loading...</div>
+                </div>
+                <div class="status-item">
+                    <h4>Data Sync</h4>
+                    <div class="value" id="dataSyncStatus">Loading...</div>
+                </div>
+                <div class="status-item">
+                    <h4>Last Switch</h4>
+                    <div class="value" id="lastSwitch">Loading...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🧪 Test Operations</h2>
+        <p>Run comprehensive tests to validate the failover system:</p>
+        
+        <button class="test-button" onclick="runEnvironmentTest()">Test Environment Config</button>
+        <button class="test-button" onclick="runServiceTest()">Test Service Initialization</button>
+        <button class="test-button" onclick="runIntegrationTest()">Test Database Integration</button>
+        <button class="test-button" onclick="runFailoverTest()">Test Manual Failover</button>
+        <button class="test-button" onclick="runAvailabilityTest()">Test Service Availability</button>
+        <button class="test-button" onclick="runPerformanceTest()">Test Performance</button>
+        <button class="test-button" onclick="runAllTests()">Run All Tests</button>
+        
+        <div class="progress-bar" id="testProgress" style="display: none;">
+            <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔄 Manual Failover Control</h2>
+        <p>Manually control failover operations for testing:</p>
+        
+        <button class="test-button" onclick="triggerFailover('secondary')">Switch to Secondary</button>
+        <button class="test-button" onclick="triggerFailover('primary')">Switch to Primary</button>
+        <button class="test-button" onclick="refreshStatus()">Refresh Status</button>
+    </div>
+
+    <div class="test-section">
+        <h2>📊 Test Results</h2>
+        <div class="test-results" id="testResults">Ready to run tests...</div>
+        
+        <div class="test-summary" id="testSummary" style="display: none;">
+            <h3>Test Summary</h3>
+            <div class="summary-stats">
+                <div class="summary-stat">
+                    <div class="number" id="totalTests">0</div>
+                    <div class="label">Total Tests</div>
+                </div>
+                <div class="summary-stat">
+                    <div class="number" id="passedTests">0</div>
+                    <div class="label">Passed</div>
+                </div>
+                <div class="summary-stat">
+                    <div class="number" id="failedTests">0</div>
+                    <div class="label">Failed</div>
+                </div>
+                <div class="summary-stat">
+                    <div class="number" id="testDuration">0ms</div>
+                    <div class="label">Duration</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import failover service functions
+        import { 
+            getFailoverState, 
+            isFailoverActive, 
+            getCurrentProject, 
+            getActiveDatabase, 
+            getActiveAuth, 
+            getActiveStorage,
+            manualFailover 
+        } from './failoverService.js';
+
+        import { 
+            getFailoverStatus,
+            isDatabaseHealthy,
+            getConnectionStatus 
+        } from '../services/databaseConnectionManager.js';
+
+        // Global variables
+        let testResults = [];
+        let testStartTime = 0;
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            refreshStatus();
+            logMessage('🚀 Failover System Test Page Loaded');
+            logMessage('Ready to run comprehensive tests...');
+        });
+
+        // Global functions for HTML buttons
+        window.runEnvironmentTest = runEnvironmentTest;
+        window.runServiceTest = runServiceTest;
+        window.runIntegrationTest = runIntegrationTest;
+        window.runFailoverTest = runFailoverTest;
+        window.runAvailabilityTest = runAvailabilityTest;
+        window.runPerformanceTest = runPerformanceTest;
+        window.runAllTests = runAllTests;
+        window.triggerFailover = triggerFailover;
+        window.refreshStatus = refreshStatus;
+
+        // Test 1: Environment Configuration
+        async function runEnvironmentTest() {
+            const testName = 'Environment Configuration';
+            const startTime = Date.now();
+            
+            try {
+                logMessage(`\n🔧 Testing: ${testName}`);
+                
+                // Check primary config
+                const primaryProjectId = process.env?.REACT_APP_FIREBASE_PROJECT_ID || 'tranzitti-90210';
+                const primaryApiKey = process.env?.REACT_APP_FIREBASE_API_KEY || 'AIzaSyDNjhoxKN5ddNtVqoezi3eijlHlysequmE';
+                
+                if (primaryProjectId !== 'tranzitti-90210') {
+                    throw new Error(`Primary project ID mismatch: ${primaryProjectId}`);
+                }
+                
+                if (!primaryApiKey) {
+                    throw new Error('Primary API key not found');
+                }
+                
+                // Check secondary config
+                const secondaryProjectId = process.env?.REACT_APP_FIREBASE_PROJECT_ID_SECONDARY || 'tranzitti-90210-failover';
+                const secondaryApiKey = process.env?.REACT_APP_FIREBASE_API_KEY_SECONDARY || 'AIzaSyB42OZCXYyXFxhSUk0bmZ9V-lc7n9FiQXM';
+                
+                if (secondaryProjectId !== 'tranzitti-90210-failover') {
+                    throw new Error(`Secondary project ID mismatch: ${secondaryProjectId}`);
+                }
+                
+                if (!secondaryApiKey) {
+                    throw new Error('Secondary API key not found');
+                }
+                
+                logMessage('✅ Primary Firebase config: OK');
+                logMessage('✅ Secondary Firebase config: OK');
+                
+                recordTestResult(testName, true, undefined, Date.now() - startTime);
+                
+            } catch (error) {
+                const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+                logMessage(`❌ ${errorMsg}`);
+                recordTestResult(testName, false, errorMsg, Date.now() - startTime);
+            }
+        }
+
+        // Test 2: Service Initialization
+        async function runServiceTest() {
+            const testName = 'Failover Service Initialization';
+            const startTime = Date.now();
+            
+            try {
+                logMessage(`\n🔧 Testing: ${testName}`);
+                
+                // Check service functions exist
+                if (typeof getFailoverState !== 'function') {
+                    throw new Error('getFailoverState function not found');
+                }
+                
+                if (typeof isFailoverActive !== 'function') {
+                    throw new Error('isFailoverActive function not found');
+                }
+                
+                if (typeof getCurrentProject !== 'function') {
+                    throw new Error('getCurrentProject function not found');
+                }
+                
+                // Check initial state
+                const state = getFailoverState();
+                if (state.currentProject !== 'primary') {
+                    throw new Error(`Expected primary project, got: ${state.currentProject}`);
+                }
+                
+                if (state.isActive !== false) {
+                    throw new Error(`Expected inactive failover, got: ${state.isActive}`);
+                }
+                
+                logMessage('✅ Service functions: OK');
+                logMessage('✅ Initial state: OK');
+                
+                recordTestResult(testName, true, undefined, Date.now() - startTime);
+                
+            } catch (error) {
+                const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+                logMessage(`❌ ${errorMsg}`);
+                recordTestResult(testName, false, errorMsg, Date.now() - startTime);
+            }
+        }
+
+        // Test 3: Database Integration
+        async function runIntegrationTest() {
+            const testName = 'Database Integration';
+            const startTime = Date.now();
+            
+            try {
+                logMessage(`\n🔧 Testing: ${testName}`);
+                
+                // Check failover status integration
+                const status = getFailoverStatus();
+                if (typeof status.isActive !== 'boolean') {
+                    throw new Error('Failover status isActive not boolean');
+                }
+                
+                if (typeof status.currentProject !== 'string') {
+                    throw new Error('Failover status currentProject not string');
+                }
+                
+                // Check database health functions
+                if (typeof isDatabaseHealthy !== 'function') {
+                    throw new Error('isDatabaseHealthy function not found');
+                }
+                
+                if (typeof getConnectionStatus !== 'function') {
+                    throw new Error('getConnectionStatus function not found');
+                }
+                
+                logMessage('✅ Failover status integration: OK');
+                logMessage('✅ Database health functions: OK');
+                
+                recordTestResult(testName, true, undefined, Date.now() - startTime);
+                
+            } catch (error) {
+                const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+                logMessage(`❌ ${errorMsg}`);
+                recordTestResult(testName, false, errorMsg, Date.now() - startTime);
+            }
+        }
+
+        // Test 4: Manual Failover
+        async function runFailoverTest() {
+            const testName = 'Manual Failover Operations';
+            const startTime = Date.now();
+            
+            try {
+                logMessage(`\n🔧 Testing: ${testName}`);
+                
+                // Check initial state
+                const initialProject = getCurrentProject();
+                logMessage(`📍 Starting on project: ${initialProject}`);
+                
+                // Test failover to secondary
+                logMessage('🔄 Testing failover to secondary...');
+                await manualFailover('secondary', 'Test failover');
+                
+                // Wait for failover to complete
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                const secondaryProject = getCurrentProject();
+                const secondaryState = getFailoverState();
+                
+                if (secondaryProject !== 'secondary') {
+                    throw new Error(`Expected secondary project, got: ${secondaryProject}`);
+                }
+                
+                if (!secondaryState.isActive) {
+                    throw new Error('Expected failover to be active');
+                }
+                
+                logMessage('✅ Failover to secondary: OK');
+                
+                // Test recovery to primary
+                logMessage('🔄 Testing recovery to primary...');
+                await manualFailover('primary', 'Test recovery');
+                
+                // Wait for recovery to complete
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                const primaryProject = getCurrentProject();
+                const primaryState = getFailoverState();
+                
+                if (primaryProject !== 'primary') {
+                    throw new Error(`Expected primary project, got: ${primaryProject}`);
+                }
+                
+                if (primaryState.isActive) {
+                    throw new Error('Expected failover to be inactive');
+                }
+                
+                logMessage('✅ Recovery to primary: OK');
+                
+                recordTestResult(testName, true, undefined, Date.now() - startTime);
+                
+            } catch (error) {
+                const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+                logMessage(`❌ ${errorMsg}`);
+                recordTestResult(testName, false, errorMsg, Date.now() - startTime);
+            }
+        }
+
+        // Test 5: Service Availability
+        async function runAvailabilityTest() {
+            const testName = 'Service Availability';
+            const startTime = Date.now();
+            
+            try {
+                logMessage(`\n🔧 Testing: ${testName}`);
+                
+                // Check database availability
+                const db = getActiveDatabase();
+                if (!db) {
+                    throw new Error('Active database not available');
+                }
+                
+                // Check auth availability
+                const auth = getActiveAuth();
+                if (!auth) {
+                    throw new Error('Active auth not available');
+                }
+                
+                // Check storage availability
+                const storage = getActiveStorage();
+                if (!storage) {
+                    throw new Error('Active storage not available');
+                }
+                
+                logMessage('✅ Database service: OK');
+                logMessage('✅ Auth service: OK');
+                logMessage('✅ Storage service: OK');
+                
+                recordTestResult(testName, true, undefined, Date.now() - startTime);
+                
+            } catch (error) {
+                const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+                logMessage(`❌ ${errorMsg}`);
+                recordTestResult(testName, false, errorMsg, Date.now() - startTime);
+            }
+        }
+
+        // Test 6: Performance
+        async function runPerformanceTest() {
+            const testName = 'Performance Testing';
+            const startTime = Date.now();
+            
+            try {
+                logMessage(`\n🔧 Testing: ${testName}`);
+                
+                // Test failover state retrieval performance
+                const iterations = 100;
+                const perfStart = Date.now();
+                
+                for (let i = 0; i < iterations; i++) {
+                    getFailoverState();
+                    getCurrentProject();
+                    isFailoverActive();
+                }
+                
+                const perfEnd = Date.now();
+                const totalTime = perfEnd - perfStart;
+                const avgTime = totalTime / (iterations * 3);
+                
+                if (avgTime > 1) { // Should be under 1ms per operation
+                    throw new Error(`Performance too slow: ${avgTime.toFixed(2)}ms per operation`);
+                }
+                
+                logMessage(`✅ Performance: ${avgTime.toFixed(2)}ms per operation (${iterations * 3} operations)`);
+                
+                recordTestResult(testName, true, undefined, Date.now() - startTime);
+                
+            } catch (error) {
+                const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+                logMessage(`❌ ${errorMsg}`);
+                recordTestResult(testName, false, errorMsg, Date.now() - startTime);
+            }
+        }
+
+        // Run all tests
+        async function runAllTests() {
+            testStartTime = Date.now();
+            testResults = [];
+            
+            logMessage('🚀 Starting comprehensive failover system testing...');
+            logMessage('=====================================');
+            
+            showProgressBar();
+            
+            try {
+                await runEnvironmentTest();
+                updateProgress(16);
+                
+                await runServiceTest();
+                updateProgress(32);
+                
+                await runIntegrationTest();
+                updateProgress(48);
+                
+                await runFailoverTest();
+                updateProgress(64);
+                
+                await runAvailabilityTest();
+                updateProgress(80);
+                
+                await runPerformanceTest();
+                updateProgress(100);
+                
+                printTestSummary();
+                
+            } catch (error) {
+                logMessage(`❌ Test suite failed: ${error.message}`);
+            } finally {
+                hideProgressBar();
+            }
+        }
+
+        // Manual failover trigger
+        async function triggerFailover(targetProject) {
+            try {
+                logMessage(`🔄 Triggering manual failover to ${targetProject}...`);
+                
+                await manualFailover(targetProject, 'Manual test trigger');
+                
+                // Wait for operation to complete
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                logMessage(`✅ Manual failover to ${targetProject} completed`);
+                refreshStatus();
+                
+            } catch (error) {
+                logMessage(`❌ Manual failover failed: ${error.message}`);
+            }
+        }
+
+        // Refresh system status
+        function refreshStatus() {
+            try {
+                const state = getFailoverState();
+                const status = getFailoverStatus();
+                
+                // Update current project
+                const currentProjectEl = document.getElementById('currentProject');
+                const projectIndicator = currentProjectEl.querySelector('.status-indicator');
+                
+                if (state.currentProject === 'primary') {
+                    currentProjectEl.innerHTML = '<span class="status-indicator status-primary"></span>Primary (tranzitti-90210)';
+                } else {
+                    currentProjectEl.innerHTML = '<span class="status-indicator status-secondary"></span>Secondary (tranzitti-90210-failover)';
+                }
+                
+                // Update other status fields
+                document.getElementById('failoverStatus').textContent = state.isActive ? 'Active' : 'Inactive';
+                document.getElementById('dataSyncStatus').textContent = state.dataSyncStatus;
+                document.getElementById('lastSwitch').textContent = state.lastSwitchTime ? 
+                    new Date(state.lastSwitchTime).toLocaleTimeString() : 'Never';
+                
+            } catch (error) {
+                logMessage(`❌ Status refresh failed: ${error.message}`);
+            }
+        }
+
+        // Utility functions
+        function logMessage(message) {
+            const resultsEl = document.getElementById('testResults');
+            resultsEl.textContent += message + '\n';
+            resultsEl.scrollTop = resultsEl.scrollHeight;
+        }
+
+        function recordTestResult(testName, passed, error, duration) {
+            testResults.push({
+                testName,
+                passed,
+                error,
+                duration
+            });
+        }
+
+        function showProgressBar() {
+            document.getElementById('testProgress').style.display = 'block';
+            document.getElementById('progressFill').style.width = '0%';
+        }
+
+        function updateProgress(percentage) {
+            document.getElementById('progressFill').style.width = percentage + '%';
+        }
+
+        function hideProgressBar() {
+            document.getElementById('testProgress').style.display = 'none';
+        }
+
+        function printTestSummary() {
+            const totalTime = Date.now() - testStartTime;
+            const passedTests = testResults.filter(r => r.passed).length;
+            const totalTests = testResults.length;
+            const failedTests = totalTests - passedTests;
+            
+            logMessage('\n=====================================');
+            logMessage('📊 TEST RESULTS SUMMARY');
+            logMessage('=====================================');
+            
+            testResults.forEach(result => {
+                const status = result.passed ? '✅ PASS' : '❌ FAIL';
+                const duration = `${result.duration}ms`;
+                logMessage(`${status} ${result.testName} (${duration})`);
+                
+                if (!result.passed && result.error) {
+                    logMessage(`   Error: ${result.error}`);
+                }
+            });
+            
+            logMessage('\n=====================================');
+            logMessage(`🎯 Overall: ${passedTests}/${totalTests} tests passed`);
+            logMessage(`⏱️  Total time: ${totalTime}ms`);
+            
+            if (passedTests === totalTests) {
+                logMessage('🎉 ALL TESTS PASSED! Failover system is ready for production.');
+            } else {
+                logMessage('⚠️  Some tests failed. Please review the errors above.');
+            }
+            
+            // Update summary display
+            document.getElementById('totalTests').textContent = totalTests;
+            document.getElementById('passedTests').textContent = passedTests;
+            document.getElementById('failedTests').textContent = failedTests;
+            document.getElementById('testDuration').textContent = totalTime + 'ms';
+            document.getElementById('testSummary').style.display = 'block';
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,947 @@
+/* Phase 1B Performance Dashboard Styles */
+/* Modern, responsive design with performance-focused visual elements */
+
+.dashboardContainer {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.dashboardHeader {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
+  padding: 30px;
+  margin-bottom: 30px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.headerContent h1 {
+  margin: 0;
+  font-size: 2.5rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.headerContent p {
+  margin: 10px 0 0 0;
+  font-size: 1.1rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.headerActions {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.configButton, .refreshButton {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.configButton {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+}
+
+.configButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(245, 158, 11, 0.3);
+}
+
+.refreshButton {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+}
+
+.refreshButton:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
+}
+
+.refreshButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.dashboardNavigation {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 30px;
+  flex-wrap: wrap;
+}
+
+.navButton {
+  padding: 15px 25px;
+  border: none;
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #374151;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.navButton:hover {
+  background: rgba(255, 255, 255, 1);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.navButton.active {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+}
+
+.dashboardContent {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
+  padding: 30px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  min-height: 600px;
+}
+
+/* Overview Section */
+.overviewSection {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+.metricsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 25px;
+  margin-bottom: 30px;
+}
+
+.metricCard {
+  background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+  border-radius: 20px;
+  padding: 25px;
+  text-align: center;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+}
+
+.metricCard:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  border-color: #667eea;
+}
+
+.metricCard h3 {
+  margin: 0 0 15px 0;
+  font-size: 1.1rem;
+  color: #374151;
+  font-weight: 600;
+}
+
+.metricValue {
+  font-size: 2.5rem;
+  font-weight: 800;
+  margin-bottom: 10px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.metricStatus {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.metricTrend {
+  font-size: 0.85rem;
+  color: #059669;
+  font-weight: 600;
+  margin-top: 10px;
+}
+
+.lastUpdated {
+  text-align: center;
+  color: #6b7280;
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+/* Alerts Section */
+.alertsSection {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+.alertsHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.alertsHeader h3 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #111827;
+}
+
+.alertCounts {
+  display: flex;
+  gap: 20px;
+}
+
+.criticalCount, .warningCount {
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.criticalCount {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.warningCount {
+  background: #fffbeb;
+  color: #d97706;
+  border: 1px solid #fed7aa;
+}
+
+.alertsList {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.noAlerts {
+  text-align: center;
+  padding: 40px;
+  color: #059669;
+  font-size: 1.1rem;
+  font-weight: 600;
+  background: #f0fdf4;
+  border-radius: 15px;
+  border: 2px dashed #86efac;
+}
+
+.alertItem {
+  padding: 20px;
+  border-radius: 15px;
+  border-left: 5px solid;
+  transition: all 0.3s ease;
+}
+
+.alertItem:hover {
+  transform: translateX(5px);
+}
+
+.alertItem.critical {
+  background: #fef2f2;
+  border-left-color: #dc2626;
+}
+
+.alertItem.warning {
+  background: #fffbeb;
+  border-left-color: #d97706;
+}
+
+.alertItem.info {
+  background: #eff6ff;
+  border-left-color: #3b82f6;
+}
+
+.alertHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.alertType {
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 4px 12px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.critical .alertType {
+  background: #dc2626;
+  color: white;
+}
+
+.warning .alertType {
+  background: #d97706;
+  color: white;
+}
+
+.info .alertType {
+  background: #3b82f6;
+  color: white;
+}
+
+.alertTime {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.alertMessage {
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 8px;
+}
+
+.alertDetails {
+  font-size: 0.85rem;
+  color: #6b7280;
+  font-family: 'Monaco', 'Menlo', monospace;
+}
+
+/* Optimization Section */
+.optimizationSection {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+.optimizationHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.optimizationHeader h3 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #111827;
+}
+
+.optimizeButton {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.optimizeButton:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
+}
+
+.optimizeButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.recommendationsList {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 30px;
+}
+
+.recommendationItem {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 20px;
+  background: #f8fafc;
+  border-radius: 15px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.3s ease;
+}
+
+.recommendationItem:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.recommendationIcon {
+  font-size: 1.5rem;
+}
+
+.recommendationText {
+  flex: 1;
+  font-weight: 500;
+  color: #374151;
+}
+
+.implementButton {
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.implementButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 5px 15px rgba(59, 130, 246, 0.3);
+}
+
+.noRecommendations {
+  text-align: center;
+  padding: 40px;
+  color: #059669;
+  font-size: 1.1rem;
+  font-weight: 600;
+  background: #f0fdf4;
+  border-radius: 15px;
+  border: 2px dashed #86efac;
+}
+
+.testSection {
+  margin-top: 30px;
+  padding-top: 25px;
+  border-top: 2px solid #e5e7eb;
+}
+
+.testSection h4 {
+  margin: 0 0 20px 0;
+  font-size: 1.2rem;
+  color: #111827;
+}
+
+.testButtons {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.testButton {
+  padding: 15px 25px;
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.testButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(139, 92, 246, 0.3);
+}
+
+/* Caching Section */
+.cachingSection {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+.cacheStats {
+  margin-bottom: 30px;
+}
+
+.cacheStats h3 {
+  margin: 0 0 20px 0;
+  font-size: 1.5rem;
+  color: #111827;
+}
+
+.cacheMetrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.cacheMetric {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.cacheMetric label {
+  font-weight: 600;
+  color: #374151;
+}
+
+.cacheMetric span {
+  font-weight: 700;
+  color: #667eea;
+  font-size: 1.1rem;
+}
+
+.cacheStrategies h4 {
+  margin: 0 0 20px 0;
+  font-size: 1.2rem;
+  color: #111827;
+}
+
+.strategyList {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.strategyItem {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 20px;
+  background: #f8fafc;
+  border-radius: 15px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.3s ease;
+}
+
+.strategyItem:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.strategyIcon {
+  font-size: 1.5rem;
+}
+
+.strategyName {
+  flex: 1;
+  font-weight: 600;
+  color: #374151;
+}
+
+.strategyStatus {
+  padding: 6px 12px;
+  background: #dcfce7;
+  color: #166534;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+/* Monitoring Section */
+.monitoringSection {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+.monitoringHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 25px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.monitoringHeader h3 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #111827;
+}
+
+.monitoringStatus {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #059669;
+  font-weight: 600;
+}
+
+.statusIndicator {
+  width: 12px;
+  height: 12px;
+  background: #10b981;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+.monitoringMetrics {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.monitoringMetric {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  background: #f8fafc;
+  border-radius: 15px;
+  border: 1px solid #e2e8f0;
+}
+
+.monitoringMetric label {
+  font-weight: 600;
+  color: #374151;
+}
+
+.trendChart {
+  color: #6b7280;
+  font-style: italic;
+}
+
+.healthStatus {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #059669;
+  font-weight: 600;
+}
+
+.healthIndicator {
+  width: 12px;
+  height: 12px;
+  background: #10b981;
+  border-radius: 50%;
+}
+
+.monitoringActions {
+  text-align: center;
+}
+
+.generateReportButton {
+  padding: 15px 30px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.generateReportButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(245, 158, 11, 0.3);
+}
+
+/* Modal Styles */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(5px);
+}
+
+.modal {
+  background: white;
+  border-radius: 20px;
+  padding: 0;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 25px 30px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.modalHeader h3 {
+  margin: 0;
+  font-size: 1.3rem;
+  color: #111827;
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 5px;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+}
+
+.closeButton:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.modalContent {
+  padding: 30px;
+}
+
+.configField {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 20px;
+  padding: 15px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.configField label {
+  flex: 1;
+  font-weight: 600;
+  color: #374151;
+  min-width: 200px;
+}
+
+.configField input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: #667eea;
+}
+
+.configField input[type="range"] {
+  flex: 1;
+  accent-color: #667eea;
+}
+
+.configField input[type="number"] {
+  width: 80px;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.configField span {
+  font-weight: 600;
+  color: #667eea;
+  min-width: 60px;
+  text-align: center;
+}
+
+.modalActions {
+  display: flex;
+  gap: 15px;
+  justify-content: flex-end;
+  padding: 25px 30px;
+  border-top: 2px solid #e5e7eb;
+}
+
+.cancelButton, .saveButton {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.cancelButton {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.cancelButton:hover {
+  background: #e5e7eb;
+}
+
+.saveButton {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+}
+
+.saveButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 5px 15px rgba(16, 185, 129, 0.3);
+}
+
+/* Error Container */
+.errorContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+}
+
+.errorMessage {
+  text-align: center;
+  background: white;
+  padding: 40px;
+  border-radius: 20px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+}
+
+.errorMessage h2 {
+  color: #dc2626;
+  margin-bottom: 15px;
+}
+
+.errorMessage p {
+  color: #6b7280;
+  margin-bottom: 20px;
+}
+
+.retryButton {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.retryButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(59, 130, 246, 0.3);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-50px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .dashboardContainer {
+    padding: 15px;
+  }
+  
+  .dashboardHeader {
+    padding: 20px;
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .headerContent h1 {
+    font-size: 2rem;
+  }
+  
+  .headerActions {
+    justify-content: center;
+  }
+  
+  .metricsGrid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  
+  .navButton {
+    padding: 12px 20px;
+    font-size: 0.9rem;
+  }
+  
+  .dashboardContent {
+    padding: 20px;
+  }
+  
+  .modal {
+    width: 95%;
+    margin: 20px;
+  }
+  
+  .configField {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .configField label {
+    min-width: auto;
+  }
+  
+  .modalActions {
+    flex-direction: column;
+  }
+  
+  .testButtons {
+    flex-direction: column;
+  }
+  
+  .cacheMetrics {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .headerContent h1 {
+    font-size: 1.8rem;
+  }
+  
+  .headerContent p {
+    font-size: 1rem;
+  }
+  
+  .metricValue {
+    font-size: 2rem;
+  }
+  
+  .navButton {
+    padding: 10px 16px;
+    font-size: 0.85rem;
+  }
+}

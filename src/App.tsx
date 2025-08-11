@@ -14,6 +14,7 @@ import Register from './pages/auth/Register';
 import TestKonexial from './pages/TestKonexial';
 import TestCurrentLoad from './pages/TestCurrentLoad';
 import TestDriverFlow from './pages/TestDriverFlow';
+import TestPhase1BServices from './pages/TestPhase1BServices';
 
 // Shipper Pages
 import ShipperDashboard from './pages/shipper/Dashboard';
@@ -169,6 +170,7 @@ function App() {
                 <Route path="/test-konexial" element={<TestKonexial />} />
                 <Route path="/test-current-load" element={<TestCurrentLoad />} />
                 <Route path="/test-driver-flow" element={<TestDriverFlow />} />
+                <Route path="/test-phase1b-services" element={<TestPhase1BServices />} />
 
                 {/* Carrier Routes */}
                 <Route path="/carrier" element={<CarrierLayout />}>
