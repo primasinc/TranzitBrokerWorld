@@ -141,7 +141,7 @@ const AdminDashboard: React.FC = () => {
 
   const loadPendingUsers = async () => {
     try {
-      const usersRef = collection(db, 'users');
+      const usersRef = collection(db, 'companyUsers');
       const q = query(usersRef, where('approvalStatus', '==', 'pending'));
       const querySnapshot = await getDocs(q);
       
@@ -168,7 +168,7 @@ const AdminDashboard: React.FC = () => {
 
   const loadAdminUsers = async () => {
     try {
-      const usersRef = collection(db, 'users');
+      const usersRef = collection(db, 'companyUsers');
       const adminQuery = query(usersRef, where('isAdmin', '==', true));
       const querySnapshot = await getDocs(adminQuery);
       

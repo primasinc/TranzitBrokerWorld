@@ -238,6 +238,51 @@ service cloud.firestore {
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
 
+    // NEW: Broker Portal Collections
+    
+    // User Types collection (configurable user types)
+    match /userTypes/{userTypeId} {
+      allow read: if isAuthenticated(); // All authenticated users can read user types
+      allow write: if isAdmin();        // Only admins can modify user types
+    }
+    
+    // Companies collection
+    match /companies/{companyId} {
+      allow read: if isAuthenticated(); // All authenticated users can read company info
+      allow create: if isAuthenticated(); // Users can create companies
+      allow update: if isAuthenticated() && (
+        // Company owners can update their company
+        exists(/databases/$(database)/documents/companyUsers/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/companyUsers/$(request.auth.uid)).data.companyId == companyId &&
+        get(/databases/$(database)/documents/companyUsers/$(request.auth.uid)).data.role in ['owner', 'admin']
+      );
+      allow delete: if isAdmin(); // Only admins can delete companies
+    }
+    
+    // Company Users collection
+    match /companyUsers/{userId} {
+      allow read: if isAuthenticated(); // All authenticated users can read user profiles
+      allow create: if isAuthenticated(); // Users can create their own profile
+      allow update: if isAuthenticated() && (
+        // Users can update their own profile
+        request.auth.uid == userId ||
+        // Company owners/admins can update users in their company
+        (
+          exists(/databases/$(database)/documents/companyUsers/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/companyUsers/$(request.auth.uid)).data.role in ['owner', 'admin'] &&
+          get(/databases/$(database)/documents/companyUsers/$(request.auth.uid)).data.companyId == 
+          get(/databases/$(database)/documents/companyUsers/$(userId)).data.companyId
+        )
+      );
+      allow delete: if isAdmin(); // Only admins can delete users
+    }
+    
+    // Load Visibility Rules collection
+    match /loadVisibilityRules/{ruleId} {
+      allow read: if isAuthenticated(); // All authenticated users can read visibility rules
+      allow write: if isAdmin();        // Only admins can modify visibility rules
+    }
+    
     // Default deny
     match /{document=**} {
       allow read: if isAuthenticated();

@@ -53,7 +53,7 @@ const AdminManagement: React.FC = () => {
 
   const checkSuperAdminStatus = async () => {
     try {
-      const userRef = doc(db, 'users', user!.uid);
+      const userRef = doc(db, 'companyUsers', user!.uid);
       const userDoc = await getDoc(userRef);
       const userData = userDoc.data();
       
@@ -69,7 +69,7 @@ const AdminManagement: React.FC = () => {
     try {
       setLoading(true);
       // Get users from Firestore with admin role
-      const usersRef = collection(db, 'users');
+      const usersRef = collection(db, 'companyUsers');
       const adminQuery = query(usersRef, where('isAdmin', '==', true));
       const querySnapshot = await getDocs(adminQuery);
       

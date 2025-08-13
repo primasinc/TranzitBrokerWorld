@@ -7,7 +7,7 @@ export const testAdminApprovalSystem = async () => {
   
   try {
     // 1. Check if there are any pending users
-    const usersRef = collection(db, 'users');
+    const usersRef = collection(db, 'companyUsers');
     const pendingQuery = query(usersRef, where('approvalStatus', '==', 'pending'));
     const pendingSnapshot = await getDocs(pendingQuery);
     
@@ -46,7 +46,7 @@ export const testAdminApprovalSystem = async () => {
       console.log('Testing approval for user:', firstPendingUser.id);
       
       try {
-        await updateDoc(doc(db, 'users', firstPendingUser.id), {
+        await updateDoc(doc(db, 'companyUsers', firstPendingUser.id), {
           status: 'approved',
           approvalStatus: 'approved',
           approvedAt: new Date(),
@@ -55,7 +55,7 @@ export const testAdminApprovalSystem = async () => {
         console.log('✅ Approval test successful');
         
         // Revert back to pending for testing
-        await updateDoc(doc(db, 'users', firstPendingUser.id), {
+        await updateDoc(doc(db, 'companyUsers', firstPendingUser.id), {
           status: 'pending',
           approvalStatus: 'pending',
           approvedAt: null,
@@ -98,7 +98,7 @@ export const createTestUser = async () => {
       createdAt: new Date()
     };
 
-    const docRef = await addDoc(collection(db, 'users'), testUser);
+    const docRef = await addDoc(collection(db, 'companyUsers'), testUser);
     console.log('✅ Test user created with ID:', docRef.id);
     
     return {
@@ -120,7 +120,7 @@ export const cleanupTestUsers = async () => {
   console.log('Cleaning up test users...');
   
   try {
-    const usersRef = collection(db, 'users');
+    const usersRef = collection(db, 'companyUsers');
     const testQuery = query(usersRef, where('email', '>=', 'test-user-'));
     const testSnapshot = await getDocs(testQuery);
     
