@@ -243,8 +243,8 @@ export const syncPresenceToFirestore = onValueUpdated("/status/{userId}", async 
 // const CLIENT_SECRET = functions.config().gmail.client_secret;
 // const REFRESH_TOKEN = functions.config().gmail.refresh_token;
 const CLIENT_ID = "243323136379-7m2p94rulrdrpnqvp7ksgrf156avomka.apps.googleusercontent.com";
-const CLIENT_SECRET = "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";
-const REFRESH_TOKEN = "1//04mLVKPil_eTdCgYIARAAGAQSNwF-L9IrW3GE1yM0tUCYkGTeTyp7zG5MnyawRGogQIQgDERUqM3qvSc-JW3RQft09px6vMu1tDg";
+const CLIENT_SECRET = process.env.GOOGLE_OAUTH_CLIENT_SECRET || "YOUR_CLIENT_SECRET_HERE";
+const REFRESH_TOKEN = process.env.GOOGLE_OAUTH_REFRESH_TOKEN || "YOUR_REFRESH_TOKEN_HERE";
 const ADMIN_EMAIL = "srose@norwalkls.com";
 
 const oAuth2Client = new google.auth.OAuth2(

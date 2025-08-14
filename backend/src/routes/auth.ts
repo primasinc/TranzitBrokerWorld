@@ -90,7 +90,7 @@ const router = express.Router();
 async function sendInviteEmail(to: string, link: string) {
   // Use the same OAuth2 credentials as Cloud Functions
   const CLIENT_ID = "243323136379-7m2p94rulrdrpnqvp7ksgrf156avomka.apps.googleusercontent.com";
-  const CLIENT_SECRET = "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";
+  const CLIENT_SECRET = process.env.GOOGLE_OAUTH_CLIENT_SECRET || "YOUR_CLIENT_SECRET_HERE";
   const REFRESH_TOKEN = "1//04mLVKPil_eTdCgYIARAAGAQSNwF-L9IrW3GE1yM0tUCYkGTeTyp7zG5MnyawRGogQIQgDERUqM3qvSc-JW3RQft09px6vMu1tDg";
   
   const oAuth2Client = new google.auth.OAuth2(
@@ -201,7 +201,7 @@ router.post('/send-2fa-code', async (req, res) => {
     await db.collection('twofa').doc(email).set({ code, expiresAt });
     // Send code via email using Gmail API
     const CLIENT_ID = "243323136379-7m2p94rulrdrpnqvp7ksgrf156avomka.apps.googleusercontent.com";
-    const CLIENT_SECRET = "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";
+    const CLIENT_SECRET = process.env.GOOGLE_OAUTH_CLIENT_SECRET || "YOUR_CLIENT_SECRET_HERE";
     const REFRESH_TOKEN = "1//04mLVKPil_eTdCgYIARAAGAQSNwF-L9IrW3GE1yM0tUCYkGTeTyp7zG5MnyawRGogQIQgDERUqM3qvSc-JW3RQft09px6vMu1tDg";
     
     const oAuth2Client = new google.auth.OAuth2(
