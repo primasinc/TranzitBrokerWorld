@@ -195,28 +195,28 @@ const AdminDashboard: React.FC = () => {
 
   const loadSystemStats = async () => {
     try {
-      const usersRef = collection(db, 'users');
+      const companyUsersRef = collection(db, 'companyUsers');
       
       // Get total users
-      const totalUsersSnapshot = await getDocs(usersRef);
+      const totalUsersSnapshot = await getDocs(companyUsersRef);
       const totalUsers = totalUsersSnapshot.size;
       
       // Get pending approvals
-      const pendingQuery = query(usersRef, where('approvalStatus', '==', 'pending'));
+      const pendingQuery = query(companyUsersRef, where('approvalStatus', '==', 'pending'));
       const pendingSnapshot = await getDocs(pendingQuery);
       const pendingApprovals = pendingSnapshot.size;
       
       // Get active admins
-      const adminQuery = query(usersRef, where('isAdmin', '==', true));
+      const adminQuery = query(companyUsersRef, where('isAdmin', '==', true));
       const adminSnapshot = await getDocs(adminQuery);
       const activeAdmins = adminSnapshot.size;
       
       // Get carriers and shippers
-      const carrierQuery = query(usersRef, where('userType', '==', 'carrier'));
+      const carrierQuery = query(companyUsersRef, where('userType', '==', 'carrier'));
       const carrierSnapshot = await getDocs(carrierQuery);
       const totalCarriers = carrierSnapshot.size;
       
-      const shipperQuery = query(usersRef, where('userType', '==', 'shipper'));
+      const shipperQuery = query(companyUsersRef, where('userType', '==', 'shipper'));
       const shipperSnapshot = await getDocs(shipperQuery);
       const totalShippers = shipperSnapshot.size;
       
@@ -234,8 +234,8 @@ const AdminDashboard: React.FC = () => {
 
   const loadShippers = async () => {
     try {
-      const usersRef = collection(db, 'users');
-      const shipperQuery = query(usersRef, where('userType', '==', 'shipper'));
+      const companyUsersRef = collection(db, 'companyUsers');
+      const shipperQuery = query(companyUsersRef, where('userType', '==', 'shipper'));
       const querySnapshot = await getDocs(shipperQuery);
       
       const shippersList: any[] = [];
@@ -255,8 +255,8 @@ const AdminDashboard: React.FC = () => {
 
   const loadCarriers = async () => {
     try {
-      const usersRef = collection(db, 'users');
-      const carrierQuery = query(usersRef, where('userType', '==', 'carrier'));
+      const companyUsersRef = collection(db, 'companyUsers');
+      const carrierQuery = query(companyUsersRef, where('userType', '==', 'carrier'));
       const querySnapshot = await getDocs(carrierQuery);
       
       const carriersList: any[] = [];
@@ -289,7 +289,7 @@ const AdminDashboard: React.FC = () => {
       setApproving(userId);
       
       // Get user data to determine appropriate tier
-      const userRef = doc(db, 'users', userId);
+      const userRef = doc(db, 'companyUsers', userId);
       const userDoc = await getDoc(userRef);
       const userData = userDoc.data();
       
@@ -355,7 +355,7 @@ const AdminDashboard: React.FC = () => {
       setApproving(userId);
       
       // Update user status to rejected
-      const userRef = doc(db, 'users', userId);
+      const userRef = doc(db, 'companyUsers', userId);
       await updateDoc(userRef, {
         status: 'rejected',
         approvalStatus: 'rejected',

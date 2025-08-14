@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, deleteUser } from 'firebase/auth';
 import { auth } from '../../config/firebase';
 import { setUserRole } from '../../services/authService';
 import { db } from '../../config/firebase';
@@ -8,13 +8,15 @@ import { doc, setDoc } from 'firebase/firestore';
 import styles from './Login.module.css';
 import { inviteService } from '../../services/inviteService';
 
-type UserType = 'shipper' | 'carrier';
+type UserType = 'shipper' | 'carrier' | 'broker';
+type BrokerSubType = 'broker_only' | 'broker_carrier';
 
 const Register: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [formData, setFormData] = useState({
     userType: 'shipper' as UserType,
+    brokerSubType: 'broker_only' as BrokerSubType,
     companyName: '',
     companyRep: '',
     phoneNumber: '',
@@ -39,6 +41,7 @@ const Register: React.FC = () => {
             setFormData(prev => ({
               ...prev,
               userType: 'carrier' as UserType,
+              brokerSubType: 'broker_only' as BrokerSubType,
               companyName: inviteData.companyName,
               companyRep: inviteData.companyRep,
               phoneNumber: inviteData.phone,
@@ -99,6 +102,12 @@ const Register: React.FC = () => {
         phoneNumber: formData.phoneNumber,
         email: formData.email,
         userType: formData.userType,
+        // Add broker-specific data
+        ...(formData.userType === 'broker' && {
+          brokerSubType: formData.brokerSubType,
+          isBroker: true,
+          hasCarrierOperations: formData.brokerSubType === 'broker_carrier'
+        }),
         createdAt: new Date()
       };
 
@@ -117,18 +126,116 @@ const Register: React.FC = () => {
       }
 
       // Save user profile info to Firestore
-      await setDoc(doc(db, 'users', userCredential.user.uid), userData, { merge: true });
+      if (formData.userType === 'broker') {
+        // For brokers, use the new collection structure
+        const companyId = `company_${userCredential.user.uid}`;
+        
+        // Create company record
+        const companyData = {
+          id: companyId,
+          name: formData.companyName,
+          type: formData.brokerSubType,
+          status: 'pending',
+          businessType: 'logistics',
+          capabilities: ['freight_management', 'brokerage'],
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          verifiedAt: null,
+          tags: ['broker_portal', 'new_registration'],
+          notes: 'Registered through main registration form'
+        };
 
-      console.log('Registered user:', userCredential.user);
+        // Create company user record
+        const companyUserData = {
+          id: userCredential.user.uid,
+          companyId: companyId,
+          email: formData.email,
+          companyName: formData.companyName,
+          companyRep: formData.companyRep,
+          phoneNumber: formData.phoneNumber,
+          userType: formData.userType,
+          companyUserRole: 'owner',
+          role: 'company_owner',
+          status: 'pending',
+          approvalStatus: 'pending',
+          isAdmin: false,
+          isSuperAdmin: false,
+          permissions: formData.brokerSubType === 'broker_carrier' 
+            ? ['admin', 'load_management', 'carrier_management', 'user_management', 'carrier_operations']
+            : ['admin', 'load_management', 'carrier_management', 'user_management'],
+          accessLevel: 'full',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          // Add broker-specific data
+          brokerSubType: formData.brokerSubType,
+          isBroker: true,
+          hasCarrierOperations: formData.brokerSubType === 'broker_carrier',
+          migratedFrom: {
+            collection: 'main_registration',
+            migratedAt: new Date(),
+            source: 'main_registration_form'
+          }
+        };
 
-      // Show success message instead of navigating to login
-      setRegistrationSuccess(true);
-    } catch (err) {
-      console.error('Registration error:', err);
-      setError('Failed to create account. Please try again.');
-    } finally {
-      setLoading(false);
+              // Save to new collections
+      try {
+        await setDoc(doc(db, 'companies', companyId), companyData);
+        await setDoc(doc(db, 'companyUsers', userCredential.user.uid), companyUserData);
+        console.log('Broker registration successful - data saved to new collections');
+      } catch (firestoreError) {
+        console.error('Firestore save error:', firestoreError);
+        // Clean up the Firebase Auth user since Firestore save failed
+        try {
+          await deleteUser(userCredential.user);
+          console.log('Cleaned up Firebase Auth user after Firestore failure');
+        } catch (cleanupError) {
+          console.error('Failed to cleanup Firebase Auth user:', cleanupError);
+        }
+        throw new Error(`Failed to save broker data: ${firestoreError instanceof Error ? firestoreError.message : 'Unknown error'}`);
+      }
+    } else {
+      // For non-brokers, use the old collection structure
+      try {
+        await setDoc(doc(db, 'users', userCredential.user.uid), userData, { merge: true });
+        console.log('Non-broker registration successful - data saved to users collection');
+      } catch (firestoreError) {
+        console.error('Firestore save error:', firestoreError);
+        // Clean up the Firebase Auth user since Firestore save failed
+        try {
+          await deleteUser(userCredential.user);
+          console.log('Cleaned up Firebase Auth user after Firestore failure');
+        } catch (cleanupError) {
+          console.error('Failed to cleanup Firebase Auth user:', cleanupError);
+        }
+        throw new Error(`Failed to save user data: ${firestoreError instanceof Error ? firestoreError.message : 'Unknown error'}`);
+      }
     }
+
+    console.log('Registration successful:', userCredential.user);
+
+    // Show success message instead of navigating to login
+    setRegistrationSuccess(true);
+  } catch (err) {
+    console.error('Registration error:', err);
+    
+    // Provide more specific error messages
+    let errorMessage = 'Failed to create account. Please try again.';
+    if (err instanceof Error) {
+      if (err.message.includes('auth/email-already-in-use')) {
+        errorMessage = 'An account with this email already exists. Please use a different email or try logging in.';
+      } else if (err.message.includes('Failed to save')) {
+        errorMessage = `Registration failed: ${err.message}. Please try again or contact support.`;
+      } else if (err.message.includes('auth/weak-password')) {
+        errorMessage = 'Password is too weak. Please use a stronger password.';
+      } else if (err.message.includes('auth/invalid-email')) {
+        errorMessage = 'Please enter a valid email address.';
+      }
+    }
+    
+    setError(errorMessage);
+  } finally {
+    setLoading(false);
+  }
   };
 
   if (registrationSuccess) {
@@ -172,8 +279,46 @@ const Register: React.FC = () => {
             >
               <option value="shipper">Shipper</option>
               <option value="carrier">Carrier</option>
+              <option value="broker">Broker</option>
             </select>
           </div>
+
+          {/* Broker Sub-Type Selection - Only show when Broker is selected */}
+          {formData.userType === 'broker' && (
+            <div className={styles.inputGroup}>
+              <label>Broker/Carrier Option</label>
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '10px',
+                padding: '10px',
+                backgroundColor: '#f8f9fa',
+                borderRadius: '5px',
+                border: '1px solid #dee2e6'
+              }}>
+                <input
+                  type="checkbox"
+                  id="brokerCarrierToggle"
+                  checked={formData.brokerSubType === 'broker_carrier'}
+                  onChange={(e) => setFormData({ 
+                    ...formData, 
+                    brokerSubType: e.target.checked ? 'broker_carrier' : 'broker_only' 
+                  })}
+                  style={{ margin: '0' }}
+                />
+                <label htmlFor="brokerCarrierToggle" style={{ margin: '0', cursor: 'pointer' }}>
+                  We also operate as a carrier
+                </label>
+                <span style={{ 
+                  marginLeft: 'auto',
+                  color: '#6c757d',
+                  fontSize: '12px'
+                }}>
+                  {formData.brokerSubType === 'broker_carrier' ? 'Broker + Carrier' : 'Broker Only'}
+                </span>
+              </div>
+            </div>
+          )}
 
           <div className={styles.inputGroup}>
             <label htmlFor="companyName">Company Name<span style={{color: 'red'}}>*</span></label>

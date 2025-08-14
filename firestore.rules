@@ -14,39 +14,66 @@ service cloud.firestore {
 
     // Helper function to check if user is admin
     function isAdmin() {
-      return isAuthenticated() && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+      return isAuthenticated() && (
+        // Check old users collection
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true) ||
+        // Check new companyUsers collection
+        (exists(/databases/$(database)/documents/companyUsers/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/companyUsers/$(request.auth.uid)).data.isAdmin == true)
+      );
     }
 
     // Helper function to check if user is super admin
     function isSuperAdmin() {
-      return isAuthenticated() && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isSuperAdmin == true;
+      return isAuthenticated() && (
+        // Check old users collection
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isSuperAdmin == true) ||
+        // Check new companyUsers collection
+        (exists(/databases/$(database)/documents/companyUsers/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/companyUsers/$(request.auth.uid)).data.isSuperAdmin == true)
+      );
     }
 
     // Helper function to check if user is a company owner
     function isCompanyOwner(userId) {
-      return isAuthenticated() && 
-        exists(/databases/$(database)/documents/users/$(userId)) &&
-        get(/databases/$(database)/documents/users/$(userId)).data.role == 'company_owner';
+      return isAuthenticated() && (
+        // Check old users collection
+        (exists(/databases/$(database)/documents/users/$(userId)) &&
+         get(/databases/$(database)/documents/users/$(userId)).data.role == 'company_owner') ||
+        // Check new companyUsers collection
+        (exists(/databases/$(database)/documents/companyUsers/$(userId)) &&
+         get(/databases/$(database)/documents/companyUsers/$(userId)).data.role == 'company_owner')
+      );
     }
 
     // Helper function to check if user is a driver
     function isDriver(userId) {
-      return isAuthenticated() && 
-        exists(/databases/$(database)/documents/users/$(userId)) &&
-        get(/databases/$(database)/documents/users/$(userId)).data.role == 'driver';
+      return isAuthenticated() && (
+        // Check old users collection
+        (exists(/databases/$(database)/documents/users/$(userId)) &&
+         get(/databases/$(database)/documents/users/$(userId)).data.role == 'driver') ||
+        // Check new companyUsers collection
+        (exists(/databases/$(database)/documents/companyUsers/$(userId)) &&
+         get(/databases/$(database)/documents/companyUsers/$(userId)).data.role == 'driver')
+      );
     }
 
     // Helper function to check if user is part of the same company
     function isSameCompany(userId1, userId2) {
-      return isAuthenticated() && 
-        exists(/databases/$(database)/documents/users/$(userId1)) &&
-        exists(/databases/$(database)/documents/users/$(userId2)) &&
-        get(/databases/$(database)/documents/users/$(userId1)).data.parentCompanyId == 
-        get(/databases/$(database)/documents/users/$(userId2)).data.parentCompanyId;
+      return isAuthenticated() && (
+        // Check old users collection
+        (exists(/databases/$(database)/documents/users/$(userId1)) &&
+         exists(/databases/$(database)/documents/users/$(userId2)) &&
+         get(/databases/$(database)/documents/users/$(userId1)).data.parentCompanyId == 
+         get(/databases/$(database)/documents/users/$(userId2)).data.parentCompanyId) ||
+        // Check new companyUsers collection
+        (exists(/databases/$(database)/documents/companyUsers/$(userId1)) &&
+         exists(/databases/$(database)/documents/companyUsers/$(userId2)) &&
+         get(/databases/$(database)/documents/companyUsers/$(userId1)).data.companyId == 
+         get(/databases/$(database)/documents/companyUsers/$(userId2)).data.companyId)
+      );
     }
 
     // Locations collection
@@ -255,14 +282,16 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/companyUsers/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/companyUsers/$(request.auth.uid)).data.companyId == companyId &&
         get(/databases/$(database)/documents/companyUsers/$(request.auth.uid)).data.role in ['owner', 'admin']
-      );
+      ) ||
+        // Admins can update any company for approval purposes
+        isAdmin();
       allow delete: if isAdmin(); // Only admins can delete companies
     }
     
     // Company Users collection
     match /companyUsers/{userId} {
       allow read: if isAuthenticated(); // All authenticated users can read user profiles
-      allow create: if isAuthenticated(); // Users can create their own profile
+      allow create: if isAuthenticated() && request.auth.uid == userId; // Users can create their own profile
       allow update: if isAuthenticated() && (
         // Users can update their own profile
         request.auth.uid == userId ||
@@ -272,7 +301,9 @@ service cloud.firestore {
           get(/databases/$(database)/documents/companyUsers/$(request.auth.uid)).data.role in ['owner', 'admin'] &&
           get(/databases/$(database)/documents/companyUsers/$(request.auth.uid)).data.companyId == 
           get(/databases/$(database)/documents/companyUsers/$(userId)).data.companyId
-        )
+        ) ||
+        // Admins can update any user for approval purposes
+        isAdmin()
       );
       allow delete: if isAdmin(); // Only admins can delete users
     }

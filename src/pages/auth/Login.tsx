@@ -65,16 +65,29 @@ const Login: React.FC = () => {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // Try to fetch Firestore user data, but don't block login if missing
+      // Try to fetch Firestore user data from both collections
       let userData: any = null;
       try {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        userData = userDoc.data() || null;
+        // First try the new companyUsers collection
+        const companyUserDoc = await getDoc(doc(db, 'companyUsers', user.uid));
+        if (companyUserDoc.exists()) {
+          userData = companyUserDoc.data();
+          console.log('Found user in companyUsers collection:', userData);
+        } else {
+          // Fall back to old users collection
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            userData = userDoc.data();
+            console.log('Found user in users collection:', userData);
+          }
+        }
+        
         if (!userData) {
           setError('User profile not found. Please register your account.');
           return;
         }
       } catch (firestoreErr) {
+        console.error('Firestore error during login:', firestoreErr);
         setError('Could not fetch user profile. Please contact support.');
         return;
       }
@@ -115,6 +128,13 @@ const Login: React.FC = () => {
       if (userData && (userData.isAdmin || userData.isSuperAdmin)) {
         // Admin authentication - highest priority
         navigate('/admin');
+      } else if (userData && userData.userType === 'broker') {
+        // Broker authentication
+        if (userData.hasCarrierOperations) {
+          navigate('/broker-portal'); // Broker + Carrier operations
+        } else {
+          navigate('/broker-portal'); // Broker only operations
+        }
       } else if (userData && userData.userType === 'shipper') {
         navigate('/shipper/dashboard');
         setTimeout(() => {

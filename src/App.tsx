@@ -10,6 +10,10 @@ import ShipperLayout from './layouts/ShipperLayout';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 
+// Broker Portal Pages
+import BrokerPortalLanding from './pages/BrokerPortalLanding';
+import BrokerRegister from './pages/auth/BrokerRegister';
+
 // Test Pages
 import TestKonexial from './pages/TestKonexial';
 import TestCurrentLoad from './pages/TestCurrentLoad';
@@ -213,6 +217,10 @@ function App() {
                 {/* Auth Routes */}
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
+
+                {/* Broker Portal Routes */}
+                <Route path="/broker-portal" element={<BrokerPortalLanding />} />
+                <Route path="/broker-register" element={<BrokerRegister />} />
 
                 {/* Admin Routes */}
                 <Route path="/admin" element={
