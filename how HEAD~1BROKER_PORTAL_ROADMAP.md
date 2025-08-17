@@ -1,0 +1,2 @@
+[33m8c29b176[m Complete broker portal implementation with dashboard, registration, and admin updates
+[33m82d34655[m Phase 2 Complete: Database migration and admin dashboard integration - Migrated all users to new companies/companyUsers collections - Updated admin dashboard to use new collections - Created userTypes, loadVisibilityRules collections - Implemented new Firestore security rules - Admin dashboard now integrated with broker portal architecture - Ready for Phase 3: User Registration System

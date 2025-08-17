@@ -11,7 +11,17 @@ import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 
 // Broker Portal Pages
-import BrokerPortalLanding from './pages/BrokerPortalLanding';
+import BrokerLayout from './layouts/BrokerLayout';
+import BrokerDashboard from './pages/broker/Dashboard';
+import BrokerDriverUpdates from './pages/broker/DriverUpdates';
+import BrokerShippingSchedule from './pages/broker/ShippingSchedule';
+import BrokerPurchaseOrders from './pages/broker/PurchaseOrders';
+import BrokerCarrierPartners from './pages/broker/CarrierPartners';
+import BrokerPayInvoices from './pages/broker/PayInvoices';
+import BrokerShipmentArchive from './pages/broker/ShipmentArchive';
+import BrokerCarrierDirectory from './pages/broker/CarrierDirectory';
+import BrokerSettings from './pages/broker/Settings';
+import BrokerProfilePage from './pages/broker/Profile';
 import BrokerRegister from './pages/auth/BrokerRegister';
 
 // Test Pages
@@ -218,8 +228,20 @@ function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
 
-                {/* Broker Portal Routes */}
-                <Route path="/broker-portal" element={<BrokerPortalLanding />} />
+                                 {/* Broker Portal Routes */}
+                 <Route path="/broker" element={<BrokerLayout />}>
+                   <Route index element={<Navigate to="dashboard" />} />
+                   <Route path="dashboard" element={<BrokerDashboard />} />
+                   <Route path="updates" element={<BrokerDriverUpdates />} />
+                   <Route path="schedule" element={<BrokerShippingSchedule />} />
+                   <Route path="orders" element={<BrokerPurchaseOrders />} />
+                   <Route path="partners" element={<BrokerCarrierPartners />} />
+                   <Route path="invoices" element={<BrokerPayInvoices />} />
+                   <Route path="archive" element={<BrokerShipmentArchive />} />
+                   <Route path="directory" element={<BrokerCarrierDirectory />} />
+                   <Route path="settings" element={<BrokerSettings />} />
+                   <Route path="profile" element={<BrokerProfilePage />} />
+                 </Route>
                 <Route path="/broker-register" element={<BrokerRegister />} />
 
                 {/* Admin Routes */}

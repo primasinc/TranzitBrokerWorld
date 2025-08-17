@@ -1,0 +1,982 @@
+.container {
+  padding: 20px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.filterBadge {
+  display: flex;
+  align-items: center;
+  background-color: #e8f0fe;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 0.875rem;
+  color: #1a73e8;
+  gap: 8px;
+}
+
+.clearFilter {
+  background: none;
+  border: none;
+  color: #5f6368;
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.clearFilter:hover {
+  color: #1a73e8;
+}
+
+.viewToggle {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.toggleButton {
+  padding: 8px 16px;
+  border: 1px solid #dadce0;
+  background: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: #5f6368;
+  transition: all 0.2s ease;
+  min-height: 36px;
+}
+
+.toggleButton:hover {
+  background: #f1f3f4;
+}
+
+.toggleButton.active {
+  background: #1a73e8;
+  color: white;
+  border-color: #1a73e8;
+}
+
+/* Mobile Cards Styles */
+.mobileCardsContainer {
+  padding: 8px;
+}
+
+.mobileCard {
+  background: white;
+  border: 1px solid #e1e5e9;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* Header Section */
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  gap: 8px;
+}
+
+.poSection h3 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a1a1a;
+  line-height: 1.2;
+}
+
+.dateTime {
+  font-size: 13px;
+  color: #666;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.time {
+  color: #888;
+}
+
+.statusSection span {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+/* Route Section */
+.routeSection {
+  margin-bottom: 12px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border-left: 3px solid #007bff;
+}
+
+.routeItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.routeItem:last-child {
+  margin-bottom: 0;
+}
+
+.routeLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: #495057;
+  min-width: 32px;
+  flex-shrink: 0;
+}
+
+.routeValue {
+  font-size: 13px;
+  color: #212529;
+  font-weight: 500;
+  line-height: 1.3;
+  flex: 1;
+}
+
+/* Details Section */
+.detailsSection {
+  margin-bottom: 16px;
+}
+
+.detailRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid #f1f3f4;
+}
+
+.detailRow:last-child {
+  border-bottom: none;
+}
+
+.detailLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6c757d;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.detailValue {
+  font-size: 13px;
+  color: #212529;
+  font-weight: 500;
+  text-align: right;
+  max-width: 60%;
+  word-wrap: break-word;
+}
+
+/* Action Section */
+.actionSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.buttonRow {
+  display: flex;
+  gap: 8px;
+}
+
+.editButton, .saveButton {
+  flex: 1;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  background-color: #007bff;
+  color: white;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 40px;
+  transition: background-color 0.2s;
+}
+
+.editButton:hover, .saveButton:hover {
+  background-color: #0056b3;
+}
+
+.cancelButton {
+  flex: 1;
+  padding: 10px 16px;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  background-color: white;
+  color: #6c757d;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 40px;
+  transition: all 0.2s;
+}
+
+.cancelButton:hover {
+  background-color: #f8f9fa;
+  border-color: #007bff;
+  color: #007bff;
+}
+
+.reviewButton {
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  background-color: #ffc107;
+  color: #212529;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 40px;
+  transition: background-color 0.2s;
+}
+
+.reviewButton:hover:not(:disabled) {
+  background-color: #e0a800;
+}
+
+.reviewButton:disabled {
+  background-color: #f8f9fa;
+  color: #6c757d;
+  cursor: not-allowed;
+}
+
+/* Confirmation Dialog */
+.confirmDialog {
+  margin-top: 12px;
+  padding: 12px;
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 8px;
+}
+
+.confirmMessage {
+  font-size: 13px;
+  color: #856404;
+  font-weight: 500;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.confirmButtons {
+  display: flex;
+  gap: 8px;
+}
+
+.confirmYes {
+  flex: 1;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 6px;
+  background-color: #dc3545;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.confirmNo {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  background-color: white;
+  color: #6c757d;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Mobile Date Input */
+.mobileDateInput {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  font-size: 13px;
+  background: white;
+}
+
+.mobileDateInput:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+/* Status Colors */
+.open {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.carrierpending {
+  background-color: #fff3e0;
+  color: #f57c00;
+}
+
+.active {
+  background-color: #e8f5e8;
+  color: #388e3c;
+}
+
+.completed {
+  background-color: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.pending {
+  background-color: #fff3e0;
+  color: #f57c00;
+}
+
+/* Mobile List */
+.mobileSchedulesList {
+  max-height: 400px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.noData {
+  text-align: center;
+  padding: 40px 20px;
+  color: #6c757d;
+  font-size: 14px;
+}
+
+.tableContainer {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.calendar {
+  background: #f4f4f4;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 32px 32px 40px 32px;
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  min-height: 520px;
+}
+
+.calendarHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  width: 100%;
+  padding: 0 16px;
+}
+
+.calendarHeader button {
+  min-width: 80px;
+  padding: 8px 20px;
+  border: 1.5px solid #bdbdbd;
+  border-radius: 6px;
+  background: #f8f9fa;
+  color: #222;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, border 0.2s, color 0.2s;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+}
+
+.calendarHeader h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #333;
+  flex: 1;
+  text-align: center;
+}
+
+.calendarHeader button:hover {
+  background: #e3eaf3;
+  border-color: #1976d2;
+  color: #1976d2;
+}
+
+.calendarGrid {
+  width: 100%;
+  display: block;
+}
+
+.calendarTable {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.calendarTable th,
+.calendarTable td {
+  text-align: center;
+  padding: 0;
+  font-size: 1.1rem;
+  height: 56px;
+  width: 56px;
+  vertical-align: middle;
+}
+
+.calendarCell {
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.2s, border 0.2s;
+  border: 1px solid #e0e0e0;
+  background: white;
+}
+
+.calendarCell:hover {
+  background: #f1f3f4;
+  border-color: #bdbdbd;
+}
+
+.selectedDate {
+  background: #e3f2fd !important;
+  border-color: #1976d2 !important;
+  font-weight: bold;
+}
+
+.notCurrentMonth {
+  color: #bdbdbd;
+}
+
+.loadMarker {
+  color: #43a047;
+  font-size: 1.2em;
+  margin-top: 2px;
+}
+
+.loadsForDay {
+  margin-top: 32px;
+  width: 100%;
+  text-align: left;
+  overflow-x: visible;
+}
+
+.loadsTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+  table-layout: auto;
+  min-width: 0;
+}
+
+.loadsTable th,
+.loadsTable td {
+  padding: 10px 8px;
+  border-bottom: 1px solid #e0e0e0;
+  font-size: 0.95rem;
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+.loadsTable th {
+  font-weight: 600;
+  background: #f8f9fa;
+}
+
+.loadsTable tr:last-child td {
+  border-bottom: none;
+}
+
+.listView {
+  margin-top: 20px;
+}
+
+.listView table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 800px;
+}
+
+.listView th,
+.listView td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #dadce0;
+}
+
+.listView th {
+  font-weight: 500;
+  color: #5f6368;
+  background-color: #f8f9fa;
+}
+
+.filterHeader {
+  margin: 20px 0;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border-left: 4px solid #4285F4;
+}
+
+.filterHeader h2 {
+  margin: 0;
+  color: #1a73e8;
+  font-size: 1.5rem;
+}
+
+.status {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.actionButton {
+  padding: 6px 12px;
+  margin-right: 8px;
+  border: none;
+  border-radius: 4px;
+  background-color: #1a73e8;
+  color: white;
+  cursor: pointer;
+  font-size: 0.875rem;
+  transition: background-color 0.2s ease;
+}
+
+.actionButton:hover {
+  background-color: #1557b0;
+}
+
+.actionButton:last-child {
+  background-color: #dc3545;
+}
+
+.actionButton:last-child:hover {
+  background-color: #c82333;
+}
+
+.carrierReviewButton {
+  background-color: #bfa100;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  margin-left: 8px;
+  transition: background-color 0.2s ease;
+}
+
+.carrierReviewButton:disabled {
+  background-color: #e0c341;
+  color: #fff;
+  cursor: not-allowed;
+}
+
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0,0,0,0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+  padding: 32px;
+  max-width: 800px;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+}
+
+.mobileModal {
+  max-width: 95vw;
+  width: 100%;
+  padding: 20px 16px;
+  margin: 0;
+}
+
+.modalActions {
+  display: flex;
+  gap: 16px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+
+.performanceIndicator {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #856404;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  max-width: 250px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.performanceIndicator span {
+  font-weight: 500;
+}
+
+/* Mobile Responsive Breakpoints */
+@media (max-width: 1024px) {
+  .calendar {
+    padding: 24px 20px 32px 20px;
+    min-height: 480px;
+  }
+  
+  .calendarHeader {
+    gap: 32px;
+  }
+  
+  .calendarHeader button {
+    min-width: 70px;
+    padding: 6px 16px;
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 8px;
+  }
+
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .viewToggle {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .toggleButton {
+    flex: 1;
+    padding: 8px 10px;
+    font-size: 12px;
+    min-height: 36px;
+  }
+
+  .calendar {
+    padding: 12px 8px 20px 8px;
+    min-height: 350px;
+  }
+
+  .calendarHeader {
+    flex-direction: row;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 0 8px;
+  }
+
+  .calendarHeader button {
+    margin: 0;
+    min-width: 50px;
+    padding: 6px 10px;
+    font-size: 0.8rem;
+  }
+
+  .calendarHeader h2 {
+    font-size: 1.2rem;
+  }
+
+  .calendarTable th,
+  .calendarTable td {
+    height: 36px;
+    width: 36px;
+    font-size: 0.85rem;
+  }
+
+  .loadsForDay {
+    margin-top: 16px;
+  }
+
+  .loadsTable {
+    font-size: 0.8rem;
+  }
+
+  .loadsTable th,
+  .loadsTable td {
+    padding: 4px 3px;
+    max-width: 100px;
+  }
+
+  .mobileCard {
+    padding: 8px;
+  }
+
+  .cardHeader {
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+  }
+
+  .cardGrid {
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+
+  .gridItem {
+    padding: 3px 0;
+  }
+
+  .gridLabel {
+    font-size: 10px;
+  }
+
+  .gridValue {
+    font-size: 12px;
+  }
+
+  .cardActions {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .mobileActionButton {
+    width: 100%;
+  }
+
+  .listView table {
+    min-width: 600px;
+  }
+
+  .listView th,
+  .listView td {
+    padding: 6px 4px;
+    font-size: 12px;
+  }
+
+  .modal {
+    max-width: 95vw;
+    padding: 16px 12px;
+  }
+
+  .modalActions {
+    flex-direction: column;
+  }
+
+  .performanceIndicator {
+    bottom: 8px;
+    right: 8px;
+    left: 8px;
+    max-width: none;
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: 6px;
+  }
+
+  .header h1 {
+    font-size: 22px;
+  }
+
+  .calendar {
+    padding: 10px 6px 16px 6px;
+    min-height: 300px;
+  }
+
+  .calendarTable th,
+  .calendarTable td {
+    height: 30px;
+    width: 30px;
+    font-size: 0.75rem;
+  }
+
+  .calendarHeader h2 {
+    font-size: 16px;
+  }
+
+  .mobileCard {
+    padding: 6px;
+  }
+
+  .cardHeader h3 {
+    font-size: 14px;
+  }
+
+  .gridItem {
+    padding: 2px 0;
+  }
+
+  .gridLabel {
+    font-size: 9px;
+  }
+
+  .gridValue {
+    font-size: 11px;
+  }
+
+  .mobileActionButton {
+    padding: 8px 10px;
+    font-size: 12px;
+    min-height: 36px;
+  }
+
+  .listView table {
+    min-width: 500px;
+  }
+
+  .listView th,
+  .listView td {
+    padding: 4px 3px;
+    font-size: 11px;
+  }
+
+  .modal {
+    padding: 12px 8px;
+    border-radius: 6px;
+  }
+
+  .actionButton {
+    padding: 3px 6px;
+    font-size: 11px;
+    margin-right: 3px;
+  }
+}
+
+/* iPhone-specific optimizations */
+@media (max-width: 375px) {
+  .calendarTable th,
+  .calendarTable td {
+    height: 28px;
+    width: 28px;
+    font-size: 0.75rem;
+  }
+
+  .mobileCard {
+    padding: 8px;
+  }
+
+  .cardHeader h3 {
+    font-size: 14px;
+  }
+
+  .gridLabel {
+    font-size: 9px;
+  }
+
+  .gridValue {
+    font-size: 11px;
+  }
+
+  .listView table {
+    min-width: 450px;
+  }
+}
+
+/* Landscape orientation on mobile */
+@media (max-width: 900px) and (orientation: landscape) {
+  .calendar {
+    min-height: 300px;
+  }
+
+  .calendarHeader {
+    flex-direction: row;
+    gap: 24px;
+  }
+
+  .mobileCard {
+    padding: 10px;
+  }
+
+  .cardActions {
+    flex-direction: row;
+  }
+
+  .mobileActionButton {
+    flex: 1;
+  }
+}
+
+/* High DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .mobileCard {
+    border-radius: 4px;
+  }
+
+  .mobileActionButton {
+    border-radius: 3px;
+  }
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+  .mobileActionButton,
+  .toggleButton,
+  .calendarCell {
+    transition: none;
+  }
+}
+
+/* Touch-friendly improvements */
+@media (hover: none) and (pointer: coarse) {
+  .mobileActionButton {
+    min-height: 48px;
+  }
+
+  .toggleButton {
+    min-height: 44px;
+  }
+
+  .calendarCell {
+    min-height: 44px;
+    min-width: 44px;
+  }
+} 
