@@ -66,7 +66,8 @@ const PayInvoices: React.FC = () => {
   useEffect(() => {
     const fetchInvoices = async () => {
       if (!user) return;
-      const q = query(collection(db, 'invoices'), where('userId', '==', user.uid));
+      // Use brokerId for broker-specific invoice fetching
+      const q = query(collection(db, 'invoices'), where('brokerId', '==', user.uid));
       const snapshot = await getDocs(q);
       const data = snapshot.docs.map(doc => {
         const d = doc.data();

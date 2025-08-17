@@ -46,10 +46,10 @@ const ShipmentArchive: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const userId = user.uid;
+      const brokerId = user.uid;
       
-      // Fetch POs from poArchive collection
-      const archiveQuery = query(collection(db, 'poArchive'), where('userId', '==', userId));
+      // Fetch POs from poArchive collection using brokerId
+      const archiveQuery = query(collection(db, 'poArchive'), where('brokerId', '==', brokerId));
       const archiveSnapshot = await getDocs(archiveQuery);
       let archivedPOs = archiveSnapshot.docs.map(doc => ({ 
         id: doc.id, 
@@ -57,10 +57,10 @@ const ShipmentArchive: React.FC = () => {
         source: 'archive' // Mark as from archive collection
       }));
       
-      // Fetch completed/cancelled POs from purchaseOrders collection
+      // Fetch completed/cancelled POs from purchaseOrders collection using brokerId
       const completedQuery = query(
         collection(db, 'purchaseOrders'), 
-        where('userId', '==', userId),
+        where('brokerId', '==', brokerId),
         where('status', 'in', ['Completed', 'Cancelled'])
       );
       const completedSnapshot = await getDocs(completedQuery);

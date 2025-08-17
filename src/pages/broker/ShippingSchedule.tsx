@@ -7,6 +7,7 @@ import CarrierProfileCard from '../../components/carrier/CarrierProfileCard';
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay, format, parse } from 'date-fns';
 import { useMobileOptimization } from '../../hooks/useMobileOptimization';
 import { MobileOptimizedList } from '../../components/common/MobileOptimizedList';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface LocationState {
   filter?: 'active' | 'delayed';
@@ -19,16 +20,18 @@ interface ScheduledLoad {
   time: string;
   destination: string;
   carrier: string;
-  status: string;
+  status: 'Open' | 'Carrier Pending' | 'Active' | 'Completed';
   type: string;
   shipTo?: string;
   poNumber: string;
   pickup?: string;
+  cost: number;
 }
 
 const ShippingSchedule: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [viewType, setViewType] = useState<'calendar' | 'list'>('list');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [filter, setFilter] = useState<'active' | 'delayed' | null>(null);
@@ -43,20 +46,70 @@ const ShippingSchedule: React.FC = () => {
   const [reviewLoading, setReviewLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
-  // Mock loads data for now since we don't have the full implementation
-  const [loads, setLoads] = useState<ScheduledLoad[]>([
-    {
-      id: 'LD001',
-      date: '2024-01-15',
-      time: '10:00 AM',
-      destination: 'New York, NY',
-      carrier: 'ABC Trucking',
-      status: 'Active',
-      type: 'Full Truckload',
-      poNumber: 'PO-001',
-      pickup: 'Chicago, IL'
+  const [loads, setLoads] = useState<ScheduledLoad[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Status mapping function to match shipper's system
+  const getNormalizedStatus = (status: string): ScheduledLoad['status'] => {
+    const statusMap: { [key: string]: ScheduledLoad['status'] } = {
+      'open': 'Open',
+      'carrier pending': 'Carrier Pending',
+      'carrier pending/approval': 'Carrier Pending',
+      'processing': 'Carrier Pending', // Map broker's 'Processing' to 'Carrier Pending'
+      'active': 'Active',
+      'completed': 'Completed'
+    };
+    const normalizedStatus = (status || '').toLowerCase();
+    return statusMap[normalizedStatus] || 'Open';
+  };
+
+  // Function to refresh purchase orders data
+  const refreshPurchaseOrders = async () => {
+    try {
+      setLoading(true);
+      if (!user?.uid) {
+        console.warn('No authenticated user found');
+        setLoading(false);
+        return;
+      }
+      
+      const brokerId = user.uid;
+      
+      const purchaseOrdersQuery = query(
+        collection(db, 'purchaseOrders'),
+        where('brokerId', '==', brokerId)
+      );
+      const purchaseOrdersSnapshot = await getDocs(purchaseOrdersQuery);
+      
+      const loadsData: ScheduledLoad[] = [];
+      purchaseOrdersSnapshot.forEach(doc => {
+        const po = doc.data();
+        // Filter out cancelled orders like shipper does
+        if (po.status?.toLowerCase() === 'cancelled') return;
+        
+        loadsData.push({
+          id: doc.id,
+          date: po.date || new Date().toISOString().split('T')[0],
+          time: po.scheduledTime || 'TBD',
+          destination: po.shipTo?.cityStateZip || po.shipTo?.streetAddress || 'N/A',
+          carrier: po.approvedCarrier?.companyName || po.pendingCarrier?.companyName || 'TBD',
+          status: getNormalizedStatus(po.status),
+          type: po.carrierOption === 'carrier' ? 'Partnered Carrier' : 
+                po.carrierOption === 'marketplace' ? 'Marketplace' : 'Standard',
+          poNumber: po.poNumber || 'N/A',
+          pickup: po.vendorInfo?.cityStateZip || po.vendorInfo?.streetAddress || 'N/A',
+          shipTo: po.shipTo?.name || 'N/A',
+          cost: typeof po.rate === 'number' ? po.rate : (typeof po.total === 'number' ? po.total : 0)
+        });
+      });
+      
+      setLoads(loadsData);
+    } catch (error) {
+      console.error('Error refreshing purchase orders:', error);
+    } finally {
+      setLoading(false);
     }
-  ]);
+  };
 
   // Mobile optimization
   const { 
@@ -89,6 +142,60 @@ const ShippingSchedule: React.FC = () => {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Fetch broker purchase orders on component mount
+  useEffect(() => {
+    if (authLoading) return; // Wait for auth to load
+    
+    if (!isAuthenticated || !user?.uid) {
+      setLoading(false);
+      return;
+    }
+    
+    const fetchBrokerPurchaseOrders = async () => {
+      try {
+        setLoading(true);
+        const brokerId = user.uid;
+        
+        // Fetch purchase orders for this broker
+        const purchaseOrdersQuery = query(
+          collection(db, 'purchaseOrders'),
+          where('brokerId', '==', brokerId)
+        );
+        const purchaseOrdersSnapshot = await getDocs(purchaseOrdersQuery);
+        
+        const loadsData: ScheduledLoad[] = [];
+        purchaseOrdersSnapshot.forEach(doc => {
+          const po = doc.data();
+          // Filter out cancelled orders like shipper does
+          if (po.status?.toLowerCase() === 'cancelled') return;
+          
+          loadsData.push({
+            id: doc.id,
+            date: po.date || new Date().toISOString().split('T')[0],
+            time: po.scheduledTime || 'TBD',
+            destination: po.shipTo?.cityStateZip || po.shipTo?.streetAddress || 'N/A',
+            carrier: po.approvedCarrier?.companyName || po.pendingCarrier?.companyName || 'TBD',
+            status: getNormalizedStatus(po.status),
+            type: po.carrierOption === 'carrier' ? 'Partnered Carrier' : 
+                  po.carrierOption === 'marketplace' ? 'Marketplace' : 'Standard',
+            poNumber: po.poNumber || 'N/A',
+            pickup: po.vendorInfo?.cityStateZip || po.vendorInfo?.streetAddress || 'N/A',
+            shipTo: po.shipTo?.name || 'N/A',
+            cost: typeof po.rate === 'number' ? po.rate : (typeof po.total === 'number' ? po.total : 0)
+          });
+        });
+        
+        setLoads(loadsData);
+      } catch (error) {
+        console.error('Error fetching broker purchase orders:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchBrokerPurchaseOrders();
+  }, [isAuthenticated, user?.uid, authLoading]);
+
   // Get filter from navigation state
   useEffect(() => {
     const state = location.state as LocationState;
@@ -117,21 +224,22 @@ const ShippingSchedule: React.FC = () => {
 
   const handleEditSave = async (id: string) => {
     try {
-      // Mock update for now since broker services aren't fully implemented
-      console.log('Updating load schedule:', id, 'with date:', editDate, 'time:', editTime);
+      // Update the purchase order in Firestore
+      const poRef = doc(db, 'purchaseOrders', id);
+      await updateDoc(poRef, { 
+        date: editDate, 
+        scheduledTime: editTime,
+        updatedAt: serverTimestamp()
+      });
       
-      // Update local state
-      setLoads(prev => prev.map(load => 
-        load.id === id 
-          ? { ...load, date: editDate, time: editTime }
-          : load
-      ));
+      // Refresh data to ensure consistency
+      await refreshPurchaseOrders();
       
       setEditingId(null);
       setEditDate('');
       setEditTime('');
     } catch (error) {
-      console.error('Error updating load schedule:', error);
+      console.error('Error updating purchase order schedule:', error);
     }
   };
 
@@ -147,19 +255,19 @@ const ShippingSchedule: React.FC = () => {
 
   const confirmCancel = async (id: string) => {
     try {
-      // Mock cancellation for now since broker services aren't fully implemented
-      console.log('Cancelling load schedule:', id);
+      // Update the purchase order status in Firestore
+      const poRef = doc(db, 'purchaseOrders', id);
+      await updateDoc(poRef, { 
+        status: 'Cancelled',
+        updatedAt: serverTimestamp()
+      });
       
-      // Update local state
-      setLoads(prev => prev.map(load => 
-        load.id === id 
-          ? { ...load, status: 'cancelled' }
-          : load
-      ));
+      // Refresh data to ensure consistency
+      await refreshPurchaseOrders();
       
       setConfirmCancelId(null);
     } catch (error) {
-      console.error('Error cancelling load schedule:', error);
+      console.error('Error cancelling purchase order schedule:', error);
     }
   };
 
@@ -170,45 +278,67 @@ const ShippingSchedule: React.FC = () => {
   const handleCarrierReview = async (schedule: ScheduledLoad) => {
     setReviewLoading(true);
     try {
-      // Mock carrier profile fetch for now since broker services aren't fully implemented
-      console.log('Fetching carrier profile for review:', schedule.carrier);
-      
-      // Mock carrier profile data
-      const mockCarrierProfile = {
-        id: 'mock-carrier-id',
-        companyName: schedule.carrier,
-        displayName: schedule.carrier,
-        phone: '555-123-4567',
-        email: 'info@abctrucking.com',
-        rating: 4.5,
-        totalShipments: 150,
-        onTimeDelivery: 95
-      };
-      
-      setReviewCarrierProfile(mockCarrierProfile);
+      // Fetch the purchase order document to get the pendingCarrier field
+      const poDocSnap = await getDoc(doc(db, 'purchaseOrders', schedule.id));
+      if (!poDocSnap.exists()) {
+        setReviewLoading(false);
+        alert('Purchase order not found.');
+        console.error('[CarrierReview] Purchase order not found:', schedule.id);
+        return;
+      }
+      const poData = poDocSnap.data();
+      const pendingCarrier = poData?.pendingCarrier;
+      console.log('[CarrierReview] pendingCarrier field:', pendingCarrier);
+      if (!pendingCarrier || !pendingCarrier.id) {
+        setReviewLoading(false);
+        alert('No pending carrier found for this purchase order.');
+        console.error('[CarrierReview] No pending carrier found for purchase order:', schedule.id);
+        return;
+      }
+      // Fetch the full carrier profile from the users collection
+      const carrierProfileSnap = await getDoc(doc(db, 'users', pendingCarrier.id));
+      if (!carrierProfileSnap.exists()) {
+        setReviewLoading(false);
+        alert('Carrier profile not found.');
+        console.error('[CarrierReview] Carrier profile not found for id:', pendingCarrier.id);
+        return;
+      }
+      console.log('[CarrierReview] Carrier profile data:', carrierProfileSnap.data());
+      setReviewCarrierProfile({ ...carrierProfileSnap.data(), id: pendingCarrier.id });
       setReviewOrderId(schedule.id);
-      setReviewCarrierId('mock-carrier-id');
+      setReviewCarrierId(pendingCarrier.id);
       setShowCarrierReview(true);
-    } catch (error) {
-      console.error('Error fetching carrier profile:', error);
-    } finally {
-      setReviewLoading(false);
+    } catch (err) {
+      alert('Error fetching carrier profile.');
+      console.error('[CarrierReview] Error:', err);
     }
+    setReviewLoading(false);
   };
 
   const handleApproveCarrier = async () => {
-    if (!reviewOrderId || !reviewCarrierId) return;
+    if (!reviewOrderId || !reviewCarrierId || !reviewCarrierProfile) return;
     
     try {
-      // Mock approval for now since broker services aren't fully implemented
-      console.log('Approving carrier for order:', reviewOrderId, 'carrier:', reviewCarrierId);
+      // Set approvedCarrier, status to Active, clear pendingCarrier - matching shipper logic
+      const poRef = doc(db, 'purchaseOrders', reviewOrderId);
+      await updateDoc(poRef, {
+        approvedCarrier: {
+          id: reviewCarrierId,
+          companyName: reviewCarrierProfile.companyName || '',
+          email: reviewCarrierProfile.email || '',
+          phone: reviewCarrierProfile.phoneNumber || reviewCarrierProfile.phone || '',
+          mcNumber: reviewCarrierProfile.mcNumber || '',
+          dotNumber: reviewCarrierProfile.dotNumber || '',
+        },
+        status: 'Active',
+        shippingScheduleStatus: 'Active', // Add shippingScheduleStatus like shipper
+        carrierId: reviewCarrierId,
+        pendingCarrier: null,
+        updatedAt: serverTimestamp()
+      });
       
-      // Update local state
-      setLoads(prev => prev.map(load => 
-        load.id === reviewOrderId 
-          ? { ...load, status: 'approved' }
-          : load
-      ));
+      // Refresh data to ensure consistency
+      await refreshPurchaseOrders();
       
       setShowCarrierReview(false);
       setReviewCarrierProfile(null);
@@ -216,22 +346,24 @@ const ShippingSchedule: React.FC = () => {
       setReviewCarrierId(null);
     } catch (error) {
       console.error('Error approving carrier:', error);
+      alert('Failed to approve carrier. Please try again.');
     }
   };
 
   const handleRejectCarrier = async () => {
-    if (!reviewOrderId || !reviewCarrierId) return;
+    if (!reviewOrderId || !reviewCarrierId || !reviewCarrierProfile) return;
     
     try {
-      // Mock rejection for now since broker services aren't fully implemented
-      console.log('Rejecting carrier for order:', reviewOrderId, 'carrier:', reviewCarrierId);
+      // Set status to Open, clear pendingCarrier - matching shipper logic
+      const poRef = doc(db, 'purchaseOrders', reviewOrderId);
+      await updateDoc(poRef, {
+        status: 'Open',
+        pendingCarrier: null,
+        updatedAt: serverTimestamp()
+      });
       
-      // Update local state
-      setLoads(prev => prev.map(load => 
-        load.id === reviewOrderId 
-          ? { ...load, status: 'rejected' }
-          : load
-      ));
+      // Refresh data to ensure consistency
+      await refreshPurchaseOrders();
       
       setShowCarrierReview(false);
       setReviewCarrierProfile(null);
@@ -239,57 +371,63 @@ const ShippingSchedule: React.FC = () => {
       setReviewCarrierId(null);
     } catch (error) {
       console.error('Error rejecting carrier:', error);
+      alert('Failed to reject carrier. Please try again.');
     }
   };
 
-  const renderCalendarGrid = () => {
-    const start = startOfMonth(currentDate);
-    const end = endOfMonth(currentDate);
-    const days = [];
-    
-    for (let day = start; day <= end; day = addDays(day, 1)) {
-      days.push(day);
-    }
-
-    const firstDayOfWeek = start.getDay();
-    const leadingDays = [];
-    for (let i = 0; i < firstDayOfWeek; i++) {
-      leadingDays.push(null);
-    }
-
-    const allDays = [...leadingDays, ...days];
-    const weeks = [];
-    for (let i = 0; i < allDays.length; i += 7) {
-      weeks.push(allDays.slice(i, i + 7));
-    }
-
-    return weeks.map((week, weekIndex) => (
-      <div key={weekIndex} className={styles.calendarWeek}>
-        {week.map((day, dayIndex) => (
-          <div
-            key={dayIndex}
-            className={`${styles.calendarDay} ${!day ? styles.emptyDay : ''} ${day && isSameDay(day, new Date()) ? styles.today : ''}`}
-            onClick={() => day && setSelectedDate(day)}
-          >
-            {day && (
-              <>
-                <span className={styles.dayNumber}>{format(day, 'd')}</span>
-                {loads.filter(load => isSameDay(parse(load.date, 'yyyy-MM-dd', new Date()), day)).length > 0 && (
-                  <div className={styles.loadIndicator}>
-                    {loads.filter(load => isSameDay(parse(load.date, 'yyyy-MM-dd', new Date()), day)).length}
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        ))}
-      </div>
-    ));
-  };
-
+  // Helper: get all purchase orders for a given date
   const getLoadsForDate = (date: Date) => {
-    return loads.filter(load => isSameDay(parse(load.date, 'yyyy-MM-dd', new Date()), date));
+    const dateStr = format(date, 'yyyy-MM-dd');
+    return loads.filter(load => load.date === dateStr);
   };
+
+  // Calendar grid logic
+  const renderCalendarGrid = () => {
+    const monthStart = startOfMonth(currentDate);
+    const monthEnd = endOfMonth(monthStart);
+    const startDate = startOfWeek(monthStart, { weekStartsOn: 0 });
+    const endDate = endOfWeek(monthEnd, { weekStartsOn: 0 });
+    const rows = [];
+    let days = [];
+    let day = startDate;
+    let formattedDate = '';
+    while (day <= endDate) {
+      for (let i = 0; i < 7; i++) {
+        formattedDate = format(day, 'd');
+        const fullDate = format(day, 'yyyy-MM-dd');
+        const hasLoads = loads.some(load => load.date === fullDate);
+        days.push(
+          <td
+            key={day.toString()}
+            className={
+              `${styles.calendarCell} ${!isSameMonth(day, monthStart) ? styles.notCurrentMonth : ''} ` +
+              `${selectedDate && isSameDay(day, selectedDate) ? styles.selectedDate : ''}`
+            }
+            onClick={() => setSelectedDate(parse(fullDate, 'yyyy-MM-dd', new Date()))}
+            style={{ cursor: 'pointer', background: selectedDate && isSameDay(day, selectedDate) ? '#e3f2fd' : hasLoads ? '#e8f5e9' : undefined }}
+          >
+            <div>{formattedDate}</div>
+            {hasLoads && <div className={styles.loadMarker} title="Purchase orders scheduled">●</div>}
+          </td>
+        );
+        day = addDays(day, 1);
+      }
+      rows.push(<tr key={day.toString()}>{days}</tr>);
+      days = [];
+    }
+    return (
+      <table className={styles.calendarTable}>
+        <thead>
+          <tr>
+            <th>Sun</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th>
+          </tr>
+        </thead>
+        <tbody>{rows}</tbody>
+      </table>
+    );
+  };
+
+
 
   const renderMobileCard = (schedule: ScheduledLoad) => {
     return (
@@ -343,7 +481,7 @@ const ShippingSchedule: React.FC = () => {
             </div>
           )}
           
-          {schedule.status === 'Carrier Pending' && (schedule.carrier === 'Marketplace' || !schedule.carrier) && (
+          {schedule.status === 'Carrier Pending' && schedule.type === 'Marketplace' && (
             <button
               className={styles.reviewButton}
               onClick={() => handleCarrierReview(schedule)}
@@ -368,6 +506,35 @@ const ShippingSchedule: React.FC = () => {
     );
   };
 
+  // Show loading while auth is initializing
+  if (authLoading) {
+    return (
+      <div className={styles.loading}>
+        <div className={styles.spinner}></div>
+        <p>Initializing...</p>
+      </div>
+    );
+  }
+
+  // Redirect if not authenticated
+  if (!isAuthenticated || !user?.uid) {
+    return (
+      <div className={styles.loading}>
+        <div className={styles.spinner}></div>
+        <p>Please log in to view the shipping schedule.</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className={styles.loading}>
+        <div className={styles.spinner}></div>
+        <p>Loading purchase order schedule...</p>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.container}>
       <div className={styles.header}>
@@ -375,7 +542,7 @@ const ShippingSchedule: React.FC = () => {
         <div className={styles.controls}>
           {filter && (
             <div className={styles.filterBadge}>
-              <span>{filter === 'active' ? 'Active' : 'Delayed'} Loads</span>
+                              <span>{filter === 'active' ? 'Active' : 'Delayed'} Purchase Orders</span>
               <button 
                 className={styles.clearFilter}
                 onClick={handleClearFilter}
@@ -418,9 +585,9 @@ const ShippingSchedule: React.FC = () => {
           </div>
           {selectedDate && (
             <div className={styles.loadsForDay}>
-              <h3>Loads for {format(selectedDate, 'MMMM d, yyyy')}</h3>
+                              <h3>Purchase Orders for {format(selectedDate, 'MMMM d, yyyy')}</h3>
               {getLoadsForDate(selectedDate).length === 0 ? (
-                <div>No loads scheduled for this day.</div>
+                <div>No purchase orders scheduled for this day.</div>
               ) : (
                 <div className={styles.mobileCardsContainer}>
                   {getLoadsForDate(selectedDate).map(load => (
@@ -471,7 +638,7 @@ const ShippingSchedule: React.FC = () => {
           {isMobile ? (
             <div className={styles.mobileCardsContainer}>
               {filteredSchedules.length === 0 ? (
-                <div className={styles.noData}>No loads found.</div>
+                <div className={styles.noData}>No purchase orders found.</div>
               ) : (
                 <MobileOptimizedList
                   items={filteredSchedules}
@@ -482,10 +649,9 @@ const ShippingSchedule: React.FC = () => {
                   enableVirtualization={isMobile}
                   enablePullToRefresh={isMobile}
                   onRefresh={async () => {
-                    // Refresh loads data
+                    // Refresh purchase orders data
                     await new Promise(resolve => setTimeout(resolve, 1000));
-                    // Mock refresh for now
-                    console.log('Refreshing loads data...');
+                    await refreshPurchaseOrders();
                   }}
                   className={styles.mobileSchedulesList}
                 />
@@ -538,13 +704,13 @@ const ShippingSchedule: React.FC = () => {
                         )}
                         {confirmCancelId === schedule.id && (
                           <div className={styles.confirmDialog}>
-                            <span>Are you sure you want to cancel this load?</span>
+                            <span>Are you sure you want to cancel this purchase order?</span>
                             <button className={styles.actionButton} onClick={() => confirmCancel(schedule.id)}>Yes</button>
                             <button className={styles.actionButton} onClick={cancelCancel}>No</button>
                           </div>
                         )}
-                        {/* Carrier Review button only for marketplace loads in Carrier Pending status */}
-                        {schedule.status === 'Carrier Pending' && schedule.carrier === 'Marketplace' && (
+                        {/* Carrier Review button only for marketplace loads in Carrier Pending status - matching shipper logic */}
+                        {schedule.status === 'Carrier Pending' && schedule.type === 'Marketplace' && (
                           <button
                             className={styles.carrierReviewButton}
                             onClick={() => handleCarrierReview(schedule)}

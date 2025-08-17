@@ -85,17 +85,17 @@ const DriverUpdates: React.FC = () => {
         setUserId(user.uid);
         setLoading(true);
         try {
-          // Fetch active loads for this broker
+          // Fetch active loads for this broker from new optimized collection
           const loadsQuery = query(
-            collection(db, 'loads'),
+            collection(db, 'brokerLoads'),
             where('brokerId', '==', user.uid),
             where('status', 'in', ['in_transit', 'in_progress', 'delayed'])
           );
           const snapshot = await getDocs(loadsQuery);
           
-          // Fetch all loads for these loads
+          // Fetch all loads for these loads from new optimized collection
           const loadsQuery2 = query(
-            collection(db, 'loads'),
+            collection(db, 'brokerLoads'),
             where('brokerId', '==', user.uid)
           );
           const loadsSnapshot = await getDocs(loadsQuery2);
@@ -114,7 +114,7 @@ const DriverUpdates: React.FC = () => {
             let poStatus = '';
             if (data.poNumber) {
               try {
-                const poQuery = query(collection(db, 'purchaseOrders'), where('poNumber', '==', data.poNumber));
+                const poQuery = query(collection(db, 'brokerPurchaseOrders'), where('poNumber', '==', data.poNumber));
                 const poSnap = await getDocs(poQuery);
                 if (poSnap.empty) {
                   return null; // Skip this update if purchaseOrder does not exist
@@ -135,7 +135,7 @@ const DriverUpdates: React.FC = () => {
             let deliveryCoords: [number, number] | undefined = undefined;
             if (data.poNumber) {
               try {
-                const poQuery = query(collection(db, 'purchaseOrders'), where('poNumber', '==', data.poNumber));
+                const poQuery = query(collection(db, 'brokerPurchaseOrders'), where('poNumber', '==', data.poNumber));
                 const poSnap = await getDocs(poQuery);
                 if (!poSnap.empty) {
                   const poData = poSnap.docs[0].data();
@@ -178,7 +178,7 @@ const DriverUpdates: React.FC = () => {
             let poApprovedCarrier = undefined;
             if (data.poNumber) {
               try {
-                const poQuery = query(collection(db, 'purchaseOrders'), where('poNumber', '==', data.poNumber));
+                const poQuery = query(collection(db, 'brokerPurchaseOrders'), where('poNumber', '==', data.poNumber));
                 const poSnap = await getDocs(poQuery);
                 if (!poSnap.empty) {
                   const poData = poSnap.docs[0].data();
@@ -311,48 +311,56 @@ const DriverUpdates: React.FC = () => {
               }
             }
 
-            // Calculate progress based on coordinates
+            // Calculate progress for the main table
             let progress = 0;
-            if (coordinates && pickupCoords && deliveryCoords) {
-              const totalDistance = haversineDistance(pickupCoords, deliveryCoords);
-              const currentDistance = haversineDistance(coordinates, pickupCoords);
-              if (totalDistance > 0) {
-                progress = Math.min(100, Math.max(0, Math.round((currentDistance / totalDistance) * 100)));
-              }
-            }
-
-            // Get ETA
             let eta = 'N/A';
-            if (data.eta) {
-              eta = data.eta;
-            } else if (data.estimatedDeliveryDate) {
-              eta = data.estimatedDeliveryDate;
+            if (pickupCoords && deliveryCoords && coordinates) {
+              const totalMiles = haversineDistance(pickupCoords, deliveryCoords);
+              const remainingMiles = haversineDistance(coordinates, deliveryCoords);
+              progress = Math.max(0, Math.min(1, 1 - (remainingMiles / totalMiles)));
+              
+              // Calculate ETA based on remaining distance (assuming 60 mph average speed)
+              if (remainingMiles > 0) {
+                const estimatedHours = remainingMiles / 60;
+                const estimatedMinutes = Math.round(estimatedHours * 60);
+                if (estimatedMinutes < 60) {
+                  eta = `${estimatedMinutes}m`;
+                } else {
+                  const hours = Math.floor(estimatedMinutes / 60);
+                  const minutes = estimatedMinutes % 60;
+                  eta = `${hours}h ${minutes}m`;
+                }
+              }
             }
 
             // Get last update time
             let lastUpdate = 'N/A';
-            if (data.lastUpdate) {
-              lastUpdate = data.lastUpdate;
-            } else if (data.updatedAt) {
+            if (data.updatedAt instanceof Timestamp) {
               lastUpdate = data.updatedAt.toDate().toLocaleString();
-            } else if (data.createdAt) {
+            } else if (data.lastUpdate) {
+              lastUpdate = data.lastUpdate;
+            } else if (data.createdAt instanceof Timestamp) {
               lastUpdate = data.createdAt.toDate().toLocaleString();
             }
 
-            return {
-              driverId: loadDoc.id,
+            const finalUpdate = {
+              driverId: carrierId || loadDoc.id,
               driverName: carrierName,
               location,
               status,
-              lastUpdate,
-              eta,
-              load: `Load ${data.poNumber || 'N/A'}`,
-              carrierId,
-              pickupCoords,
-              deliveryCoords,
-              progress,
-              coordinates
+              lastUpdate: lastUpdate,
+              eta: eta,
+              load: data.poNumber || 'N/A',
+              carrierId: carrierId,
+              pickupCoords: pickupCoords,
+              deliveryCoords: deliveryCoords,
+              progress: progress, // Add progress to the update object
+              coordinates: coordinates, // Add coordinates to the update object
             };
+            
+            console.log('[DriverUpdates] Final update object for PO', data.poNumber, ':', finalUpdate);
+            
+            return finalUpdate;
           }));
 
           // Filter out null values and set updates
@@ -457,91 +465,133 @@ const DriverUpdates: React.FC = () => {
   }
 
   return (
-    <div className={styles.driverUpdates}>
+    <div className={styles.container}>
       <div className={styles.header}>
         <h1>Driver Updates</h1>
-        <p>Real-time updates on your loads and carrier locations</p>
       </div>
-
-      <div className={styles.updatesGrid}>
-        {updates.map((update) => (
-          <div key={update.driverId} className={styles.updateCard}>
-            <div className={styles.updateHeader}>
-              <h3>{update.driverName}</h3>
-              <span className={`${styles.status} ${styles[update.status.toLowerCase().replace(' ', '')]}`}>
-                {update.status}
-              </span>
-            </div>
-            
-            <div className={styles.updateDetails}>
-              <div className={styles.detailRow}>
-                <label>Load:</label>
-                <span>{update.load}</span>
-              </div>
-              <div className={styles.detailRow}>
-                <label>Location:</label>
-                <span>{update.location}</span>
-              </div>
-              <div className={styles.detailRow}>
-                <label>ETA:</label>
-                <span>{update.eta}</span>
-              </div>
-              <div className={styles.detailRow}>
-                <label>Last Update:</label>
-                <span>{update.lastUpdate}</span>
-              </div>
-            </div>
-
-            <div className={styles.progressSection}>
-              <label>Progress:</label>
-              <div className={styles.progressBar}>
-                <div 
-                  className={styles.progressFill} 
-                  style={{ width: `${update.progress}%` }}
-                ></div>
-              </div>
-              <span className={styles.progressText}>{update.progress}%</span>
-            </div>
-
-            <div className={styles.updateActions}>
-              <button 
-                className={styles.viewDetailsButton}
-                onClick={() => handleViewDetails(update)}
-              >
-                View Details
-              </button>
-              {update.carrierId && (
-                <button 
-                  className={styles.contactButton}
-                  onClick={() => handleContactClick(update.carrierId!, update.driverName)}
-                >
-                  Contact
-                </button>
+      
+      <div className={styles.updatesTable}>
+        {loading ? (
+          <div className={styles.loading}>Loading...</div>
+        ) : (
+          <table>
+            <thead>
+              <tr>
+                <th>Driver</th>
+                <th>Location</th>
+                <th>Status</th>
+                <th>Progress</th>
+                <th>Last Update</th>
+                <th>ETA</th>
+                <th>PO Number</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {updates.length === 0 ? (
+                <tr><td colSpan={7} style={{textAlign:'center'}}>No active carrier partners or loads found.</td></tr>
+              ) : (
+                updates.map((update) => (
+                  <tr key={update.driverId}>
+                    <td>{update.driverName}</td>
+                    <td>{update.location}</td>
+                    <td>
+                      <span className={`${styles.status} ${styles[update.status.toLowerCase()]}`}>
+                        {update.status}
+                      </span>
+                    </td>
+                    <td>
+                      {update.pickupCoords && update.deliveryCoords && update.progress > 0 ? (
+                        (() => {
+                          const percent = Math.round(update.progress * 100);
+                          return (
+                            <div className={styles.progressContainer}>
+                              <div className={styles.progressHeader}>
+                                <span>Progress</span>
+                                <span>{percent}%</span>
+                              </div>
+                              <div className={styles.progressBar}>
+                                <div 
+                                  className={styles.progressFill} 
+                                  style={{ width: `${percent}%` }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })()
+                      ) : (
+                        'N/A'
+                      )}
+                    </td>
+                    <td>{update.lastUpdate}</td>
+                    <td>{update.eta}</td>
+                    <td>{update.load}</td>
+                    <td>
+                      <button className={styles.actionButton} onClick={() => handleContactClick(update.carrierId!, update.driverName)}>Contact</button>
+                      <button className={styles.actionButton} onClick={() => handleViewDetails(update)}>View Details</button>
+                    </td>
+                  </tr>
+                ))
               )}
-            </div>
-          </div>
-        ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {/* Contact Modal */}
       {showContactModal && contactInfo && (
         <div className={styles.modalOverlay} onClick={() => setShowContactModal(false)}>
-          <div className={styles.modal} onClick={e => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <h2>Contact Information</h2>
-              <button 
-                className={styles.closeButton}
-                onClick={() => setShowContactModal(false)}
-              >
-                ×
-              </button>
+          <div className={styles.contactCard} onClick={e => e.stopPropagation()}>
+            <button className={styles.closeButton} onClick={() => setShowContactModal(false)} aria-label="Close">×</button>
+            <h2>Carrier Contact Information</h2>
+            <p><strong>Name:</strong> {contactInfo.driverName || 'N/A'}</p>
+            
+            {/* Enhanced Phone Section with Native System Popups */}
+            <div className={styles.contactSection}>
+              <p><strong>Phone:</strong> {contactInfo.phone}</p>
+              {contactInfo.phone && contactInfo.phone !== 'N/A' && (
+                <div className={styles.contactOptions}>
+                  <button 
+                    className={styles.contactButton}
+                    onClick={() => {
+                      const url = `tel:${contactInfo.phone.replace(/\D/g, '')}`;
+                      window.location.href = url;
+                    }}
+                    style={{ background: 'linear-gradient(135deg, #28a745 0%, #1e7e34 100%)' }}
+                  >
+                    📞 Call
+                  </button>
+                  <button 
+                    className={styles.contactButton}
+                    onClick={() => {
+                      const url = `sms:${contactInfo.phone.replace(/\D/g, '')}`;
+                      window.location.href = url;
+                    }}
+                    style={{ background: 'linear-gradient(135deg, #6c757d 0%, #545b62 100%)' }}
+                  >
+                    💬 SMS
+                  </button>
+                </div>
+              )}
             </div>
-            <div className={styles.modalContent}>
-              <h3>{contactInfo.driverName}</h3>
-              <div className={styles.contactInfo}>
-                <p><strong>Phone:</strong> {contactInfo.phone}</p>
-                <p><strong>Email:</strong> {contactInfo.email}</p>
-              </div>
+            
+            {/* Email Section - Native System Popup */}
+            <div className={styles.contactSection}>
+              <p><strong>Email:</strong> {contactInfo.email}</p>
+              {contactInfo.email && contactInfo.email !== 'N/A' && (
+                <div className={styles.contactOptions}>
+                  <button 
+                    className={styles.contactButton}
+                    onClick={() => {
+                      const url = `mailto:${contactInfo.email}`;
+                      window.location.href = url;
+                    }}
+                    style={{ background: 'linear-gradient(135deg, #dc3545 0%, #c82333 100%)' }}
+                  >
+                    📧 Email
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -550,100 +600,130 @@ const DriverUpdates: React.FC = () => {
       {/* Details Modal */}
       {showDetailsModal && eldDetails && (
         <div className={styles.modalOverlay} onClick={() => setShowDetailsModal(false)}>
-          <div className={styles.modal} onClick={e => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <h2>Load Details</h2>
-              <button 
-                className={styles.closeButton}
-                onClick={() => setShowDetailsModal(false)}
-              >
-                ×
-              </button>
-            </div>
+          <div className={`${styles.contactCard} ${isMobile ? styles.mobileModal : ''}`} onClick={e => e.stopPropagation()}>
+            <button className={styles.closeButton} onClick={() => setShowDetailsModal(false)} aria-label="Close">×</button>
+            <h2>Driver Route Details</h2>
+            {/* Location Info and Progress Bar at the top */}
             <div className={styles.modalContent}>
-              <div className={styles.modalTabs}>
-                <button 
-                  className={`${styles.tabButton} ${detailsView === 'map' ? styles.active : ''}`}
-                  onClick={() => setDetailsView('map')}
-                >
-                  Map View
-                </button>
-                <button 
-                  className={`${styles.tabButton} ${detailsView === 'contact' ? styles.active : ''}`}
-                  onClick={() => setDetailsView('contact')}
-                >
-                  Contact & Notes
-                </button>
-              </div>
-
-              {detailsView === 'map' && (
-                <div className={styles.mapSection}>
-                  <MapboxMap
-                    center={eldDetails.coordinates}
-                    zoom={10}
-                    markers={[
-                      {
-                        id: 'driver',
-                        position: eldDetails.coordinates,
-                        type: 'carrier'
-                      },
-                      {
-                        id: 'pickup',
-                        position: eldDetails.pickup,
-                        type: 'shipper'
-                      },
-                      {
-                        id: 'delivery',
-                        position: eldDetails.delivery,
-                        type: 'shipper'
-                      }
-                    ]}
-                  />
-                </div>
-              )}
-
-              {detailsView === 'contact' && (
-                <div className={styles.contactSection}>
-                  {eldDetails.carrierProfile && (
-                    <div className={styles.carrierInfo}>
-                      <h3>Carrier Information</h3>
-                      <p><strong>Company:</strong> {eldDetails.carrierProfile.companyName}</p>
-                      <p><strong>Phone:</strong> {eldDetails.carrierProfile.phone}</p>
-                      <p><strong>Email:</strong> {eldDetails.carrierProfile.email}</p>
+              <div className={styles.locationInfo}>
+                <p><strong>Current Location:</strong> {eldDetails.location}</p>
+                <p><strong>Coordinates:</strong> {
+                  eldDetails.coordinates[0] === 0 && eldDetails.coordinates[1] === 0 
+                    ? 'No location data available' 
+                    : `${eldDetails.coordinates[0]}, ${eldDetails.coordinates[1]}`
+                }</p>
+                
+                {/* Driver Information Section */}
+                {eldDetails.carrierProfile && (
+                  <div className={styles.driverInfo}>
+                    <h3>Driver Information</h3>
+                    <div className={styles.driverDetails}>
+                      <p><strong>Company:</strong> {eldDetails.carrierProfile.companyName || 'N/A'}</p>
+                      <p><strong>Driver:</strong> {eldDetails.carrierProfile.driverName || eldDetails.carrierProfile.displayName || eldDetails.carrierProfile.companyName || 'N/A'}</p>
+                      <p><strong>Phone:</strong> {eldDetails.carrierProfile.driverPhone || eldDetails.carrierProfile.phone || 'N/A'}</p>
+                      <p><strong>Vehicle VIN:</strong> {eldDetails.carrierProfile.vehicleVin || 'N/A'}</p>
+                      <p><strong>DOT:</strong> {eldDetails.carrierProfile.driverDotNumber || eldDetails.carrierProfile.dotNumber || 'N/A'}</p>
+                      <p><strong>ELD:</strong> {eldDetails.carrierProfile.eldCompany || 'N/A'}</p>
+                      <p><strong>ELD API ID:</strong> {eldDetails.carrierProfile.eldApiId || 'N/A'}</p>
                     </div>
-                  )}
-                  
-                  <div className={styles.notesSection}>
-                    <h3>Notes</h3>
+                  </div>
+                )}
+                
+                {/* Route Information */}
+                <div className={styles.routeInfo}>
+                  <h3>Route Information</h3>
+                  <p><strong>Estimated Arrival:</strong> {eldDetails.eta || 'N/A'}</p>
+                </div>
+                
+                {/* Modern Progress Bar - only show if we have valid coordinates */}
+                {eldDetails.pickup && eldDetails.delivery && eldDetails.coordinates && 
+                 eldDetails.pickup[0] !== 0 && eldDetails.pickup[1] !== 0 &&
+                 eldDetails.delivery[0] !== 0 && eldDetails.delivery[1] !== 0 &&
+                 eldDetails.coordinates[0] !== 0 && eldDetails.coordinates[1] !== 0 ? (
+                  (() => {
+                    // Use existing progress from main table if available, otherwise calculate
+                    let progress = 0;
+                    let percent = 0;
+                    
+                    if (eldDetails.existingProgress !== undefined) {
+                      // Use the progress that was already calculated for the main table
+                      progress = eldDetails.existingProgress;
+                      percent = Math.round(progress * 100);
+                    } else {
+                      // Calculate progress using the same method as the main table
+                      const totalMiles = haversineDistance(eldDetails.pickup, eldDetails.delivery);
+                      const remainingMiles = haversineDistance(eldDetails.coordinates, eldDetails.delivery);
+                      progress = Math.max(0, Math.min(1, 1 - (remainingMiles / totalMiles)));
+                      percent = Math.round(progress * 100);
+                    }
+                    
+                    return (
+                      <div className={styles.progressContainer}>
+                        <div className={styles.progressHeader}>
+                          <span>Progress</span>
+                          <span>{percent}%</span>
+                        </div>
+                        <div className={styles.progressBar}>
+                          <div 
+                            className={styles.progressFill} 
+                            style={{ width: `${percent}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })()
+                ) : (
+                  <div className={styles.progressContainer}>
+                    <div className={styles.progressHeader}>
+                      <span>Progress</span>
+                      <span>N/A</span>
+                    </div>
+                    <div className={styles.progressBar}>
+                      <div className={styles.progressFill} style={{ width: '0%' }} />
+                    </div>
+                    <p style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                      Progress unavailable - location data required
+                    </p>
+                  </div>
+                )}
+                
+                {/* Carrier Notes Section */}
+                <div className={styles.carrierNotes}>
+                  <h3>Carrier Notes</h3>
+                  {loadingNotes ? (
+                    <p className={styles.loadingNotes}>Loading carrier notes...</p>
+                  ) : carrierNotes.length === 0 ? (
+                    <p className={styles.noNotes}>No carrier notes available.</p>
+                  ) : (
                     <div className={styles.notesList}>
                       {carrierNotes.map((note, index) => (
-                        <div key={index} className={styles.note}>
-                          <p>{note.notes}</p>
-                          <small>{note.timestamp.toDate().toLocaleString()}</small>
+                        <div key={note.id || index} className={styles.noteItem}>
+                          <div className={styles.noteHeader}>
+                            <span className={styles.noteTimestamp}>
+                              {note.timestamp instanceof Date 
+                                ? note.timestamp.toLocaleString()
+                                : note.timestamp?.toDate?.()?.toLocaleString() || 'N/A'
+                              }
+                            </span>
+                            <span className={styles.noteStatus}>{note.status}</span>
+                          </div>
+                          {note.notes && (
+                            <p className={styles.noteText}>{note.notes}</p>
+                          )}
                         </div>
                       ))}
                     </div>
-                    <div className={styles.addNote}>
-                      <textarea 
-                        placeholder="Add a note..."
-                        className={styles.noteInput}
-                      />
-                      <button 
-                        className={styles.addNoteButton}
-                        onClick={() => {
-                          const textarea = document.querySelector(`.${styles.noteInput}`) as HTMLTextAreaElement;
-                          if (textarea && eldDetails.carrierProfile) {
-                            handleAddNote(eldDetails.carrierProfile.id, textarea.value);
-                            textarea.value = '';
-                          }
-                        }}
-                      >
-                        Add Note
-                      </button>
-                    </div>
-                  </div>
+                  )}
                 </div>
-              )}
+              </div>
+              {/* Large Map below */}
+              <div className={styles.largeMap}>
+                <MapboxMap 
+                  showKonexialVehicles={true}
+                  enableRealtime={true}
+                  eldApiKey={process.env.REACT_APP_MAPBOX_TOKEN}
+                />
+              </div>
             </div>
           </div>
         </div>

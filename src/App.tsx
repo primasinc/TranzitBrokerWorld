@@ -16,12 +16,16 @@ import BrokerDashboard from './pages/broker/Dashboard';
 import BrokerDriverUpdates from './pages/broker/DriverUpdates';
 import BrokerShippingSchedule from './pages/broker/ShippingSchedule';
 import BrokerPurchaseOrders from './pages/broker/PurchaseOrders';
+import BrokerCreatePO from './pages/broker/CreatePO';
 import BrokerCarrierPartners from './pages/broker/CarrierPartners';
+import BrokerCarrierPartnersNew from './pages/broker/BrokerCarrierPartners';
+import BrokerShippingScheduleNew from './pages/broker/BrokerShippingSchedule';
 import BrokerPayInvoices from './pages/broker/PayInvoices';
 import BrokerShipmentArchive from './pages/broker/ShipmentArchive';
 import BrokerCarrierDirectory from './pages/broker/CarrierDirectory';
 import BrokerSettings from './pages/broker/Settings';
 import BrokerProfilePage from './pages/broker/Profile';
+
 import BrokerRegister from './pages/auth/BrokerRegister';
 
 // Test Pages
@@ -65,6 +69,7 @@ import Notifications from './pages/carrier/Notifications';
 import ShipperPartners from './pages/carrier/ShipperPartners';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ShipmentsProvider } from './context/ShipmentsContext';
+import { LoadsProvider } from './context/LoadsContext';
 import LandingPage from './pages/LandingPage';
 import HomePage from './pages/HomePage';
 import TechnologyPage from './pages/TechnologyPage';
@@ -172,130 +177,135 @@ function App() {
     <AuthProvider>
       <CarrierProvider>
         <ShipmentsProvider>
-          <LocationProvider>
-            <BrowserRouter>
-              <Routes>
-                <Route path="/" element={<LandingPage />} />
-                <Route path="/home" element={<HomePage />} />
-                <Route path="/technology" element={<TechnologyPage />} />
-                <Route path="/about" element={<AboutPage />} />
-                
-                {/* Test Routes */}
-                <Route path="/test-konexial" element={<TestKonexial />} />
-                <Route path="/test-current-load" element={<TestCurrentLoad />} />
-                <Route path="/test-driver-flow" element={<TestDriverFlow />} />
-                <Route path="/test-phase1b-services" element={<TestPhase1BServices />} />
+          <LoadsProvider>
+            <LocationProvider>
+              <BrowserRouter>
+                <Routes>
+                  <Route path="/" element={<LandingPage />} />
+                  <Route path="/home" element={<HomePage />} />
+                  <Route path="/technology" element={<TechnologyPage />} />
+                  <Route path="/about" element={<AboutPage />} />
+                  
+                  {/* Test Routes */}
+                  <Route path="/test-konexial" element={<TestKonexial />} />
+                  <Route path="/test-current-load" element={<TestCurrentLoad />} />
+                  <Route path="/test-driver-flow" element={<TestDriverFlow />} />
+                  <Route path="/test-phase1b-services" element={<TestPhase1BServices />} />
 
-                {/* Carrier Routes */}
-                <Route path="/carrier" element={<CarrierLayout />}>
-                  <Route index element={<Navigate to="home" />} />
-                  <Route path="home" element={<HomeFeed />} />
-                  <Route path="available-loads" element={<AvailableLoads />} />
-                  <Route path="my-loads" element={<MyLoads />} />
-                  <Route path="loads/:id" element={<LoadDetails />} />
-                  <Route path="documents" element={<Documents />} />
-                  <Route path="payments" element={<Payments />} />
-                  <Route path="partners" element={<ShipperPartners />} />
-                  <Route path="notifications" element={<Notifications />} />
-                  <Route path="settings" element={<Settings />} />
-                  <Route path="profile" element={<CarrierProfilePage />} />
-                </Route>
+                  {/* Carrier Routes */}
+                  <Route path="/carrier" element={<CarrierLayout />}>
+                    <Route index element={<Navigate to="home" />} />
+                    <Route path="home" element={<HomeFeed />} />
+                    <Route path="available-loads" element={<AvailableLoads />} />
+                    <Route path="my-loads" element={<MyLoads />} />
+                    <Route path="loads/:id" element={<LoadDetails />} />
+                    <Route path="documents" element={<Documents />} />
+                    <Route path="payments" element={<Payments />} />
+                    <Route path="partners" element={<ShipperPartners />} />
+                    <Route path="notifications" element={<Notifications />} />
+                    <Route path="settings" element={<Settings />} />
+                    <Route path="profile" element={<CarrierProfilePage />} />
+                  </Route>
 
-                {/* Shipper Routes */}
-                <Route path="/shipper" element={<ShipperLayout />}>
-                  <Route index element={<Navigate to="dashboard" />} />
-                  <Route path="dashboard" element={<ShipperDashboard />} />
-                  <Route path="loads" element={<LoadsOverview />} />
-                  <Route path="loads/new" element={<NewLoad />} />
-                  <Route path="people" element={<ViewPeople />} />
-                  <Route path="active-searches" element={<ActiveSearches />} />
-                  <Route path="in-progress" element={<InProgress />} />
-                  <Route path="completed" element={<Completed />} />
-                  <Route path="updates" element={<DriverUpdates />} />
-                  <Route path="schedule" element={<ShippingSchedule />} />
-                  <Route path="orders" element={<PurchaseOrders />} />
-                  <Route path="partners" element={<CarrierPartners />} />
-                  <Route path="invoices" element={<PayInvoices />} />
-                  <Route path="archive" element={<ShipmentArchive />} />
-                  <Route path="directory" element={<CarrierDirectory />} />
-                  <Route path="carrier-partners/:partnerId" element={<CarrierDetails />} />
-                  <Route path="test-po" element={<TestPurchaseOrder />} />
-                  <Route path="profile" element={<ShipperProfilePage />} />
-                  <Route path="settings" element={<ShipperSettings />} />
-                </Route>
+                  {/* Shipper Routes */}
+                  <Route path="/shipper" element={<ShipperLayout />}>
+                    <Route index element={<Navigate to="dashboard" />} />
+                    <Route path="dashboard" element={<ShipperDashboard />} />
+                    <Route path="loads" element={<LoadsOverview />} />
+                    <Route path="loads/new" element={<NewLoad />} />
+                    <Route path="people" element={<ViewPeople />} />
+                    <Route path="active-searches" element={<ActiveSearches />} />
+                    <Route path="in-progress" element={<InProgress />} />
+                    <Route path="completed" element={<Completed />} />
+                    <Route path="updates" element={<DriverUpdates />} />
+                    <Route path="schedule" element={<ShippingSchedule />} />
+                    <Route path="orders" element={<PurchaseOrders />} />
+                    <Route path="partners" element={<CarrierPartners />} />
+                    <Route path="invoices" element={<PayInvoices />} />
+                    <Route path="archive" element={<ShipmentArchive />} />
+                    <Route path="directory" element={<CarrierDirectory />} />
+                    <Route path="carrier-partners/:partnerId" element={<CarrierDetails />} />
+                    <Route path="test-po" element={<TestPurchaseOrder />} />
+                    <Route path="profile" element={<ShipperProfilePage />} />
+                    <Route path="settings" element={<ShipperSettings />} />
+                  </Route>
 
-                {/* Auth Routes */}
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
+                  {/* Auth Routes */}
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/register" element={<Register />} />
 
-                                 {/* Broker Portal Routes */}
-                 <Route path="/broker" element={<BrokerLayout />}>
-                   <Route index element={<Navigate to="dashboard" />} />
-                   <Route path="dashboard" element={<BrokerDashboard />} />
-                   <Route path="updates" element={<BrokerDriverUpdates />} />
-                   <Route path="schedule" element={<BrokerShippingSchedule />} />
-                   <Route path="orders" element={<BrokerPurchaseOrders />} />
-                   <Route path="partners" element={<BrokerCarrierPartners />} />
-                   <Route path="invoices" element={<BrokerPayInvoices />} />
-                   <Route path="archive" element={<BrokerShipmentArchive />} />
-                   <Route path="directory" element={<BrokerCarrierDirectory />} />
-                   <Route path="settings" element={<BrokerSettings />} />
-                   <Route path="profile" element={<BrokerProfilePage />} />
-                 </Route>
-                <Route path="/broker-register" element={<BrokerRegister />} />
+                                   {/* Broker Portal Routes */}
+                   <Route path="/broker" element={<BrokerLayout />}>
+                     <Route index element={<Navigate to="dashboard" />} />
+                     <Route path="dashboard" element={<BrokerDashboard />} />
+                     <Route path="updates" element={<BrokerDriverUpdates />} />
+                     <Route path="schedule" element={<BrokerShippingSchedule />} />
+                     <Route path="orders" element={<BrokerPurchaseOrders />} />
+                     <Route path="create-po" element={<BrokerCreatePO />} />
+                     <Route path="partners" element={<BrokerCarrierPartners />} />
+                     <Route path="invoices" element={<BrokerPayInvoices />} />
+                     <Route path="archive" element={<BrokerShipmentArchive />} />
+                     <Route path="directory" element={<BrokerCarrierDirectory />} />
+                     <Route path="settings" element={<BrokerSettings />} />
+                     <Route path="profile" element={<BrokerProfilePage />} />
+                     <Route path="carrier-partners" element={<BrokerCarrierPartnersNew />} />
+                     <Route path="shipping-schedule" element={<BrokerShippingScheduleNew />} />
+                   </Route>
+                  <Route path="/broker-register" element={<BrokerRegister />} />
 
-                {/* Admin Routes */}
-                <Route path="/admin" element={
-                  <AdminRoute>
-                    <AdminDashboard />
-                  </AdminRoute>
-                } />
-                <Route path="/admin-setup" element={<AdminSetup />} />
-                <Route path="/admin-access" element={<AdminAccess />} />
-                <Route path="/admin-management" element={
-                  <AdminRoute>
-                    <AdminManagement />
-                  </AdminRoute>
-                } />
-                <Route path="/admin/monitoring" element={
-                  <AdminRoute>
-                    <MonitoringDashboard />
-                  </AdminRoute>
-                } />
-                <Route path="/admin/feature-flags" element={
-                  <AdminRoute>
-                    <FeatureFlagManager />
-                  </AdminRoute>
-                } />
-                <Route path="/admin/cache" element={
-                  <AdminRoute>
-                    <CacheManager />
-                  </AdminRoute>
-                } />
-                <Route path="/admin/rate-limits" element={
-                  <AdminRoute>
-                    <RateLimitManager />
-                  </AdminRoute>
-                } />
-                <Route path="/admin/subscription-tiers" element={
-                  <AdminRoute>
-                    <SubscriptionTierManager />
-                  </AdminRoute>
-                } />
-                <Route path="/subscription-tiers" element={<SubscriptionTierManager />} />
-                <Route path="/admin/advanced-performance" element={
-                  <AdminRoute>
-                    <AdvancedPerformanceDashboard />
-                  </AdminRoute>
-                } />
+                  {/* Admin Routes */}
+                  <Route path="/admin" element={
+                    <AdminRoute>
+                      <AdminDashboard />
+                    </AdminRoute>
+                  } />
+                  <Route path="/admin-setup" element={<AdminSetup />} />
+                  <Route path="/admin-access" element={<AdminAccess />} />
+                  <Route path="/admin-management" element={
+                    <AdminRoute>
+                      <AdminManagement />
+                    </AdminRoute>
+                  } />
+                  <Route path="/admin/monitoring" element={
+                    <AdminRoute>
+                      <MonitoringDashboard />
+                    </AdminRoute>
+                  } />
+                  <Route path="/admin/feature-flags" element={
+                    <AdminRoute>
+                      <FeatureFlagManager />
+                    </AdminRoute>
+                  } />
+                  <Route path="/admin/cache" element={
+                    <AdminRoute>
+                      <CacheManager />
+                    </AdminRoute>
+                  } />
+                  <Route path="/admin/rate-limits" element={
+                    <AdminRoute>
+                      <RateLimitManager />
+                    </AdminRoute>
+                  } />
+                  <Route path="/admin/subscription-tiers" element={
+                    <AdminRoute>
+                      <SubscriptionTierManager />
+                    </AdminRoute>
+                  } />
+                  <Route path="/subscription-tiers" element={<SubscriptionTierManager />} />
+                  <Route path="/admin/advanced-performance" element={
+                    <AdminRoute>
+                      <AdvancedPerformanceDashboard />
+                    </AdminRoute>
+                  } />
 
-                {/* Shared Routes */}
-                <Route path="/profile/:id" element={<ViewProfileWrapper />} />
-                {/* OAuth Callback Route */}
-                <Route path="/oauth/callback" element={<OAuthCallback />} />
-              </Routes>
-            </BrowserRouter>
-          </LocationProvider>
+                  {/* Shared Routes */}
+                  <Route path="/profile/:id" element={<ViewProfileWrapper />} />
+                  {/* OAuth Callback Route */}
+                  <Route path="/oauth/callback" element={<OAuthCallback />} />
+                </Routes>
+              </BrowserRouter>
+            </LocationProvider>
+          </LoadsProvider>
         </ShipmentsProvider>
       </CarrierProvider>
       <LocationNotification />

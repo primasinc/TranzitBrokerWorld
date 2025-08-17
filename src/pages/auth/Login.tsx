@@ -131,9 +131,9 @@ const Login: React.FC = () => {
       } else if (userData && userData.userType === 'broker') {
         // Broker authentication
         if (userData.hasCarrierOperations) {
-          navigate('/broker-portal'); // Broker + Carrier operations
-        } else {
-          navigate('/broker-portal'); // Broker only operations
+                  navigate('/broker'); // Broker + Carrier operations
+      } else {
+        navigate('/broker'); // Broker only operations
         }
       } else if (userData && userData.userType === 'shipper') {
         navigate('/shipper/dashboard');

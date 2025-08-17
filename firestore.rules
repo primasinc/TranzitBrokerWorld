@@ -87,7 +87,9 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
       allow update, delete: if isAuthenticated() && 
-        resource.data.shipperId == request.auth.uid;
+        (resource.data.shipperId == request.auth.uid || 
+         resource.data.brokerId == request.auth.uid ||
+         resource.data.userId == request.auth.uid);
     }
 
     // Metrics collection
@@ -158,13 +160,15 @@ service cloud.firestore {
         resource.data.userId == request.auth.uid ||
         resource.data.carrierId == request.auth.uid ||
         resource.data.shipperId == request.auth.uid ||
+        resource.data.brokerId == request.auth.uid ||
         // Allow carrier to update notifications they are the recipient of
         resource.data.recipientId == request.auth.uid
       );
       allow delete: if isAuthenticated() && (
         resource.data.userId == request.auth.uid ||
         resource.data.carrierId == request.auth.uid ||
-        resource.data.shipperId == request.auth.uid
+        resource.data.shipperId == request.auth.uid ||
+        resource.data.brokerId == request.auth.uid
       );
     }
 
@@ -174,13 +178,17 @@ service cloud.firestore {
       allow create: if isAuthenticated();
       allow update: if isAuthenticated() && (
         resource.data.userId == request.auth.uid ||
+        resource.data.brokerId == request.auth.uid ||
         // Allow carrier to update PO status when rejecting (for business logic)
         (
           request.resource.data.status == 'Active' &&
           resource.data.userId != request.auth.uid
         )
       );
-      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.brokerId == request.auth.uid
+      );
     }
 
     // Loads collection - FIXED FOR CARRIER REJECTION WORKFLOW
@@ -211,6 +219,16 @@ service cloud.firestore {
       allow update, delete: if isAuthenticated() && (
         resource.data.carrierId == request.auth.uid ||
         resource.data.userId == request.auth.uid
+      );
+    }
+
+    // Broker Partner Requests collection (for backward compatibility during migration)
+    match /brokerPartnerRequests/{requestId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() && (
+        resource.data.carrierId == request.auth.uid ||
+        resource.data.brokerId == request.auth.uid
       );
     }
 
@@ -314,6 +332,49 @@ service cloud.firestore {
       allow write: if isAdmin();        // Only admins can modify visibility rules
     }
     
+    // NEW: Broker-Specific Collections for Optimization
+    
+    // Broker Purchase Orders collection
+    match /brokerPurchaseOrders/{poId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && resource.data.brokerId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.brokerId == request.auth.uid;
+    }
+    
+    // Broker Loads collection
+    match /brokerLoads/{loadId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && resource.data.brokerId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.brokerId == request.auth.uid;
+    }
+    
+    // Broker Notifications collection
+    match /brokerNotifications/{notificationId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && resource.data.brokerId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.brokerId == request.auth.uid;
+    }
+    
+    // Broker Metrics collection
+    match /brokerMetrics/{brokerId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.auth.uid == brokerId;
+    }
+    
+    // Broker Companies collection
+    match /brokerCompanies/{companyId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (
+        resource.data.ownerId == request.auth.uid ||
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
     // Default deny
     match /{document=**} {
       allow read: if isAuthenticated();

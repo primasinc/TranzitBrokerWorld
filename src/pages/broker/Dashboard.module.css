@@ -53,7 +53,7 @@
   min-height: 500px;
 }
 
-.shipmentTracking {
+.loadTracking {
   display: flex;
   flex-direction: column;
   background: white;
@@ -121,11 +121,11 @@
   border-radius: 50%;
 }
 
-input:checked + .toggleSlider {
+.toggleSwitch input:checked + .toggleSlider {
   background-color: #007bff;
 }
 
-input:checked + .toggleSlider:before {
+.toggleSwitch input:checked + .toggleSlider:before {
   transform: translateX(26px);
 }
 
@@ -301,6 +301,14 @@ input:checked + .toggleSlider:before {
   height: 100%;
 }
 
+.activeLoads {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  height: 100%;
+}
+
 .sectionHeader {
   display: flex;
   justify-content: space-between;
@@ -311,6 +319,239 @@ input:checked + .toggleSlider:before {
 .shipmentList {
   overflow-y: auto;
   height: 100%;
+}
+
+.loadList {
+  overflow-y: auto;
+  height: 100%;
+}
+
+.loadCard {
+  background-color: #ffffff;
+  padding: 15px;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  transition: all 0.2s ease;
+}
+
+.loadCard:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+}
+
+.loadCard.rejectedLoad {
+  border-left: 4px solid #dc3545;
+  background: #fff5f5;
+}
+
+.loadHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.loadTitle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.loadTitle h3 {
+  margin: 0;
+  font-size: 1.1em;
+}
+
+.loadRoute {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.routeInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.routeLabel {
+  font-size: 0.8em;
+  color: #666;
+  font-weight: 500;
+}
+
+.routeValue {
+  font-size: 0.9em;
+  color: #333;
+}
+
+.routeArrow {
+  font-size: 1.2em;
+  color: #007bff;
+  font-weight: bold;
+}
+
+.loadDetails {
+  margin-bottom: 15px;
+}
+
+.detailRow {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.detailItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.detailItem label {
+  font-size: 0.8em;
+  color: #666;
+  font-weight: 500;
+}
+
+.detailItem span {
+  font-size: 0.9em;
+  color: #333;
+}
+
+.poNumber {
+  font-weight: 600;
+  color: #007bff;
+}
+
+.cost {
+  font-weight: 600;
+  color: #28a745;
+}
+
+.loadActions {
+  display: flex;
+  gap: 10px;
+}
+
+.viewButton {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9em;
+  transition: background-color 0.2s;
+}
+
+.viewButton:hover {
+  background: #0056b3;
+}
+
+.selectCarrierButton {
+  background: #dc3545;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9em;
+  transition: background-color 0.2s;
+}
+
+.selectCarrierButton:hover {
+  background: #c82333;
+}
+
+.rejectionBadge {
+  background: #dc3545;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.7em;
+  font-weight: 600;
+}
+
+.carrierCard {
+  background-color: #ffffff;
+  padding: 15px;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  transition: all 0.2s ease;
+}
+
+.carrierCard:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+}
+
+.carrierHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.carrierHeader h3 {
+  margin: 0;
+  font-size: 1.1em;
+}
+
+.distance {
+  font-size: 0.8em;
+  color: #666;
+}
+
+.carrierRating {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.stars {
+  color: #ffc107;
+  font-size: 1.1em;
+}
+
+.carrierDetails {
+  margin-bottom: 15px;
+}
+
+.carrierDetails > div {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+
+.carrierDetails label {
+  font-size: 0.8em;
+  color: #666;
+  font-weight: 500;
+}
+
+.carrierDetails span {
+  font-size: 0.9em;
+  color: #333;
+}
+
+.contactButton {
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9em;
+  transition: background-color 0.2s;
+  width: 100%;
+}
+
+.contactButton:hover {
+  background: #218838;
 }
 
 .shipmentCard {

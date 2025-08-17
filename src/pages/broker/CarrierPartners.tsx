@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { collection, getDocs, doc, deleteDoc, getDoc, query, where, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { db, auth } from '../../config/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
+import { db } from '../../config/firebase';
 import styles from './CarrierPartners.module.css';
 import { getCarrier } from '../../services/carrierService';
-import { sendLoadRequestToCarrier } from '../../services/notificationService';
-import { createPartnerRequest } from '../../services/partnerRequestService';
+import { sendUnifiedLoadRequestToCarrier, createUnifiedPartnerRequest } from '../../services/unifiedPartnerRequestService';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface Partner {
   carrierId: string; // Always the Firebase Auth UID
@@ -34,11 +33,11 @@ const CarrierPartners: React.FC = () => {
   const [filterSpecialty, setFilterSpecialty] = useState('all');
   const [partners, setPartners] = useState<Partner[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [profileCarrier, setProfileCarrier] = useState<any>(null);
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
 
   // Check if we came from PO creation
   const locationState = location.state as LocationState;
@@ -47,60 +46,81 @@ const CarrierPartners: React.FC = () => {
   console.log('DEBUG CarrierPartners isFromPO:', isFromPO);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      console.log('[DEBUG] onAuthStateChanged user:', user);
-      if (user) {
-        setUserId(user.uid);
-        setLoading(true);
-        try {
-          console.log('[DEBUG] Fetching partners from Firestore for user UID:', user.uid);
-          const partnersPath = `users/${user.uid}/partners`;
-          console.log('[DEBUG] Firestore path:', partnersPath);
-          const partnersSnapshot = await getDocs(collection(db, 'users', user.uid, 'partners'));
-          console.log('[DEBUG] Partners snapshot size:', partnersSnapshot.size);
-          const partnerList: Partner[] = [];
-          partnersSnapshot.forEach(docSnap => {
-            const data = docSnap.data();
-            console.log('[DEBUG] Raw partner doc:', docSnap.id, data);
-            // Validate required fields
-            if (!data.companyName) {
-              console.warn('[DEBUG] Partner document missing required companyName field:', docSnap.id);
-              return;
-            }
-            // Use docSnap.id as the UID
-            const partner: Partner = {
-              carrierId: docSnap.id, // Always use the UID
-              companyName: data.companyName,
-              addedAt: data.addedAt
-            };
-            // Add optional fields if they exist
-            if (data.companyRep) partner.companyRep = data.companyRep;
-            if (data.phoneNumber) partner.phoneNumber = data.phoneNumber;
-            if (data.email) partner.email = data.email;
-            if (data.state) partner.state = data.state;
-            if (data.loadTypes) partner.loadTypes = data.loadTypes;
-            if (data.trailerTypes) partner.trailerTypes = data.trailerTypes;
-            if (data.endorsements) partner.endorsements = data.endorsements;
-            if (data.mcNumber) partner.mcNumber = data.mcNumber;
-            partnerList.push(partner);
-          });
-          console.log('[DEBUG] Final partner list:', partnerList);
-          setPartners(partnerList);
-        } catch (error) {
-          console.error('[DEBUG] Error fetching partners:', error);
-          alert('There was an error loading your partners. Please try refreshing the page.');
-        } finally {
-          setLoading(false);
-        }
-      } else {
+    const fetchPartners = async () => {
+      if (!user?.uid) {
         console.warn('[DEBUG] No user authenticated. Skipping Firestore call.');
         setPartners([]);
         setLoading(false);
+        return;
       }
-    });
 
-    return () => unsubscribe();
-  }, []);
+      setLoading(true);
+      try {
+        console.log('[DEBUG] Fetching partners from Firestore for user UID:', user.uid);
+        const partnersPath = `users/${user.uid}/partners`;
+        console.log('[DEBUG] Firestore path:', partnersPath);
+        const partnersSnapshot = await getDocs(collection(db, 'users', user.uid, 'partners'));
+        console.log('[DEBUG] Partners snapshot size:', partnersSnapshot.size);
+        const partnerList: Partner[] = [];
+        partnersSnapshot.forEach(docSnap => {
+          const data = docSnap.data();
+          console.log('[DEBUG] Raw partner doc:', docSnap.id, data);
+          // Validate required fields
+          if (!data.companyName) {
+            console.warn('[DEBUG] Partner document missing required companyName field:', docSnap.id);
+            return;
+          }
+          // Use docSnap.id as the UID
+          const partner: Partner = {
+            carrierId: docSnap.id, // Always use the UID
+            companyName: data.companyName,
+            addedAt: data.addedAt
+          };
+          // Add optional fields if they exist
+          if (data.companyRep) partner.companyRep = data.companyRep;
+          if (data.phoneNumber) partner.phoneNumber = data.phoneNumber;
+          if (data.email) partner.email = data.email;
+          if (data.state) partner.state = data.state;
+          if (data.loadTypes) partner.loadTypes = data.loadTypes;
+          if (data.trailerTypes) partner.trailerTypes = data.trailerTypes;
+          if (data.endorsements) partner.endorsements = data.endorsements;
+          if (data.mcNumber) partner.mcNumber = data.mcNumber;
+          partnerList.push(partner);
+        });
+        console.log('[DEBUG] Final partner list:', partnerList);
+        setPartners(partnerList);
+      } catch (error) {
+        console.error('[DEBUG] Error fetching partners:', error);
+        alert('There was an error loading your partners. Please try refreshing the page.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user?.uid) {
+      fetchPartners();
+    }
+  }, [user?.uid]);
+
+  // Show loading while auth is initializing
+  if (authLoading) {
+    return (
+      <div className={styles.loading}>
+        <div className={styles.spinner}></div>
+        <p>Initializing...</p>
+      </div>
+    );
+  }
+
+  // Redirect if not authenticated
+  if (!isAuthenticated || !user?.uid) {
+    return (
+      <div className={styles.loading}>
+        <div className={styles.spinner}></div>
+        <p>Please log in to view your carrier partners.</p>
+      </div>
+    );
+  }
 
   const filteredPartners = partners.filter(partner =>
     partner.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -128,37 +148,175 @@ const CarrierPartners: React.FC = () => {
   };
 
   const handleRemovePartner = async (partner: Partner) => {
-    if (window.confirm(`Are you sure you want to remove ${partner.companyName} as a partner?`)) {
-      try {
-        await deleteDoc(doc(db, 'users', userId!, 'partners', partner.carrierId));
-        setPartners(partners.filter(p => p.carrierId !== partner.carrierId));
-        alert('Partner removed successfully.');
-      } catch (error) {
-        console.error('Error removing partner:', error);
-        alert('Failed to remove partner. Please try again.');
-      }
+    if (!user?.uid) {
+      console.error('No user ID found');
+      alert('You must be logged in to remove partners');
+      return;
+    }
+
+    const confirmed = window.confirm(`Are you sure you want to remove ${partner.companyName} as a partner?`);
+    if (!confirmed) return;
+
+    try {
+      console.log('Starting partner removal process...');
+      console.log('Removing partner:', partner.carrierId);
+      
+      // Remove from current user's partners
+      const userPartnerRef = doc(db, 'users', user.uid, 'partners', partner.carrierId);
+      console.log('Removing from user partners:', userPartnerRef.path);
+      await deleteDoc(userPartnerRef);
+      
+      // Remove current user from partner's partners
+      const partnerPartnerRef = doc(db, 'users', partner.carrierId, 'partners', user.uid);
+      console.log('Removing from partner partners:', partnerPartnerRef.path);
+      await deleteDoc(partnerPartnerRef);
+      
+      // Update local state
+      setPartners(prev => prev.filter(p => p.carrierId !== partner.carrierId));
+      console.log('Partner removed successfully');
+    } catch (error) {
+      console.error('Error removing partner:', error);
+      alert('There was an error removing the partner. Please try again.');
     }
   };
 
   const handleSelectCarrier = async (partner: Partner) => {
-    if (!locationState?.poData) {
-      alert('No purchase order data available.');
-      return;
+    if (locationState?.poData?.poNumber) {
+      // Find the order by poNumber
+      const q = query(
+        collection(db, 'purchaseOrders'),
+        where('poNumber', '==', locationState.poData.poNumber)
+      );
+      const querySnapshot = await getDocs(q);
+      if (!querySnapshot.empty) {
+        const orderDoc = querySnapshot.docs[0];
+        const orderData = orderDoc.data();
+        const po = locationState?.poData || {};
+        if (orderData.brokerId !== user?.uid) {
+          console.error('[ERROR] User does not own PO:', { brokerId: user?.uid, poBrokerId: orderData.brokerId, poNumber: locationState.poData.poNumber });
+          alert('You do not have permission to update this purchase order.');
+          return;
+        }
+        
+        // Check if this is from a rejection (has rejectedLoadId)
+        const isFromRejection = locationState?.fromRejection && locationState?.rejectedLoadId;
+        
+        try {
+          await updateDoc(doc(db, 'purchaseOrders', orderDoc.id), {
+            status: 'Active',
+            shippingScheduleStatus: 'Carrier Pending',
+            selectedCarrier: partner,
+          });
+        } catch (err) {
+          console.error('[ERROR] Failed to update PO:', {
+            poId: orderDoc.id,
+            poNumber: locationState.poData.poNumber,
+            brokerId: user?.uid,
+            poBrokerId: orderData.brokerId,
+            error: err
+          });
+          alert('Failed to update purchase order. Please check your permissions.');
+          return;
+        }
+        // --- FIX: Update the load and create partner request with correct loadId ---
+        // Find the load for this PO
+        const loadsSnapshot = await getDocs(query(collection(db, 'brokerLoads'), where('poNumber', '==', locationState.poData.poNumber)));
+        if (!loadsSnapshot.empty) {
+          const loadDoc = loadsSnapshot.docs[0];
+          try {
+            // If this is from a rejection, update the existing load
+            if (isFromRejection) {
+              await updateDoc(doc(db, 'loads', loadDoc.id), {
+                carrierId: partner.carrierId,
+                status: 'pending',
+                updatedAt: serverTimestamp(),
+              });
+            } else {
+              // IMMEDIATELY remove load from marketplace when carrier is selected
+              await updateDoc(doc(db, 'loads', loadDoc.id), {
+                isMarketplace: false,
+                carrierId: partner.carrierId,
+                status: 'pending',
+                updatedAt: serverTimestamp(),
+              });
+            }
+            
+            await createUnifiedPartnerRequest({
+              poNumber: locationState.poData.poNumber,
+              loadId: loadDoc.id,
+              userId: user?.uid || '',
+              userType: 'broker',
+              carrierId: partner.carrierId,
+            }, 'broker');
+            
+            // If this is from a rejection, mark the notification as read
+            if (isFromRejection && locationState.rejectedLoadId) {
+              try {
+                await updateDoc(doc(db, 'notifications', locationState.rejectedLoadId), {
+                  read: true,
+                  updatedAt: serverTimestamp(),
+                });
+              } catch (err) {
+                console.error('[ERROR] Failed to mark rejection notification as read:', err);
+              }
+            }
+          } catch (err) {
+            console.error('[ERROR] Failed to create partner request:', err);
+          }
+        } else {
+          console.error('[ERROR] No load found for PO when selecting carrier:', locationState.poData.poNumber);
+        }
+        // --- END FIX ---
+        // Fetch order details to send notification
+        const pickupLocation = orderData.pickupLocation || po.vendorInfo || {};
+        const deliveryLocation = orderData.deliveryLocation || po.shipTo || {};
+        const brokerCompany = orderData.brokerCompany || po.companyInfo?.name || orderData.brokerName || '';
+        const pickupDate = orderData.pickupDate || orderData.date || po.date || (Array.isArray(po.items) && po.items[0]?.pickupDate) || '';
+        const deliveryDate = orderData.deliveryDate || po.deliveryDate || (Array.isArray(po.items) && po.items[0]?.deliveryDate) || pickupDate || '';
+        const cargoDetails = orderData.cargoDetails || po.cargoDetails || {};
+        const dimensions = cargoDetails.dimensions || po.dimensions || (Array.isArray(po.items) && po.items[0]?.dimensions) || { length: 0, width: 0, height: 0 };
+        const weight = cargoDetails.weight || (Array.isArray(po.items) && po.items[0]?.weight) || 0;
+        const rate = orderData.carrierRate || po.rate || (Array.isArray(po.items) && po.items[0]?.rate) || 0;
+        try {
+          await sendUnifiedLoadRequestToCarrier(
+            partner.carrierId,
+            user?.uid || '',
+            'broker',
+            orderDoc.id, // Use orderId as shippingScheduleId
+            {
+              pickupLocation: {
+                address: locationState.poData?.vendorInfo?.address || '',
+                city: locationState.poData?.vendorInfo?.city || '',
+                state: locationState.poData?.vendorInfo?.state || '',
+                zipCode: locationState.poData?.vendorInfo?.zipCode || '',
+                date: locationState.poData?.pickupDate || '',
+                time: locationState.poData?.pickupTime || '',
+              },
+              deliveryLocation: {
+                address: locationState.poData?.shipTo?.streetAddress || '',
+                city: locationState.poData?.shipTo?.city || '',
+                state: locationState.poData?.shipTo?.state || '',
+                zipCode: locationState.poData?.shipTo?.zipCode || '',
+                date: locationState.poData?.deliveryDate || '',
+                time: locationState.poData?.deliveryTime || '',
+              },
+              dimensions: {
+                length: locationState.poData?.cargoDetails?.dimensions?.length || 0,
+                width: locationState.poData?.cargoDetails?.dimensions?.width || 0,
+                height: locationState.poData?.cargoDetails?.dimensions?.height || 0,
+              },
+              weight: locationState.poData?.cargoDetails?.weight || 0,
+              rate: locationState.poData?.rate || 0,
+              companyName: locationState.poData?.companyInfo?.name || '',
+              poNumber: locationState.poData.poNumber || orderData.poNumber || '',
+            }
+          );
+        } catch (err) {
+          console.error('[ERROR] Failed to send load request notification:', err);
+        }
+      }
     }
-
-    try {
-      // Mock the partner request creation for now since broker services aren't fully implemented
-      console.log('Creating partner request for carrier:', partner.carrierId, 'with PO:', locationState.poData.poNumber);
-      
-      // Mock the load request notification for now since broker services aren't fully implemented
-      console.log('Sending load request to carrier:', partner.carrierId);
-      
-      // Navigate to broker schedule page
-      navigate('/broker/schedule');
-    } catch (error) {
-      console.error('Error selecting carrier:', error);
-      alert('Failed to select carrier. Please try again.');
-    }
+    navigate('/broker/schedule');
   };
 
   return (

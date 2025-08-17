@@ -4,6 +4,7 @@ import styles from './PurchaseOrders.module.css';
 import { db } from '../../config/firebase';
 import { collection, getDocs, doc, updateDoc, deleteDoc, query, where, getDoc, setDoc } from 'firebase/firestore';
 import { PurchaseOrderForm } from '../../components/shipper/forms/PurchaseOrderForm';
+import { useAuth } from '../../contexts/AuthContext';
 
 enum PurchaseOrderStatus {
   PROCESSING = 'Processing',
@@ -28,6 +29,7 @@ interface PurchaseOrder {
 
 const PurchaseOrders: React.FC = () => {
   const navigate = useNavigate();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
@@ -39,18 +41,38 @@ const PurchaseOrders: React.FC = () => {
 
   useEffect(() => {
     const fetchOrders = async () => {
-      const querySnapshot = await getDocs(collection(db, 'purchaseOrders'));
-      const ordersData = querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data
-        } as PurchaseOrder;
-      });
-      setOrders(ordersData);
+      try {
+        // Check if user is authenticated
+        if (!user?.uid) {
+          console.warn('User not authenticated');
+          return;
+        }
+        
+        const brokerId = user.uid;
+        
+        // Fetch purchase orders for this broker from new optimized collection
+        const ordersQuery = query(
+          collection(db, 'brokerPurchaseOrders'),
+          where('brokerId', '==', brokerId)
+        );
+        const querySnapshot = await getDocs(ordersQuery);
+        const ordersData = querySnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data
+          } as PurchaseOrder;
+        });
+        setOrders(ordersData);
+      } catch (error) {
+        console.error('Error fetching broker purchase orders:', error);
+      }
     };
-    fetchOrders();
-  }, []);
+    
+    if (user?.uid) {
+      fetchOrders();
+    }
+  }, [user?.uid]);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -64,20 +86,48 @@ const PurchaseOrders: React.FC = () => {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  // Show loading state while authentication is being determined
+  if (isLoading) {
+    return (
+      <div className={styles.loading}>
+        <div className={styles.spinner}></div>
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  // Redirect to login if not authenticated
+  if (!isAuthenticated) {
+    navigate('/login');
+    return null;
+  }
+
+  // Status mapping function to match shipper's system
+  const getNormalizedStatus = (status: string): string => {
+    const statusMap: { [key: string]: string } = {
+      'processing': 'Processing',     // ✅ Matches shipper's Processing status
+      'active': 'Active',            // ✅ Matches shipper's Active status
+      'completed': 'Completed',      // ✅ Matches shipper's Completed status
+      'cancelled': 'Cancelled'       // ✅ Matches shipper's Cancelled status
+    };
+    const normalizedStatus = (status || '').toLowerCase();
+    return statusMap[normalizedStatus] || 'Processing'; // Default to Processing like shipper
+  };
+
   const filteredOrders = orders.filter(order => {
     const matchesSearch = order.poNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          order.vendorInfo?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          order.companyInfo?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          order.shipTo?.name?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filterStatus === 'all' || order.status === filterStatus;
-    // Hide completed POs from this page
-    const notCompleted = order.status !== 'Completed';
+    const matchesFilter = filterStatus === 'all' || getNormalizedStatus(order.status) === filterStatus;
+    // Hide completed POs from this page - matching shipper logic exactly
+    const notCompleted = getNormalizedStatus(order.status) !== 'Completed';
     return matchesSearch && matchesFilter && notCompleted;
   });
 
   const handleView = (po: PurchaseOrder) => setViewingPO(po);
   const handleEdit = (po: PurchaseOrder) => {
-    navigate('/broker/test-po', { 
+    navigate('/broker/create-po', { 
       state: { 
         editingPO: po,
         isEditing: true
@@ -86,9 +136,9 @@ const PurchaseOrders: React.FC = () => {
   };
   const handleEditSave = async (data: any) => {
     if (!editingPO) return;
-    const poRef = doc(db, 'purchaseOrders', editingPO.id!);
-    await updateDoc(poRef, { ...data, userId: editingPO.userId });
-    setOrders(orders => orders.map(o => o.id === editingPO.id ? { ...o, ...data, userId: editingPO.userId } : o));
+    const poRef = doc(db, 'brokerPurchaseOrders', editingPO.id!);
+    await updateDoc(poRef, { ...data, brokerId: editingPO.brokerId });
+    setOrders(orders => orders.map(o => o.id === editingPO.id ? { ...o, ...data, brokerId: editingPO.brokerId } : o));
     setEditingPO(null);
   };
   const handleDelete = (id: string) => setRemoveConfirmId(id);
@@ -119,8 +169,8 @@ const PurchaseOrders: React.FC = () => {
           }
         });
         await Promise.all(deletePromises);
-        // Delete all loads with this poNumber
-        const loadsSnapshot = await getDocs(query(collection(db, 'loads'), where('poNumber', '==', poNumber)));
+        // Delete all loads with this poNumber from new optimized collection
+        const loadsSnapshot = await getDocs(query(collection(db, 'brokerLoads'), where('poNumber', '==', poNumber)));
         const loadDeletePromises: Promise<void>[] = [];
         loadsSnapshot.forEach(loadDoc => {
           if (loadDoc.exists() && loadDoc.id && typeof loadDoc.id === 'string' && loadDoc.id.trim()) {
@@ -132,8 +182,8 @@ const PurchaseOrders: React.FC = () => {
         });
         await Promise.all(loadDeletePromises);
       }
-      // Delete the PO itself
-      const poRef = doc(db, 'purchaseOrders', id);
+      // Delete the PO itself from new optimized collection
+      const poRef = doc(db, 'brokerPurchaseOrders', id);
       const poDoc = await getDoc(poRef);
       if (poDoc.exists()) {
         console.log('Deleting PO:', id);
@@ -156,18 +206,18 @@ const PurchaseOrders: React.FC = () => {
     const poNumber = poToDelete.poNumber;
     try {
       // Mark the PO as cancelled instead of deleting it
-      const poRef = doc(db, 'purchaseOrders', id);
+      const poRef = doc(db, 'brokerPurchaseOrders', id);
       await updateDoc(poRef, {
         status: 'Cancelled',
         shippingScheduleStatus: 'Cancelled',
         cancelledAt: new Date().toISOString(),
       });
       // Mark related POs with the same poNumber as cancelled
-      const schedulesSnapshot = await getDocs(query(collection(db, 'purchaseOrders'), where('poNumber', '==', poNumber)));
+      const schedulesSnapshot = await getDocs(query(collection(db, 'brokerPurchaseOrders'), where('poNumber', '==', poNumber)));
       const batchUpdates: Promise<any>[] = [];
       schedulesSnapshot.forEach(docSnap => {
         if (docSnap.id !== id) {
-          batchUpdates.push(updateDoc(doc(db, 'purchaseOrders', docSnap.id), {
+          batchUpdates.push(updateDoc(doc(db, 'brokerPurchaseOrders', docSnap.id), {
             status: 'Cancelled',
             shippingScheduleStatus: 'Cancelled',
             cancelledAt: new Date().toISOString(),
@@ -175,11 +225,11 @@ const PurchaseOrders: React.FC = () => {
         }
       });
       await Promise.all(batchUpdates);
-      // Mark related loads as cancelled
-      const loadsSnapshot = await getDocs(query(collection(db, 'loads'), where('poNumber', '==', poNumber)));
+              // Mark related loads as cancelled from new optimized collection
+        const loadsSnapshot = await getDocs(query(collection(db, 'brokerLoads'), where('poNumber', '==', poNumber)));
       const loadUpdates: Promise<any>[] = [];
       loadsSnapshot.forEach(loadDoc => {
-        loadUpdates.push(updateDoc(doc(db, 'loads', loadDoc.id), {
+        loadUpdates.push(updateDoc(doc(db, 'brokerLoads', loadDoc.id), {
           status: 'cancelled',
           cancelledAt: new Date().toISOString(),
         }));
@@ -216,8 +266,8 @@ const PurchaseOrders: React.FC = () => {
   const handleCompletePO = async (order: any) => {
     try {
       console.log('[handleCompletePO] Completing PO:', order.poNumber, order.id);
-      // Update the PO status to 'Completed' in 'purchaseOrders'
-      const poRef = doc(db, 'purchaseOrders', order.id);
+      // Update the PO status to 'Completed' in new optimized collection
+      const poRef = doc(db, 'brokerPurchaseOrders', order.id);
       await updateDoc(poRef, {
         status: 'Completed',
         shippingScheduleStatus: 'Completed',
@@ -230,14 +280,14 @@ const PurchaseOrders: React.FC = () => {
         const archiveRef = doc(collection(db, 'poArchive'));
         await setDoc(archiveRef, { ...poData, archivedAt: new Date().toISOString() });
       }
-      // Update all related loads to completed
-      if (order.poNumber) {
-        const loadsSnapshot = await getDocs(query(collection(db, 'loads'), where('poNumber', '==', order.poNumber)));
+              // Update all related loads to completed from new optimized collection
+        if (order.poNumber) {
+          const loadsSnapshot = await getDocs(query(collection(db, 'brokerLoads'), where('poNumber', '==', order.poNumber)));
         console.log('[handleCompletePO] Loads found for poNumber', order.poNumber, ':', loadsSnapshot.size);
         const loadUpdates: Promise<any>[] = [];
         loadsSnapshot.forEach(loadDoc => {
           console.log('[handleCompletePO] Updating load:', loadDoc.id);
-          loadUpdates.push(updateDoc(doc(db, 'loads', loadDoc.id), {
+          loadUpdates.push(updateDoc(doc(db, 'brokerLoads', loadDoc.id), {
             status: 'completed',
             shippingScheduleStatus: 'Completed',
             completedAt: new Date().toISOString(),
@@ -263,7 +313,7 @@ const PurchaseOrders: React.FC = () => {
           <div className={styles.date}>{order.date}</div>
         </div>
         <div className={styles.statusSection}>
-          <span className={`${styles.status} ${styles[order.status.toLowerCase()]}`}>{order.status}</span>
+          <span className={`${styles.status} ${styles[getNormalizedStatus(order.status).toLowerCase()]}`}>{getNormalizedStatus(order.status)}</span>
         </div>
       </div>
       <div className={styles.cardContent}>
@@ -277,14 +327,14 @@ const PurchaseOrders: React.FC = () => {
       <div className={styles.cardActions}>
         <button className={styles.actionButton} onClick={() => handleView(order)}>View</button>
         <button className={styles.actionButton} onClick={() => handleEdit(order)}>Edit</button>
-        {order.status === 'Completed' ? (
+        {getNormalizedStatus(order.status) === 'Completed' ? (
           <button
             className={styles.completeButton}
             style={{ backgroundColor: '#28a745', color: 'white' }}
             onClick={() => handleCompletePO(order)}
           >
             Complete PO
-          </button>
+                        </button>
         ) : (
           <button className={styles.deleteButton} onClick={() => handleDelete(order.id!)}>Delete</button>
         )}
@@ -298,7 +348,7 @@ const PurchaseOrders: React.FC = () => {
         <h1>Purchase Orders</h1>
         <button 
           className={styles.createButton}
-          onClick={() => navigate('/broker/test-po')}
+          onClick={() => navigate('/broker/create-po')}
         >
           Create New PO
         </button>
@@ -362,8 +412,8 @@ const PurchaseOrders: React.FC = () => {
                   <td>{order.shipTo?.name}</td>
                   <td>${(order.rate ? order.rate : 0).toFixed(2)}</td>
                   <td>
-                    <span className={`${styles.status} ${styles[order.status.toLowerCase()]}`}>
-                      {order.status}
+                    <span className={`${styles.status} ${styles[getNormalizedStatus(order.status).toLowerCase()]}`}>
+                      {getNormalizedStatus(order.status)}
                     </span>
                   </td>
                   <td>{order.items?.length ?? 0}</td>
@@ -372,7 +422,7 @@ const PurchaseOrders: React.FC = () => {
                     <div className={styles.actions}>
                       <button className={styles.actionButton} onClick={() => handleView(order)}>View</button>
                       <button className={styles.actionButton} onClick={() => handleEdit(order)}>Edit</button>
-                      {order.status === 'Completed' ? (
+                      {getNormalizedStatus(order.status) === 'Completed' ? (
                         <button
                           className={styles.completeButton}
                           style={{ backgroundColor: '#28a745', color: 'white' }}
@@ -402,7 +452,7 @@ const PurchaseOrders: React.FC = () => {
               <strong>Vendor:</strong> {viewingPO.vendorInfo?.name}<br />
               <strong>Company:</strong> {viewingPO.companyInfo?.name}<br />
               <strong>Ship To:</strong> {viewingPO.shipTo?.name}<br />
-              <strong>Status:</strong> {viewingPO.status}<br />
+              <strong>Status:</strong> {getNormalizedStatus(viewingPO.status)}<br />
               <strong>Amount:</strong> ${(viewingPO.total ?? viewingPO.amount ?? 0)}<br />
               <strong>Items:</strong>
               <ul>
