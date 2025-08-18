@@ -49,7 +49,7 @@ export const LoadsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     try {
-      const querySnapshot = await getDocs(collection(db, 'loads'));
+      const querySnapshot = await getDocs(collection(db, 'brokerLoads'));
       const loadsData = querySnapshot.docs
         .filter(doc => {
           const data = doc.data();
@@ -111,7 +111,7 @@ export const LoadsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const unsubscribeAuth = onAuthStateChanged(auth, (user: User | null) => {
       if (user) {
         // Set up real-time listener for loads
-        const unsub = onSnapshot(collection(db, 'loads'), (querySnapshot) => {
+        const unsub = onSnapshot(collection(db, 'brokerLoads'), (querySnapshot) => {
           const statusMap: { [key: string]: BrokerLoad['status'] } = {
             'open': 'Open',
             'carrier pending': 'Carrier Pending',

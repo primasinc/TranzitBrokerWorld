@@ -76,7 +76,7 @@ const ShippingSchedule: React.FC = () => {
       const brokerId = user.uid;
       
       const purchaseOrdersQuery = query(
-        collection(db, 'purchaseOrders'),
+        collection(db, 'brokerPurchaseOrders'),
         where('brokerId', '==', brokerId)
       );
       const purchaseOrdersSnapshot = await getDocs(purchaseOrdersQuery);
@@ -157,10 +157,10 @@ const ShippingSchedule: React.FC = () => {
         const brokerId = user.uid;
         
         // Fetch purchase orders for this broker
-        const purchaseOrdersQuery = query(
-          collection(db, 'purchaseOrders'),
-          where('brokerId', '==', brokerId)
-        );
+              const purchaseOrdersQuery = query(
+        collection(db, 'brokerPurchaseOrders'),
+        where('brokerId', '==', brokerId)
+      );
         const purchaseOrdersSnapshot = await getDocs(purchaseOrdersQuery);
         
         const loadsData: ScheduledLoad[] = [];

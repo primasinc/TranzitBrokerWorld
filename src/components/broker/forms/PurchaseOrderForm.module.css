@@ -216,6 +216,22 @@
   background: #138496;
 }
 
+.pdfButton {
+  background: #17a2b8;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.pdfButton:hover {
+  background: #138496;
+}
+
 .formContainer {
   background: white;
   border-radius: 8px;
@@ -472,6 +488,7 @@
   
   .cancelButton,
   .previewButton,
+  .pdfButton,
   .submitButton {
     width: 100%;
   }

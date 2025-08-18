@@ -45,6 +45,117 @@
   color: #007bff;
 }
 
+.refreshButton {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  width: 100%;
+  margin-top: 10px;
+}
+
+.refreshButton:hover {
+  background: #0056b3;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.refreshButton:active {
+  transform: translateY(0);
+}
+
+.migrationButton {
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.migrationButton:hover:not(:disabled) {
+  background: #218838;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.migrationButton:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.verifyButton {
+  background: #17a2b8;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  width: 100%;
+}
+
+.verifyButton:hover {
+  background: #138496;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.migrationStatus {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.migrationMessage {
+  font-size: 14px;
+  color: #495057;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: #e9ecef;
+  border-radius: 4px;
+  border-left: 4px solid #007bff;
+}
+
+.migrationResults {
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 12px;
+}
+
+.migrationResults h4 {
+  margin: 0 0 8px 0;
+  color: #495057;
+  font-size: 14px;
+}
+
+.migrationResults pre {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  padding: 8px;
+  font-size: 12px;
+  overflow-x: auto;
+  margin: 0;
+}
+
 .mainContent {
   display: grid;
   grid-template-columns: 2fr 1fr;
